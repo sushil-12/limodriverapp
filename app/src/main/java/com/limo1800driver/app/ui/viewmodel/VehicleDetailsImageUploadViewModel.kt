@@ -1,6 +1,7 @@
 package com.limo1800driver.app.ui.viewmodel
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.limo1800driver.app.data.model.registration.*

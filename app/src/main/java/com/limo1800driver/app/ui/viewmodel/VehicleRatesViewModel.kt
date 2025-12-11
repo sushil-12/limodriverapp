@@ -91,7 +91,8 @@ class VehicleRatesViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { response ->
                         if (response.success) {
-                            _uiState.value = _uiState.value.copy(vehicleInfo = response.data)
+                            // API wraps actual info inside response.data?.data
+                            _uiState.value = _uiState.value.copy(vehicleInfo = response.data?.data)
                         } else {
                             Timber.tag("VehicleRatesVM").w("Vehicle info fetch unsuccessful: ${response.message}")
                         }

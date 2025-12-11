@@ -83,7 +83,7 @@ fun VehicleDetailsImageUploadScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // --- 1. Special Amenities ---
-                SectionHeader(title = "CHOOSE SPECIAL AMENITIES")
+                SectionHeader(title = "CHOOSE SPECIAL AMENITIES", isRequired = true)
                 Text(
                     text = "(Choose Each Special Amenity You Supply Or Provide)",
                     style = AppTextStyles.bodyMedium.copy(color = Color.Gray, fontSize = 12.sp)
