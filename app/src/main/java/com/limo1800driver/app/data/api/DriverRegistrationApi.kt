@@ -68,16 +68,16 @@ interface DriverRegistrationApi {
     suspend fun getVehicleInsuranceStep(): BaseResponse<VehicleInsuranceStepResponse>
 
     // Vehicle Dropdown Options
-    @GET("api/get-makes")
+    @GET("api/get-vehicle-data/make")
     suspend fun getVehicleMakes(): BaseResponse<List<VehicleOption>>
 
-    @GET("api/get-models")
+    @GET("api/get-vehicle-data/make")
     suspend fun getVehicleModels(@Query("make_id") makeId: Int): BaseResponse<List<VehicleOption>>
 
-    @GET("api/get-years")
+    @GET("api/get-vehicle-data/year")
     suspend fun getVehicleYears(): BaseResponse<List<VehicleOption>>
 
-    @GET("api/get-colors")
+    @GET("api/get-vehicle-data/color")
     suspend fun getVehicleColors(): BaseResponse<List<VehicleOption>>
     
     // Vehicle Details
