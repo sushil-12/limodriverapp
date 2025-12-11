@@ -623,68 +623,88 @@ data class VehicleInsuranceStepPrefillData(
 )
 
 // ==================== Vehicle Details ====================
+data class VehicleOption(
+    @SerializedName("id") val id: Int,
+    @SerializedName("name") val name: String
+) {
+    override fun toString(): String = name
+}
+
+
 
 data class VehicleDetailsRequest(
     @SerializedName("vehicle_id")
     val vehicleId: Int? = null,
-    
+
     @SerializedName("type_of_service")
     val typeOfService: List<String> = emptyList(),
-    
+
     @SerializedName("vehicle_type")
     val vehicleType: Int,
-    
+
+    // Changed to Int (ID) based on JSON: "make": 1
     @SerializedName("make")
-    val make: String,
-    
+    val make: Int,
+
+    // Changed to Int (ID) based on JSON: "model": 5
     @SerializedName("model")
-    val model: String,
-    
+    val model: Int,
+
+    // Changed to Int (ID) based on JSON: "year": 105
     @SerializedName("year")
-    val year: String,
-    
+    val year: Int,
+
+    // Changed to Int (ID) based on JSON: "color": 2
     @SerializedName("color")
-    val color: String,
-    
+    val color: Int,
+
+    // Changed to Int based on JSON: "seats": 6
     @SerializedName("seats")
-    val seats: String,
-    
+    val seats: Int,
+
+    // Changed to Int based on JSON: "luggage": 4
     @SerializedName("luggage")
-    val luggage: String,
-    
-    @SerializedName("non_charter_cancel_policy")
-    val nonCharterCancelPolicy: String,
-    
-    @SerializedName("charter_cancel_policy")
-    val charterCancelPolicy: String,
-    
+    val luggage: Int,
+
+    // Added field from JSON
+    @SerializedName("number_of_vehicles")
+    val numberOfVehicles: Int = 1,
+
     @SerializedName("license_plate")
     val licensePlate: String,
-    
+
+    // Updated key to camelCase & type to Int based on JSON: "nonCharterCancelPolicy": 24
+    @SerializedName("nonCharterCancelPolicy")
+    val nonCharterCancelPolicy: Int,
+
+    // Updated key to camelCase & type to Int based on JSON: "charterCancelPolicy": 48
+    @SerializedName("charterCancelPolicy")
+    val charterCancelPolicy: Int,
+
     @SerializedName("amenities")
     val amenities: List<String> = emptyList(),
-    
+
     @SerializedName("special_amenities")
     val specialAmenities: List<String>? = null,
-    
+
     @SerializedName("vehicle_interior")
     val vehicleInterior: List<String>? = null,
-    
+
     @SerializedName("vehicle_image_1")
     val vehicleImage1: Int? = null,
-    
+
     @SerializedName("vehicle_image_2")
     val vehicleImage2: Int? = null,
-    
+
     @SerializedName("vehicle_image_3")
     val vehicleImage3: Int? = null,
-    
+
     @SerializedName("vehicle_image_4")
     val vehicleImage4: Int? = null,
-    
+
     @SerializedName("vehicle_image_5")
     val vehicleImage5: Int? = null,
-    
+
     @SerializedName("vehicle_image_6")
     val vehicleImage6: Int? = null
 )

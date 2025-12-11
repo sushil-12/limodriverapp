@@ -4,12 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,11 +19,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.registration.Amenity
-import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
-import com.limo1800driver.app.ui.theme.*
-import com.limo1800driver.app.ui.viewmodel.VehicleAmenitiesViewModel
-import androidx.compose.runtime.remember
 import com.limo1800driver.app.ui.components.BottomActionBar
+import com.limo1800driver.app.ui.components.RegistrationTopBar
+import com.limo1800driver.app.ui.theme.AppColors
+import com.limo1800driver.app.ui.theme.AppTextStyles
+import com.limo1800driver.app.ui.viewmodel.VehicleAmenitiesViewModel
 
 @Composable
 fun VehicleAmenitiesScreen(
@@ -33,239 +32,162 @@ fun VehicleAmenitiesScreen(
     viewModel: VehicleAmenitiesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val registrationNavigationState = remember { RegistrationNavigationState() }
-    
-    var selectedChargeableAmenities by remember { mutableStateOf<Set<Int>>(emptySet()) }
-    var selectedNonChargeableAmenities by remember { mutableStateOf<Set<Int>>(emptySet()) }
-    
-    // Fetch amenities on load
-    LaunchedEffect(Unit) {
-        viewModel.fetchAmenities()
-    }
-    
-    // Prefill selected amenities
-    LaunchedEffect(uiState.chargeableAmenities, uiState.nonChargeableAmenities) {
-        // Prefill logic can be added here if needed
-    }
-    
-    // Handle success
-    LaunchedEffect(uiState.success) {
-        if (uiState.success) {
-            registrationNavigationState.setNextStep(uiState.nextStep)
-            onNext()
-        }
-    }
-    
-    // Show error dialog
-    var showErrorDialog by remember { mutableStateOf(false) }
-    LaunchedEffect(uiState.error) {
-        if (uiState.error != null) {
-            showErrorDialog = true
-        }
-    }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (onBack != null) {
-                IconButton(onClick = onBack) {
-                    Text("←", style = AppTextStyles.bodyLarge)
-                }
+    val scrollState = rememberScrollState()
+
+    // Error Dialog
+    if (uiState.error != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearError() },
+            title = { Text("Error") },
+            text = { Text(uiState.error!!) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearError() }) { Text("OK", color = AppColors.LimoOrange) }
             }
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = "Choose vehicle amenities",
-                style = AppTextStyles.phoneEntryHeadline.copy(
-                    color = AppColors.LimoBlack,
-                    fontSize = 20.sp
-                )
+        )
+    }
+
+    Scaffold(
+        topBar = { RegistrationTopBar(onBack = onBack) },
+        bottomBar = {
+            BottomActionBar(
+                isLoading = uiState.isLoading,
+                onBack = onBack,
+                onNext = { viewModel.saveAmenities(onSuccess = onNext) },
+                nextButtonText = "Next"
             )
-            Spacer(modifier = Modifier.weight(1f))
-        }
-        
+        },
+        containerColor = Color.White
+    ) { paddingValues ->
         Column(
             modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Enter your vehicle details",
+                style = AppTextStyles.phoneEntryHeadline.copy(color = Color.Black, fontSize = 24.sp)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- Chargeable ---
+            SectionHeader(
+                title = "CHOOSE CHARGEABLE AMENITIES",
+                isRequired = true,
+                extraText = " In $",
+                extraColor = AppColors.LimoOrange
+            )
+            Text(
+                text = "(Choose Each Chargeable Amenity You Supply Or Provide)",
+                style = AppTextStyles.bodyMedium.copy(color = Color.Gray, fontSize = 12.sp)
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            
-            // Chargeable Amenities
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "CHOOSE CHARGEABLE AMENITIES",
-                        style = AppTextStyles.bodyMedium.copy(
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Text("*", color = Color.Red, fontSize = 13.sp)
-                    Text(
-                        text = " In $",
-                        style = AppTextStyles.bodyMedium.copy(
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.LimoOrange
-                        )
-                    )
-                }
-                Text(
-                    text = "(Choose Each Chargeable Amenity You Supply Or Provide)",
-                    style = AppTextStyles.bodyMedium.copy(
-                        fontSize = 12.sp
-                    )
-                )
-                
-                if (uiState.isLoading) {
+
+            BorderedGrid {
+                if (uiState.chargeableAmenities.isEmpty() && uiState.isLoading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.height(((uiState.chargeableAmenities.size / 2 + 1) * 50).dp)
-                    ) {
-                        items(uiState.chargeableAmenities) { amenity ->
-                            AmenityChip(
-                                name = amenity.name,
-                                isSelected = selectedChargeableAmenities.contains(amenity.id),
-                                onClick = {
-                                    selectedChargeableAmenities = if (selectedChargeableAmenities.contains(amenity.id)) {
-                                        selectedChargeableAmenities - amenity.id
-                                    } else {
-                                        selectedChargeableAmenities + amenity.id
-                                    }
-                                }
-                            )
-                        }
-                    }
+                    AmenitiesGrid(
+                        items = uiState.chargeableAmenities,
+                        selectedIds = viewModel.selectedChargeableIds,
+                        onToggle = { viewModel.toggleChargeable(it) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- Non-Chargeable ---
+            SectionHeader(title = "CHOOSE NON CHARGEABLE AMENITIES", isRequired = true)
+            Text(
+                text = "(Choose Each Non Chargeable Amenity You Supply Or Provide)",
+                style = AppTextStyles.bodyMedium.copy(color = Color.Gray, fontSize = 12.sp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            BorderedGrid {
+                if (uiState.nonChargeableAmenities.isEmpty() && uiState.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                } else {
+                    AmenitiesGrid(
+                        items = uiState.nonChargeableAmenities,
+                        selectedIds = viewModel.selectedNonChargeableIds,
+                        onToggle = { viewModel.toggleNonChargeable(it) }
+                    )
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Non-Chargeable Amenities
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "CHOOSE NON CHARGEABLE AMENITIES",
-                        style = AppTextStyles.bodyMedium.copy(
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Text("*", color = Color.Red, fontSize = 13.sp)
-                }
-                Text(
-                    text = "(Choose Each Non Chargeable Amenity You Supply Or Provide)",
-                    style = AppTextStyles.bodyMedium.copy(
-                        fontSize = 12.sp
-                    )
-                )
-                
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.height(((uiState.nonChargeableAmenities.size / 2 + 1) * 50).dp)
-                    ) {
-                        items(uiState.nonChargeableAmenities) { amenity ->
-                            AmenityChip(
-                                name = amenity.name,
-                                isSelected = selectedNonChargeableAmenities.contains(amenity.id),
-                                onClick = {
-                                    selectedNonChargeableAmenities = if (selectedNonChargeableAmenities.contains(amenity.id)) {
-                                        selectedNonChargeableAmenities - amenity.id
-                                    } else {
-                                        selectedNonChargeableAmenities + amenity.id
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
         }
-        
-        // Bottom Bar
-        BottomActionBar(
-            isLoading = uiState.isLoading,
-            onBack = onBack,
-            onNext = {
-                // Validation
-                if (selectedChargeableAmenities.isEmpty()) {
-                    return@BottomActionBar
-                }
-                if (selectedNonChargeableAmenities.isEmpty()) {
-                    return@BottomActionBar
-                }
-                
-                val allAmenityIds = (selectedChargeableAmenities + selectedNonChargeableAmenities).toList()
-                viewModel.saveSelectedAmenities(allAmenityIds)
-            }
-        )
     }
-    
-    // Error Dialog
-    if (showErrorDialog && uiState.error != null) {
-        AlertDialog(
-            onDismissRequest = { 
-                showErrorDialog = false
-                viewModel.clearError()
-            },
-            title = { Text("Error") },
-            text = { Text(uiState.error ?: "Unknown error") },
-            confirmButton = {
-                TextButton(onClick = { 
-                    showErrorDialog = false
-                    viewModel.clearError()
-                }) {
-                    Text("OK")
-                }
-            }
-        )
+}
+
+// --- Components ---
+
+@Composable
+fun SectionHeader(title: String, isRequired: Boolean, extraText: String? = null, extraColor: Color = Color.Black) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(text = title, style = AppTextStyles.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp))
+        if (isRequired) {
+            Text(text = " *", style = AppTextStyles.bodyMedium.copy(color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 13.sp))
+        }
+        if (extraText != null) {
+            Text(text = extraText, style = AppTextStyles.bodyMedium.copy(color = extraColor, fontWeight = FontWeight.Bold, fontSize = 13.sp))
+        }
     }
 }
 
 @Composable
-fun AmenityChip(
-    name: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
+fun BorderedGrid(content: @Composable ColumnScope.() -> Unit) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) AppColors.LimoOrange.copy(alpha = 0.2f) else Color.White,
-        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f))
-    ) {
-        Text(
-            text = name,
-            style = AppTextStyles.bodyMedium.copy(
-                fontSize = 12.sp,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (isSelected) AppColors.LimoOrange else Color.Black
-            ),
-            modifier = Modifier.padding(12.dp)
-        )
-    }
+            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        content = content
+    )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun AmenitiesGrid(
+    items: List<Amenity>,
+    selectedIds: List<String>,
+    onToggle: (String) -> Unit
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items.forEach { item ->
+            val isSelected = selectedIds.contains(item.id.toString())
+            val bgColor = if (isSelected) AppColors.LimoOrange.copy(alpha = 0.15f) else AppColors.LimoOrange.copy(alpha = 0.05f)
+            
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(bgColor)
+                    .clickable { onToggle(item.id.toString()) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Custom Checkbox appearance
+                Icon(
+                    imageVector = if (isSelected) Icons.Default.Check else Icons.Default.Check, // Or use a square outline for unselected
+                    contentDescription = null,
+                    tint = if (isSelected) AppColors.LimoOrange else Color.Transparent, // Hide check if not selected
+                    modifier = Modifier.size(16.dp).border(1.dp, if(isSelected) AppColors.LimoOrange else Color.Gray, RoundedCornerShape(2.dp))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = item.name, 
+                    style = AppTextStyles.bodyMedium.copy(fontSize = 13.sp),
+                    color = Color.Black
+                )
+            }
+        }
+    }
+}

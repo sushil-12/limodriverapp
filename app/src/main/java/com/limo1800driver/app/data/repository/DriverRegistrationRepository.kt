@@ -267,6 +267,50 @@ class DriverRegistrationRepository @Inject constructor(
     }
     
     // ==================== Vehicle Details ====================
+
+    suspend fun getVehicleMakes(): Result<BaseResponse<List<VehicleOption>>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = registrationApi.getVehicleMakes()
+                Result.success(response)
+            } catch (e: Exception) {
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    suspend fun getVehicleModels(makeId: Int): Result<BaseResponse<List<VehicleOption>>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = registrationApi.getVehicleModels(makeId)
+                Result.success(response)
+            } catch (e: Exception) {
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    suspend fun getVehicleYears(): Result<BaseResponse<List<VehicleOption>>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = registrationApi.getVehicleYears()
+                Result.success(response)
+            } catch (e: Exception) {
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    suspend fun getVehicleColors(): Result<BaseResponse<List<VehicleOption>>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = registrationApi.getVehicleColors()
+                Result.success(response)
+            } catch (e: Exception) {
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
     
     suspend fun completeVehicleDetails(request: VehicleDetailsRequest): Result<BaseResponse<VehicleDetailsCompleteResponse>> {
         return withContext(Dispatchers.IO) {
