@@ -62,7 +62,7 @@ class VehicleAmenitiesViewModel @Inject constructor(
                 
                 // Map SpecialAmenity to Amenity for UI consistency if needed, or keep separate lists
                 val nonChargeableList = nonChargeableResult.getOrNull()?.data?.map { 
-                    Amenity(it.id, it.name, it.description) 
+                    Amenity(it.id, it.idInt, it.name, it.description) 
                 } ?: emptyList()
 
                 _uiState.update {
@@ -81,12 +81,12 @@ class VehicleAmenitiesViewModel @Inject constructor(
                     
                     selectedChargeableIds.clear()
                     selectedChargeableIds.addAll(
-                        chargeableList.filter { savedStringIds.contains(it.id.toString()) }.map { it.id.toString() }
+                        chargeableList.filter { savedStringIds.contains(it.getIdentifier()) }.map { it.getIdentifier() }
                     )
 
                     selectedNonChargeableIds.clear()
                     selectedNonChargeableIds.addAll(
-                        nonChargeableList.filter { savedStringIds.contains(it.id.toString()) }.map { it.id.toString() }
+                        nonChargeableList.filter { savedStringIds.contains(it.getIdentifier()) }.map { it.getIdentifier() }
                     )
                 }
 
@@ -106,7 +106,7 @@ class VehicleAmenitiesViewModel @Inject constructor(
         else selectedNonChargeableIds.add(id)
     }
 
-    fun saveAmenities(onSuccess: () -> Unit) {
+    fun saveStep2AndNavigate(onSuccess: () -> Unit) {
         if (selectedChargeableIds.isEmpty()) {
             _uiState.update { it.copy(error = "Please select at least one chargeable amenity.") }
             return
@@ -116,58 +116,27 @@ class VehicleAmenitiesViewModel @Inject constructor(
             return
         }
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            try {
-                // Fetch current state to merge
-                val currentStep = repository.getVehicleDetailsStep().getOrNull()?.data?.data
-                    ?: throw Exception("Could not fetch current vehicle details")
+        val combinedAmenities = selectedChargeableIds + selectedNonChargeableIds
 
-                // Combine both lists into 'amenities'
-                val combinedAmenities = selectedChargeableIds + selectedNonChargeableIds
+        val partial = VehicleDetailsRequest(
+            vehicleId = tokenManager.getSelectedVehicleId()?.toIntOrNull(),
+            vehicleType = 0,
+            make = 0,
+            model = 0,
+            year = 0,
+            color = 0,
+            seats = 0,
+            luggage = 0,
+            numberOfVehicles = 0,
+            licensePlate = "",
+            nonCharterCancelPolicy = 0,
+            charterCancelPolicy = 0,
+            amenities = combinedAmenities
+        )
 
-                val request = VehicleDetailsRequest(
-                    vehicleId = tokenManager.getSelectedVehicleId()?.toIntOrNull(),
-                    // Preserve all other fields
-                    vehicleType = currentStep.vehicleTypeId ?: 0,
-                    make = currentStep.make?.toIntOrNull() ?: 0,
-                    model = currentStep.model?.toIntOrNull() ?: 0,
-                    year = currentStep.year?.toIntOrNull() ?: 0,
-                    color = currentStep.color?.toIntOrNull() ?: 0,
-                    seats = currentStep.seats?.toIntOrNull() ?: 0,
-                    luggage = currentStep.luggage?.toIntOrNull() ?: 0,
-                    licensePlate = currentStep.licensePlate ?: "",
-                    nonCharterCancelPolicy = currentStep.nonCharterCancelPolicy?.toIntOrNull() ?: 24,
-                    charterCancelPolicy = currentStep.charterCancelPolicy?.toIntOrNull() ?: 48,
-                    typeOfService = currentStep.typeOfService ?: emptyList(),
-                    
-                    // Update Amenities
-                    amenities = combinedAmenities,
-                    
-                    // Preserve Image/Special/Interior data if they exist from future steps (unlikely here but safe)
-                    specialAmenities = currentStep.specialAmenities?.map { it.toString() },
-                    vehicleInterior = currentStep.vehicleInterior,
-                    vehicleImage1 = currentStep.vehicleImage1,
-                    vehicleImage2 = currentStep.vehicleImage2,
-                    vehicleImage3 = currentStep.vehicleImage3,
-                    vehicleImage4 = currentStep.vehicleImage4,
-                    vehicleImage5 = currentStep.vehicleImage5,
-                    vehicleImage6 = currentStep.vehicleImage6
-                )
-
-                repository.completeVehicleDetails(request).fold(
-                    onSuccess = {
-                        _uiState.update { it.copy(isLoading = false, success = true) }
-                        onSuccess()
-                    },
-                    onFailure = { e ->
-                        _uiState.update { it.copy(isLoading = false, error = errorHandler.handleError(e)) }
-                    }
-                )
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = errorHandler.handleError(e)) }
-            }
-        }
+        repository.updateLocalDraft(partial)
+        _uiState.update { it.copy(success = true, error = null) }
+        onSuccess()
     }
 
     fun clearError() {

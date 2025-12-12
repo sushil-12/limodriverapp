@@ -125,44 +125,34 @@ class VehicleDetailsViewModel @Inject constructor(
         fetchModels(makeId)
     }
 
-    fun completeVehicleDetails(onSuccess: () -> Unit) {
-        // Validation
+    fun saveStep1AndNavigate(onSuccess: () -> Unit) {
         if (selectedVehicleTypeId.value == null) return setError("Vehicle Type is required")
         if (selectedMakeId.value == null) return setError("Make is required")
         if (selectedModelId.value == null) return setError("Model is required")
         if (selectedYearId.value == null) return setError("Year is required")
         if (selectedColorId.value == null) return setError("Color is required")
         if (licensePlate.value.isBlank()) return setError("License Plate is required")
-        
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            
-            val request = VehicleDetailsRequest(
-                vehicleId = null, // Or handle edit mode ID
-                typeOfService = selectedServiceTypes.value,
-                vehicleType = selectedVehicleTypeId.value!!,
-                make = selectedMakeId.value!!,
-                model = selectedModelId.value!!,
-                year = selectedYearId.value!!,
-                color = selectedColorId.value!!,
-                seats = seats.value.toIntOrNull() ?: 0,
-                luggage = luggage.value.toIntOrNull() ?: 0,
-                numberOfVehicles = numberOfVehicles.value.toIntOrNull() ?: 1,
-                licensePlate = licensePlate.value,
-                nonCharterCancelPolicy = nonCharterPolicy.value ?: 24,
-                charterCancelPolicy = charterPolicy.value ?: 48
-            )
+        if (selectedServiceTypes.value.isEmpty()) return setError("Please select at least one service type")
 
-            registrationRepository.completeVehicleDetails(request).fold(
-                onSuccess = { response ->
-                    _uiState.update { it.copy(isLoading = false, success = true, nextStep = response.data?.nextStep) }
-                    onSuccess()
-                },
-                onFailure = { error ->
-                    _uiState.update { it.copy(isLoading = false, error = errorHandler.handleError(error)) }
-                }
-            )
-        }
+        val request = VehicleDetailsRequest(
+            vehicleId = tokenManager.getSelectedVehicleId()?.toIntOrNull(),
+            typeOfService = selectedServiceTypes.value,
+            vehicleType = selectedVehicleTypeId.value!!,
+            make = selectedMakeId.value!!,
+            model = selectedModelId.value!!,
+            year = selectedYearId.value!!,
+            color = selectedColorId.value!!,
+            seats = seats.value.toIntOrNull() ?: 4,
+            luggage = luggage.value.toIntOrNull() ?: 2,
+            numberOfVehicles = numberOfVehicles.value.toIntOrNull() ?: 1,
+            licensePlate = licensePlate.value.trim(),
+            nonCharterCancelPolicy = nonCharterPolicy.value ?: 24,
+            charterCancelPolicy = charterPolicy.value ?: 48
+        )
+
+        registrationRepository.updateLocalDraft(request)
+        _uiState.update { it.copy(success = true, error = null) }
+        onSuccess()
     }
 
     private fun setError(msg: String) {

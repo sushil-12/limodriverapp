@@ -146,40 +146,25 @@ class VehicleDetailsImageUploadViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val prefill = repository.getVehicleDetailsStep().getOrNull()?.data?.data
-                    ?: throw Exception("Could not fetch base vehicle details")
+                val draft = repository.getLocalDraft()
+                if (draft == null) {
+                    _uiState.update { it.copy(isLoading = false, error = "Session expired. Please go back and fill vehicle details.") }
+                    return@launch
+                }
 
-                val request = VehicleDetailsRequest(
-                    vehicleId = tokenManager.getSelectedVehicleId()?.toIntOrNull(),
-                    // Step 1 Fields
-                    vehicleType = prefill.vehicleTypeId ?: 0,
-                    make = prefill.make?.toIntOrNull() ?: 0,
-                    model = prefill.model?.toIntOrNull() ?: 0,
-                    year = prefill.year?.toIntOrNull() ?: 0,
-                    color = prefill.color?.toIntOrNull() ?: 0,
-                    seats = prefill.seats?.toIntOrNull() ?: 0,
-                    luggage = prefill.luggage?.toIntOrNull() ?: 0,
-                    numberOfVehicles = 1, // Default
-                    licensePlate = prefill.licensePlate ?: "",
-                    nonCharterCancelPolicy = prefill.nonCharterCancelPolicy?.toIntOrNull() ?: 24,
-                    charterCancelPolicy = prefill.charterCancelPolicy?.toIntOrNull() ?: 48,
-                    typeOfService = prefill.typeOfService ?: emptyList(),
-                    
-                    // Step 2 Fields
-                    amenities = prefill.amenities?.map { it.toString() } ?: emptyList(),
-                    
-                    // Step 3 Fields (Current)
+                val uploaded = _uiState.value.uploadedImageIds
+                val finalRequest = draft.copy(
                     specialAmenities = selectedSpecialAmenities.toList(),
                     vehicleInterior = selectedInteriors.toList(),
-                    vehicleImage1 = _uiState.value.uploadedImageIds[0],
-                    vehicleImage2 = _uiState.value.uploadedImageIds[1],
-                    vehicleImage3 = _uiState.value.uploadedImageIds[2],
-                    vehicleImage4 = _uiState.value.uploadedImageIds[3],
-                    vehicleImage5 = _uiState.value.uploadedImageIds[4],
-                    vehicleImage6 = _uiState.value.uploadedImageIds[5]
+                    vehicleImage1 = uploaded[0],
+                    vehicleImage2 = uploaded[1],
+                    vehicleImage3 = uploaded[2],
+                    vehicleImage4 = uploaded[3],
+                    vehicleImage5 = uploaded[4],
+                    vehicleImage6 = uploaded[5]
                 )
 
-                val result = repository.completeVehicleDetails(request)
+                val result = repository.completeVehicleDetails(finalRequest)
                 result.fold(
                     onSuccess = {
                         _uiState.update { it.copy(isLoading = false, success = true) }

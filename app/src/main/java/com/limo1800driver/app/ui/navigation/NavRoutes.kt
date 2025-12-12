@@ -22,6 +22,7 @@ object NavRoutes {
     const val VehicleDetailsStep = "vehicle_details_step"
     const val VehicleDetails = "vehicle_details"
     const val VehicleAmenities = "vehicle_amenities"
+    const val VehicleDetailsImageUpload = "vehicle_details_image_upload"
     const val VehicleInsurance = "vehicle_insurance"
     const val VehicleRates = "vehicle_rates"
     

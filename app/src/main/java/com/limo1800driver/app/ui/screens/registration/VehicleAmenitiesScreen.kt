@@ -53,7 +53,7 @@ fun VehicleAmenitiesScreen(
             BottomActionBar(
                 isLoading = uiState.isLoading,
                 onBack = onBack,
-                onNext = { viewModel.saveAmenities(onSuccess = onNext) },
+                onNext = { viewModel.saveStep2AndNavigate(onSuccess = onNext) },
                 nextButtonText = "Next"
             )
         },
@@ -164,14 +164,15 @@ fun AmenitiesGrid(
         modifier = Modifier.fillMaxWidth()
     ) {
         items.forEach { item ->
-            val isSelected = selectedIds.contains(item.id.toString())
+            val identifier = item.getIdentifier()
+            val isSelected = selectedIds.contains(identifier)
             val bgColor = if (isSelected) AppColors.LimoOrange.copy(alpha = 0.15f) else AppColors.LimoOrange.copy(alpha = 0.05f)
             
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
                     .background(bgColor)
-                    .clickable { onToggle(item.id.toString()) }
+                    .clickable { onToggle(identifier) }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

@@ -59,7 +59,7 @@ fun VehicleDetailsScreen(
             BottomActionBar(
                 isLoading = uiState.isLoading,
                 onBack = onBack,
-                onNext = { viewModel.completeVehicleDetails { onNext() } },
+                onNext = { viewModel.saveStep1AndNavigate { onNext() } },
                 nextButtonText = "Next"
             )
         },

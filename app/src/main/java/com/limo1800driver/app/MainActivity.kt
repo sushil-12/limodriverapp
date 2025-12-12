@@ -33,6 +33,7 @@ import com.limo1800driver.app.ui.screens.registration.ProfilePictureScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleSelectionScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleDetailsScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleAmenitiesScreen
+import com.limo1800driver.app.ui.screens.registration.VehicleDetailsImageUploadScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleInsuranceScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleRatesScreen
 import com.limo1800driver.app.ui.screens.registration.UserProfileDetailsScreen
@@ -328,8 +329,15 @@ fun DriverAppNavigation(
         composable(NavRoutes.VehicleAmenities) {
             VehicleAmenitiesScreen(
                 onNext = {
-                    navController.navigate(NavRoutes.VehicleInsurance)
+                    navController.navigate(NavRoutes.VehicleDetailsImageUpload)
                 },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(NavRoutes.VehicleDetailsImageUpload) {
+            VehicleDetailsImageUploadScreen(
+                onNext = { navController.navigate(NavRoutes.VehicleInsurance) },
                 onBack = { navController.popBackStack() }
             )
         }

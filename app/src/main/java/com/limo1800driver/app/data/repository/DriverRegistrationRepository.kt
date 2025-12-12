@@ -1,11 +1,13 @@
 package com.limo1800driver.app.data.repository
 
+import android.content.Context
 import com.limo1800driver.app.data.api.DriverRegistrationApi
 import com.limo1800driver.app.data.model.BaseResponse
 import com.limo1800driver.app.data.model.auth.DriverRegistrationState
 import com.limo1800driver.app.data.model.registration.*
 import com.limo1800driver.app.data.network.error.ErrorHandler
 import com.limo1800driver.app.data.storage.TokenManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -21,12 +23,50 @@ import javax.inject.Singleton
 class DriverRegistrationRepository @Inject constructor(
     private val registrationApi: DriverRegistrationApi,
     private val errorHandler: ErrorHandler,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    @ApplicationContext private val context: Context
 ) {
     
     companion object {
         private const val TAG = "DriverRegistrationRepo"
     }
+
+    // Local cache for multi-step vehicle submission
+    private var _localVehicleDraft: VehicleDetailsRequest? = null
+
+    fun updateLocalDraft(partialData: VehicleDetailsRequest) {
+        _localVehicleDraft = if (_localVehicleDraft == null) {
+            partialData
+        } else {
+            val current = _localVehicleDraft!!
+            current.copy(
+                vehicleId = partialData.vehicleId ?: current.vehicleId,
+                typeOfService = if (partialData.typeOfService.isNotEmpty()) partialData.typeOfService else current.typeOfService,
+                vehicleType = partialData.vehicleType.takeIf { it != 0 } ?: current.vehicleType,
+                make = partialData.make.takeIf { it != 0 } ?: current.make,
+                model = partialData.model.takeIf { it != 0 } ?: current.model,
+                year = partialData.year.takeIf { it != 0 } ?: current.year,
+                color = partialData.color.takeIf { it != 0 } ?: current.color,
+                seats = partialData.seats.takeIf { it != 0 } ?: current.seats,
+                luggage = partialData.luggage.takeIf { it != 0 } ?: current.luggage,
+                numberOfVehicles = partialData.numberOfVehicles.takeIf { it != 0 } ?: current.numberOfVehicles,
+                licensePlate = partialData.licensePlate.ifEmpty { current.licensePlate },
+                nonCharterCancelPolicy = partialData.nonCharterCancelPolicy.takeIf { it != 0 } ?: current.nonCharterCancelPolicy,
+                charterCancelPolicy = partialData.charterCancelPolicy.takeIf { it != 0 } ?: current.charterCancelPolicy,
+                amenities = if (partialData.amenities.isNotEmpty()) partialData.amenities else current.amenities,
+                specialAmenities = partialData.specialAmenities ?: current.specialAmenities,
+                vehicleInterior = partialData.vehicleInterior ?: current.vehicleInterior,
+                vehicleImage1 = partialData.vehicleImage1 ?: current.vehicleImage1,
+                vehicleImage2 = partialData.vehicleImage2 ?: current.vehicleImage2,
+                vehicleImage3 = partialData.vehicleImage3 ?: current.vehicleImage3,
+                vehicleImage4 = partialData.vehicleImage4 ?: current.vehicleImage4,
+                vehicleImage5 = partialData.vehicleImage5 ?: current.vehicleImage5,
+                vehicleImage6 = partialData.vehicleImage6 ?: current.vehicleImage6
+            )
+        }
+    }
+
+    fun getLocalDraft(): VehicleDetailsRequest? = _localVehicleDraft
     
     // ==================== Basic Info ====================
     

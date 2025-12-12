@@ -1243,37 +1243,54 @@ data class VehicleType(
 }
 
 data class Amenity(
+    // Some responses send encrypted string IDs and also an "ID" integer.
     @SerializedName("id")
-    val id: Int,
+    val id: String?,
+    
+    @SerializedName("ID")
+    val idInt: Int?,
     
     @SerializedName("name")
     val name: String,
     
     @SerializedName("description")
     val description: String?
-)
+) {
+    fun getIdentifier(): String = id ?: idInt?.toString().orEmpty()
+}
 
 data class SpecialAmenity(
     @SerializedName("id")
-    val id: Int,
+    val id: String?,
+
+    @SerializedName("ID")
+    val idInt: Int?,
     
     @SerializedName("name")
     val name: String,
     
     @SerializedName("description")
     val description: String?
-)
+) {
+    fun getIdentifier(): String = id ?: idInt?.toString().orEmpty()
+}
 
 data class VehicleInterior(
+    // Some backends send encrypted string IDs along with numeric "ID"
     @SerializedName("id")
-    val id: Int,
+    val id: String?,
+
+    @SerializedName("ID")
+    val idInt: Int?,
     
     @SerializedName("name")
     val name: String,
     
     @SerializedName("description")
     val description: String?
-)
+) {
+    fun getIdentifier(): String = id ?: idInt?.toString().orEmpty()
+}
 
 data class OrganisationType(
     @SerializedName("id")

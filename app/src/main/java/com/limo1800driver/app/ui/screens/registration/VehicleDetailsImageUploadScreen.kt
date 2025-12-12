@@ -97,10 +97,11 @@ fun VehicleDetailsImageUploadScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             uiState.specialAmenitiesOptions.forEach { item ->
-                                val isSelected = viewModel.selectedSpecialAmenities.contains(item.id.toString())
+                                val identifier = item.getIdentifier()
+                                val isSelected = viewModel.selectedSpecialAmenities.contains(identifier)
                                 FilterChip(
                                     selected = isSelected,
-                                    onClick = { viewModel.toggleSpecialAmenity(item.id.toString()) },
+                                    onClick = { viewModel.toggleSpecialAmenity(identifier) },
                                     label = { Text(item.name) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = AppColors.LimoOrange.copy(alpha = 0.2f),
@@ -129,10 +130,11 @@ fun VehicleDetailsImageUploadScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             uiState.interiorOptions.forEach { item ->
-                                val isSelected = viewModel.selectedInteriors.contains(item.id.toString())
+                                val identifier = item.getIdentifier()
+                                val isSelected = viewModel.selectedInteriors.contains(identifier)
                                 FilterChip(
                                     selected = isSelected,
-                                    onClick = { viewModel.toggleInterior(item.id.toString()) },
+                                    onClick = { viewModel.toggleInterior(identifier) },
                                     label = { Text(item.name) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = AppColors.LimoOrange.copy(alpha = 0.2f),
