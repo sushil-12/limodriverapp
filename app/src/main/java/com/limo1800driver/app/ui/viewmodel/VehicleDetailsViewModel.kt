@@ -25,6 +25,8 @@ class VehicleDetailsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(VehicleDetailsUiState())
     val uiState: StateFlow<VehicleDetailsUiState> = _uiState.asStateFlow()
 
+    private var prefillVehicleId: Int? = null
+
     // Form State (IDs)
     var selectedVehicleTypeId = MutableStateFlow<Int?>(null)
     var selectedMakeId = MutableStateFlow<Int?>(null)
@@ -72,6 +74,7 @@ class VehicleDetailsViewModel @Inject constructor(
 
                 // 3. Apply Prefill
                 prefill?.let { data ->
+                    prefillVehicleId = data.vehicleId ?: prefillVehicleId
                     // Handle prefill IDs (assuming backend sends IDs in string fields or Int fields)
                     // If your prefill object uses String, convert to Int.
                     selectedVehicleTypeId.value = data.vehicleTypeId ?: tokenManager.getSelectedVehicleId()?.toIntOrNull()
@@ -135,7 +138,7 @@ class VehicleDetailsViewModel @Inject constructor(
         if (selectedServiceTypes.value.isEmpty()) return setError("Please select at least one service type")
 
         val request = VehicleDetailsRequest(
-            vehicleId = tokenManager.getSelectedVehicleId()?.toIntOrNull(),
+            vehicleId = prefillVehicleId ?: tokenManager.getSelectedVehicleId()?.toIntOrNull(),
             typeOfService = selectedServiceTypes.value,
             vehicleType = selectedVehicleTypeId.value!!,
             make = selectedMakeId.value!!,

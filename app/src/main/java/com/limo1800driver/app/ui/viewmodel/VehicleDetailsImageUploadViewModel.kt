@@ -23,12 +23,15 @@ data class ImageUploadUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val success: Boolean = false,
+    val nextStep: String? = null,
     val specialAmenitiesOptions: List<SpecialAmenity> = emptyList(),
     val interiorOptions: List<VehicleInterior> = emptyList(),
     // Images: Index (0-5) -> ID
     val uploadedImageIds: MutableMap<Int, Int> = mutableMapOf(),
     // Bitmaps for display
-    val displayedImages: MutableMap<Int, Bitmap> = mutableMapOf()
+    val displayedImages: MutableMap<Int, Bitmap> = mutableMapOf(),
+    // URLs for prefilled images
+    val displayedImageUrls: Map<Int, String> = emptyMap()
 )
 
 @HiltViewModel
@@ -77,11 +80,17 @@ class VehicleDetailsImageUploadViewModel @Inject constructor(
                     data.specialAmenities?.let { ids -> selectedSpecialAmenities.addAll(ids.map { it.toString() }) }
 
                     selectedInteriors.clear()
-                    data.interior?.let { ids -> selectedInteriors.addAll(ids.map { it.toString() }) }
+                    // Backend may return either "vehicle_interior" or "interior"
+                    val interiorIds: List<Any>? = when {
+                        data.vehicleInterior != null -> data.vehicleInterior
+                        data.interior != null -> data.interior
+                        else -> null
+                    }
+                    interiorIds?.let { ids ->
+                        selectedInteriors.addAll(ids.map { it.toString() })
+                    }
                     
-                    // For images, we only have IDs in prefill. We can't display them unless we have URLs or bitmaps.
-                    // Assuming for now we just store the IDs so validation passes if they were already uploaded.
-                    val imageIds = mapOf(
+                    val imageRefs = mapOf(
                         0 to data.vehicleImage1,
                         1 to data.vehicleImage2,
                         2 to data.vehicleImage3,
@@ -90,11 +99,13 @@ class VehicleDetailsImageUploadViewModel @Inject constructor(
                         5 to data.vehicleImage6
                     )
                     
-                    val currentIds = _uiState.value.uploadedImageIds
-                    imageIds.forEach { (idx, id) ->
-                        if (id != null && id != 0) currentIds[idx] = id
+                    val currentIds = _uiState.value.uploadedImageIds.toMutableMap()
+                    val currentUrls = _uiState.value.displayedImageUrls.toMutableMap()
+                    imageRefs.forEach { (idx, ref) ->
+                        ref?.id?.let { if (it != 0) currentIds[idx] = it }
+                        ref?.url?.let { currentUrls[idx] = it }
                     }
-                    _uiState.update { it.copy(uploadedImageIds = currentIds) }
+                    _uiState.update { it.copy(uploadedImageIds = currentIds, displayedImageUrls = currentUrls) }
                 }
 
             } catch (e: Exception) {
@@ -117,7 +128,10 @@ class VehicleDetailsImageUploadViewModel @Inject constructor(
         viewModelScope.launch {
             val currentDisplay = _uiState.value.displayedImages.toMutableMap()
             currentDisplay[index] = bitmap
-            _uiState.update { it.copy(displayedImages = currentDisplay) }
+            // clear any prefilled url at this slot when user replaces the image
+            val currentUrls = _uiState.value.displayedImageUrls.toMutableMap()
+            currentUrls.remove(index)
+            _uiState.update { it.copy(displayedImages = currentDisplay, displayedImageUrls = currentUrls) }
 
             try {
                 val result = imageUploadService.uploadImageAndGetId(bitmap)
@@ -166,8 +180,8 @@ class VehicleDetailsImageUploadViewModel @Inject constructor(
 
                 val result = repository.completeVehicleDetails(finalRequest)
                 result.fold(
-                    onSuccess = {
-                        _uiState.update { it.copy(isLoading = false, success = true) }
+                    onSuccess = { resp ->
+                        _uiState.update { it.copy(isLoading = false, success = true, nextStep = resp.data?.nextStep) }
                     },
                     onFailure = { e ->
                         _uiState.update { it.copy(isLoading = false, error = errorHandler.handleError(e)) }

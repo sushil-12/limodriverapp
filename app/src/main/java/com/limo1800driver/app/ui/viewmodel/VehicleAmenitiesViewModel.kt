@@ -119,7 +119,8 @@ class VehicleAmenitiesViewModel @Inject constructor(
         val combinedAmenities = selectedChargeableIds + selectedNonChargeableIds
 
         val partial = VehicleDetailsRequest(
-            vehicleId = tokenManager.getSelectedVehicleId()?.toIntOrNull(),
+            // keep vehicle_id from existing draft; do not override with token default
+            vehicleId = null,
             vehicleType = 0,
             make = 0,
             model = 0,

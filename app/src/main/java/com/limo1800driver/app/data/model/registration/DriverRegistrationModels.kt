@@ -735,6 +735,9 @@ data class VehicleDetailsStepResponse(
 )
 
 data class VehicleDetailsStepPrefillData(
+    @SerializedName("vehicle_id")
+    val vehicleId: Int?,
+    
     @SerializedName("vehicle_type_id")
     val vehicleTypeId: Int?,
     
@@ -772,22 +775,22 @@ data class VehicleDetailsStepPrefillData(
     val vehicleInterior: List<String>?,
     
     @SerializedName("vehicle_image_1")
-    val vehicleImage1: Int?,
+    val vehicleImage1: VehicleImageRef?,
     
     @SerializedName("vehicle_image_2")
-    val vehicleImage2: Int?,
+    val vehicleImage2: VehicleImageRef?,
     
     @SerializedName("vehicle_image_3")
-    val vehicleImage3: Int?,
+    val vehicleImage3: VehicleImageRef?,
     
     @SerializedName("vehicle_image_4")
-    val vehicleImage4: Int?,
+    val vehicleImage4: VehicleImageRef?,
     
     @SerializedName("vehicle_image_5")
-    val vehicleImage5: Int?,
+    val vehicleImage5: VehicleImageRef?,
     
     @SerializedName("vehicle_image_6")
-    val vehicleImage6: Int?,
+    val vehicleImage6: VehicleImageRef?,
     
     @SerializedName("amenities")
     val amenities: List<Int>?,
@@ -797,6 +800,11 @@ data class VehicleDetailsStepPrefillData(
     
     @SerializedName("interior")
     val interior: List<Int>?
+)
+
+data class VehicleImageRef(
+    @SerializedName("id") val id: Int?,
+    @SerializedName("url") val url: String?
 )
 
 // ==================== Vehicle Rate Settings ====================
@@ -1256,7 +1264,8 @@ data class Amenity(
     @SerializedName("description")
     val description: String?
 ) {
-    fun getIdentifier(): String = id ?: idInt?.toString().orEmpty()
+    // Prefer numeric ID when available to avoid sending encrypted strings back
+    fun getIdentifier(): String = idInt?.toString() ?: (id ?: "")
 }
 
 data class SpecialAmenity(
@@ -1272,7 +1281,7 @@ data class SpecialAmenity(
     @SerializedName("description")
     val description: String?
 ) {
-    fun getIdentifier(): String = id ?: idInt?.toString().orEmpty()
+    fun getIdentifier(): String = idInt?.toString() ?: (id ?: "")
 }
 
 data class VehicleInterior(
@@ -1289,7 +1298,7 @@ data class VehicleInterior(
     @SerializedName("description")
     val description: String?
 ) {
-    fun getIdentifier(): String = id ?: idInt?.toString().orEmpty()
+    fun getIdentifier(): String = idInt?.toString() ?: (id ?: "")
 }
 
 data class OrganisationType(

@@ -337,7 +337,8 @@ fun DriverAppNavigation(
 
         composable(NavRoutes.VehicleDetailsImageUpload) {
             VehicleDetailsImageUploadScreen(
-                onNext = { navController.navigate(NavRoutes.VehicleInsurance) },
+                // On success, return to the step hub so user can continue as per flow
+                onNext = { navController.navigate(NavRoutes.VehicleDetailsStep) { launchSingleTop = true } },
                 onBack = { navController.popBackStack() }
             )
         }

@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
@@ -35,7 +36,7 @@ import com.limo1800driver.app.ui.viewmodel.VehicleDetailsImageUploadViewModel
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VehicleDetailsImageUploadScreen(
-    onNext: () -> Unit,
+    onNext: (String?) -> Unit,
     onBack: (() -> Unit)? = null,
     viewModel: VehicleDetailsImageUploadViewModel = hiltViewModel()
 ) {
@@ -46,7 +47,7 @@ fun VehicleDetailsImageUploadScreen(
     var activeSlotIndex by remember { mutableStateOf(-1) }
 
     LaunchedEffect(uiState.success) {
-        if (uiState.success) onNext()
+        if (uiState.success) onNext(uiState.nextStep)
     }
 
     // Error Handling
@@ -168,6 +169,7 @@ fun VehicleDetailsImageUploadScreen(
                             VehicleImageItem(
                                 index = idx1,
                                 bitmap = uiState.displayedImages[idx1],
+                                imageUrl = uiState.displayedImageUrls[idx1],
                                 isUploaded = uiState.uploadedImageIds.containsKey(idx1),
                                 modifier = Modifier.weight(1f),
                                 onAddClick = {
@@ -181,6 +183,7 @@ fun VehicleDetailsImageUploadScreen(
                             VehicleImageItem(
                                 index = idx2,
                                 bitmap = uiState.displayedImages[idx2],
+                                imageUrl = uiState.displayedImageUrls[idx2],
                                 isUploaded = uiState.uploadedImageIds.containsKey(idx2),
                                 modifier = Modifier.weight(1f),
                                 onAddClick = {
@@ -223,6 +226,7 @@ fun VehicleDetailsImageUploadScreen(
 fun VehicleImageItem(
     index: Int,
     bitmap: Bitmap?,
+    imageUrl: String?,
     isUploaded: Boolean,
     modifier: Modifier = Modifier,
     onAddClick: () -> Unit
@@ -266,6 +270,26 @@ fun VehicleImageItem(
                     )
                 } else {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AppColors.LimoOrange)
+                }
+            } else if (imageUrl != null) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                if (isUploaded) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Uploaded",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .background(AppColors.LimoOrange, RoundedCornerShape(50))
+                            .padding(2.dp)
+                            .size(12.dp)
+                    )
                 }
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
