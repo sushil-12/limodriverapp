@@ -1,428 +1,323 @@
 package com.limo1800driver.app.ui.screens.dashboard
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.limo1800driver.app.ui.viewmodel.DashboardStatsViewModel
-import com.limo1800driver.app.ui.viewmodel.DriverBookingsViewModel
-import com.limo1800driver.app.ui.viewmodel.DriverProfileViewModel
-import java.text.SimpleDateFormat
-import java.util.*
+import com.limo1800driver.app.data.model.dashboard.DriverBooking
+import com.limo1800driver.app.ui.components.*
+import com.limo1800driver.app.ui.viewmodel.*
 
 /**
  * Main Dashboard Screen for Driver App
- * Displays stats, bookings, and navigation options
+ * Matches iOS DashboardView with map, tabs, and content sections
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onNavigateToBooking: (Int) -> Unit = {},
-    onNavigateToProfile: () -> Unit = {},
     onNavigateToWallet: () -> Unit = {},
     onNavigateToMyActivity: () -> Unit = {},
+    onNavigateToPreArrangedRides: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToAccountSettings: () -> Unit = {},
     onLogout: () -> Unit = {},
-    statsViewModel: DashboardStatsViewModel = hiltViewModel(),
     bookingsViewModel: DriverBookingsViewModel = hiltViewModel(),
-    profileViewModel: DriverProfileViewModel = hiltViewModel()
+    profileViewModel: DriverProfileViewModel = hiltViewModel(),
+    statsViewModel: DashboardStatsViewModel = hiltViewModel(),
+    updatesViewModel: DashboardUpdatesViewModel = hiltViewModel()
 ) {
-    val statsState by statsViewModel.uiState.collectAsStateWithLifecycle()
     val bookingsState by bookingsViewModel.uiState.collectAsStateWithLifecycle()
     val profileState by profileViewModel.uiState.collectAsStateWithLifecycle()
+    val statsState by statsViewModel.uiState.collectAsStateWithLifecycle()
+    val updatesState by updatesViewModel.uiState.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
     
-    // Fetch profile on first load
+    var showDrawerMenu by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(DashboardTab.DRIVE) }
+    var selectedBooking by remember { mutableStateOf<DriverBooking?>(null) }
+    var showRoute by remember { mutableStateOf(false) }
+    var isSatelliteView by remember { mutableStateOf(false) }
+    var sheetHeight by remember { mutableStateOf(0.35f) }
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Fetch data on first load
     LaunchedEffect(Unit) {
         profileViewModel.fetchDriverProfile()
+        statsViewModel.fetchDashboardStats()
+        updatesViewModel.fetchDriverUpdates()
+        bookingsViewModel.fetchBookings(resetData = true)
     }
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Dashboard",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onNavigateToProfile) {
-                        Text("Profile", fontSize = 14.sp)
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 1. Full Screen Map Background
+        DriverMapView(
+            bookings = bookingsState.bookings,
+            selectedBooking = selectedBooking,
+            showRoute = showRoute,
+            isSatelliteView = isSatelliteView,
+            onBookingMarkerClick = { booking ->
+                selectedBooking = booking
+                showRoute = true
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        // 2. Top UI Layers (Menu & Map Controls)
+        // Menu Button - Match user app design
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 16.dp, top = 16.dp)
+                .align(Alignment.TopStart)
+                .size(48.dp),
+            shape = CircleShape,
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
         ) {
-            // Stats Section
-            item {
-                StatsSection(statsState = statsState)
-            }
-            
-            // Bookings Section Header
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Upcoming Bookings",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                    
-                    TextButton(onClick = onNavigateToMyActivity) {
-                        Text("View All")
-                    }
-                }
-            }
-            
-            // Bookings List
-            if (bookingsState.isLoading && bookingsState.bookings.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            } else if (bookingsState.bookings.isEmpty()) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No bookings found",
-                                color = Color.Gray
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(bookingsState.bookings) { booking ->
-                    BookingCard(
-                        booking = booking,
-                        onClick = { onNavigateToBooking(booking.bookingId) }
-                    )
-                }
-                
-                // Load more button
-                if (bookingsState.canLoadMore) {
-                    item {
-                        Button(
-                            onClick = { bookingsViewModel.loadMoreBookings() },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !bookingsState.isLoading
-                        ) {
-                            if (bookingsState.isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    color = Color.White
-                                )
-                            } else {
-                                Text("Load More")
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Error State
-            bookingsState.error?.let { error ->
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        )
-                    ) {
-                        Text(
-                            text = error,
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Stats Section Component
- */
-@Composable
-private fun StatsSection(
-    statsState: com.limo1800driver.app.ui.viewmodel.DashboardStatsUiState
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (statsState.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                statsState.stats?.let { stats ->
-                    // Monthly Earnings
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Monthly Earnings",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${stats.currencySymbol ?: "$"}${String.format("%.2f", stats.monthly?.earnings ?: 0.0)}",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                        
-                        // Today's Rides
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = "Today's Rides",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = String.format("%02d", stats.today?.rides ?: 0),
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                    
-                    Divider(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
-                    )
-                    
-                    // Weekly Stats
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        StatItem(
-                            label = "Weekly Earnings",
-                            value = "${stats.currencySymbol ?: "$"}${String.format("%.2f", stats.weekly?.earnings ?: 0.0)}"
-                        )
-                        StatItem(
-                            label = "Weekly Rides",
-                            value = "${stats.weekly?.rides ?: 0}"
-                        )
-                    }
-                } ?: run {
-                    Text(
-                        text = "No stats available",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Stat Item Component
- */
-@Composable
-private fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-        )
-    }
-}
-
-/**
- * Booking Card Component
- */
-@Composable
-private fun BookingCard(
-    booking: com.limo1800driver.app.data.model.dashboard.DriverBooking,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Booking ID and Status
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            IconButton(
+                onClick = { showDrawerMenu = true },
+                modifier = Modifier.fillMaxSize()
             ) {
-                Text(
-                    text = "Booking #${booking.bookingId}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.Black)
+            }
+        }
+        
+        // Map Controls (Satellite Toggle)
+        MapControls(
+            isSatelliteView = isSatelliteView,
+            onSatelliteToggle = { isSatelliteView = !isSatelliteView },
+            modifier = Modifier
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .align(Alignment.TopEnd)
+                .padding(end = 16.dp, top = 16.dp)
+        )
+        
+        // 3. Draggable Bottom Sheet
+        val minHeight = 0.35f
+        val maxHeight = 0.85f
+        val sheetHeightDp = with(density) { (screenHeightPx * sheetHeight).toDp() }
+        
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(sheetHeightDp)
+                .shadow(16.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .background(Color.White)
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState { delta ->
+                        val newHeight = (sheetHeight - (delta / screenHeightPx)).coerceIn(minHeight, maxHeight)
+                        sheetHeight = newHeight
+                    },
+                    onDragStopped = {
+                        val midpoint = (minHeight + maxHeight) / 2f
+                        sheetHeight = if (sheetHeight >= midpoint) maxHeight else minHeight
+                    }
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Drag Handle
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(40.dp)
+                        .height(4.dp)
+                        .padding(top = 12.dp)
+                        .background(Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(2.dp))
                 )
                 
-                // Status Badge
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = when (booking.bookingStatus.lowercase()) {
-                        "paid" -> Color(0xFF4CAF50)
-                        "pending" -> Color(0xFFFF9800)
-                        else -> Color(0xFF9E9E9E)
-                    }.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        text = booking.bookingStatus.replaceFirstChar { it.uppercase() },
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = when (booking.bookingStatus.lowercase()) {
-                            "paid" -> Color(0xFF4CAF50)
-                            "pending" -> Color(0xFFFF9800)
-                            else -> Color(0xFF9E9E9E)
-                        }
-                    )
-                }
-            }
-            
-            // Pickup and Dropoff
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                Color(0xFFFF9800),
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = booking.pickupAddress,
-                        fontSize = 14.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                Spacer(modifier = Modifier.height(8.dp))
                 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                Color(0xFFF44336),
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = booking.dropoffAddress,
-                        fontSize = 14.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            
-            Divider()
-            
-            // Date, Time, and Total
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "${booking.pickupDate} ${booking.pickupTime}",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                    if (booking.passengerName != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Passenger: ${booking.passengerName}",
-                            fontSize = 12.sp,
-                            color = Color.Gray
+                // Tab Section
+                DashboardTabSection(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+                
+                // Content Section (Scrollable inside bottom sheet)
+                when (selectedTab) {
+                    DashboardTab.DRIVE -> {
+                        DriveTabContent(
+                            alerts = updatesState.alerts,
+                            alertsLoading = updatesState.isLoading,
+                            monthlyEarnings = statsState.stats?.monthly?.earnings?.let { 
+                                String.format("%.2f", it) 
+                            } ?: "0.00",
+                            upcomingRides = statsState.stats?.today?.rides?.toString() ?: "0",
+                            currencySymbol = statsState.stats?.currencySymbol,
+                            statsLoading = statsState.isLoading,
+                            onBookingSelected = { selectedBooking = it },
+                            onEditClick = { onNavigateToBooking(it.bookingId) },
+                            onViewOnMapClick = {
+                                selectedBooking = it
+                                showRoute = true
+                            },
+                            onDriverEnRouteClick = {
+                                // TODO: Implement driver en route action
+                            },
+                            onFinalizeClick = { onNavigateToBooking(it.bookingId) },
+                            onAlertClick = { alert ->
+                                // TODO: Handle alert click (e.g., navigate to settings)
+                            },
+                            bookingsViewModel = bookingsViewModel
                         )
                     }
-                }
-                
-                if (booking.grandTotal != null) {
-                    Text(
-                        text = "${booking.currencySymbol}${String.format("%.2f", booking.grandTotal)}",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    DashboardTab.EARNINGS -> {
+                        EarningsView()
+                    }
                 }
             }
         }
+        
+        // Drawer Menu
+        DashboardDrawerMenu(
+            isPresented = showDrawerMenu,
+            driverProfile = profileState.profile,
+            isLoading = profileState.isLoading,
+            vehicleName = null,
+            vehicleMakeModel = null,
+            vehicleYear = null,
+            vehicleColor = null,
+            vehicleImageUrl = null,
+            notificationBadge = null,
+            onClose = { showDrawerMenu = false },
+            onNavigateToPreArrangedRides = onNavigateToPreArrangedRides,
+            onNavigateToMyActivity = onNavigateToMyActivity,
+            onNavigateToWallet = onNavigateToWallet,
+            onNavigateToNotifications = onNavigateToNotifications,
+            onNavigateToAccountSettings = onNavigateToAccountSettings,
+            onLogout = onLogout
+        )
     }
 }
 
+/**
+ * Drive Tab Content
+ * Contains alerts, statistics, scheduled pickups, and help & support
+ */
+@Composable
+private fun DriveTabContent(
+    alerts: List<com.limo1800driver.app.ui.viewmodel.DashboardStatusAlert>,
+    alertsLoading: Boolean,
+    monthlyEarnings: String,
+    upcomingRides: String,
+    currencySymbol: String?,
+    statsLoading: Boolean,
+    onBookingSelected: (DriverBooking) -> Unit,
+    onEditClick: (DriverBooking) -> Unit,
+    onViewOnMapClick: (DriverBooking) -> Unit,
+    onDriverEnRouteClick: (DriverBooking) -> Unit,
+    onFinalizeClick: (DriverBooking) -> Unit,
+    onAlertClick: (com.limo1800driver.app.ui.viewmodel.DashboardStatusAlert) -> Unit,
+    bookingsViewModel: DriverBookingsViewModel
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp)
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Dashboard Status Alerts
+        DashboardStatusAlertCarousel(
+            alerts = alerts,
+            isLoading = alertsLoading,
+            onAlertClick = onAlertClick
+        )
+        
+        // Statistics Panel
+        DashboardStatisticsPanel(
+            monthlyEarnings = monthlyEarnings,
+            upcomingRides = upcomingRides,
+            currencySymbol = currencySymbol,
+            isLoading = statsLoading
+        )
+        
+        // Scheduled Pickups Section
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Your Scheduled Pickups",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black
+            )
+            
+            ScheduledPickupsPager(
+                onBookingSelected = onBookingSelected,
+                onEditClick = onEditClick,
+                onViewOnMapClick = onViewOnMapClick,
+                onDriverEnRouteClick = onDriverEnRouteClick,
+                onFinalizeClick = onFinalizeClick,
+                bookingsViewModel = bookingsViewModel
+            )
+        }
+        
+        // Help and Support Section
+        HelpAndSupportCard()
+    }
+}
+
+/**
+ * Map Controls Component
+ * Matches user app design with Card instead of FAB
+ */
+@Composable
+private fun MapControls(
+    isSatelliteView: Boolean,
+    onSatelliteToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.size(48.dp),
+        shape = CircleShape,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        IconButton(
+            onClick = onSatelliteToggle,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Icon(
+                imageVector = if (isSatelliteView) Icons.Default.Map else Icons.Default.Satellite,
+                contentDescription = if (isSatelliteView) "Standard View" else "Satellite View",
+                tint = if (isSatelliteView) Color(0xFFFF9800) else Color.Black
+            )
+        }
+    }
+}

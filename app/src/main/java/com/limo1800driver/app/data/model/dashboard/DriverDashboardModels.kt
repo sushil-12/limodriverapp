@@ -202,11 +202,89 @@ data class BookingPagination(
 // ==================== Driver All Activity ====================
 
 data class DriverAllActivityData(
-    @SerializedName("bookings")
-    val bookings: List<DriverBooking>,
+    @SerializedName("data")
+    val data: List<ActivityDateGroup>?,
     
-    @SerializedName("pagination")
-    val pagination: BookingPagination?
+    @SerializedName("total")
+    val total: Int?,
+    
+    @SerializedName("per_page")
+    val perPage: Int?,
+    
+    @SerializedName("current_page")
+    val currentPage: Int?,
+    
+    @SerializedName("last_page")
+    val lastPage: Int?,
+    
+    @SerializedName("from")
+    val from: Int?,
+    
+    @SerializedName("to")
+    val to: Int?,
+    
+    @SerializedName("weekly_summary")
+    val weeklySummary: WeeklySummary?,
+    
+    @SerializedName("total_earnings")
+    val totalEarnings: Double?
+)
+
+data class ActivityDateGroup(
+    @SerializedName("date")
+    val date: String,
+    
+    @SerializedName("day")
+    val day: String,
+    
+    @SerializedName("date_key")
+    val dateKey: String,
+    
+    @SerializedName("rides")
+    val rides: List<ActivityRide>?,
+    
+    @SerializedName("total_earnings")
+    val totalEarnings: Double?,
+    
+    @SerializedName("total_rides")
+    val totalRides: Int?
+)
+
+data class ActivityRide(
+    @SerializedName("ride_id")
+    val rideId: Int,
+    
+    @SerializedName("time")
+    val time: String,
+    
+    @SerializedName("destination")
+    val destination: String,
+    
+    @SerializedName("pickup")
+    val pickup: String,
+    
+    @SerializedName("earnings")
+    val earnings: Double,
+    
+    @SerializedName("currency")
+    val currency: String,
+    
+    @SerializedName("status")
+    val status: String
+)
+
+data class WeeklySummary(
+    @SerializedName("earnings")
+    val earnings: Double?,
+    
+    @SerializedName("rides")
+    val rides: Int?,
+    
+    @SerializedName("online_time")
+    val onlineTime: String?,
+    
+    @SerializedName("date_range")
+    val dateRange: String?
 )
 
 // ==================== Driver Earnings Summary ====================
@@ -237,7 +315,16 @@ data class EarningsPeriod(
 
 data class DriverUpdatesData(
     @SerializedName("updates")
-    val updates: List<DriverUpdate>?
+    val updates: List<DriverUpdate>?,
+    
+    @SerializedName("info")
+    val info: List<DriverUpdateItem>?,
+    
+    @SerializedName("warning")
+    val warning: List<DriverUpdateItem>?,
+    
+    @SerializedName("error")
+    val error: List<DriverUpdateItem>?
 )
 
 data class DriverUpdate(
@@ -255,6 +342,35 @@ data class DriverUpdate(
     
     @SerializedName("created_at")
     val createdAt: String?
+)
+
+data class DriverUpdateItem(
+    @SerializedName("type")
+    val type: String?,
+    
+    @SerializedName("title")
+    val title: String?,
+    
+    @SerializedName("message")
+    val message: String?,
+    
+    @SerializedName("action_required")
+    val actionRequired: Boolean?,
+    
+    @SerializedName("category")
+    val category: String?,
+    
+    @SerializedName("account_id")
+    val accountId: String?,
+    
+    @SerializedName("policy_number")
+    val policyNumber: String?,
+    
+    @SerializedName("expiry_date")
+    val expiryDate: String?,
+    
+    @SerializedName("days_overdue")
+    val daysOverdue: Int?
 )
 
 // ==================== Driver Profile ====================

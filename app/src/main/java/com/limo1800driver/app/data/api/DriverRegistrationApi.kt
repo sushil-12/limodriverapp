@@ -95,8 +95,10 @@ interface DriverRegistrationApi {
     suspend fun getVehicleRateSettingsStep(): BaseResponse<VehicleRateSettingsStepResponse>
     
     // Vehicle Info (for rate header/amenities)
-    @GET("api/affiliate/get-vehicle-info/{vehicleId}")
-    suspend fun getVehicleInfo(@Path("vehicleId") vehicleId: String): BaseResponse<VehicleInfoResponse>
+    @GET("api/mobile/v1/driver/registration/step/vehicle_rate_settings")
+    suspend fun getVehicleInfo(
+        @Query("vehicle_id") vehicleId: String
+    ): BaseResponse<VehicleInfoResponse>
 
     // Image Upload
     @POST("api/add-single-image")

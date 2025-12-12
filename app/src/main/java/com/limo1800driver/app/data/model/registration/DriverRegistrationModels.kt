@@ -983,6 +983,9 @@ data class VehicleRateSettingsStepResponse(
 )
 
 data class VehicleRateSettingsStepPrefillData(
+    @SerializedName("vehicle_id")
+    val vehicleId: Int? = null,
+
     // Legacy minimal fields
     @SerializedName("base_rate")
     val baseRate: String? = null,

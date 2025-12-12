@@ -28,5 +28,12 @@ object NavRoutes {
     
     // Dashboard
     const val Dashboard = "dashboard"
+    
+    // Dashboard Menu Screens
+    const val PreArrangedRides = "pre_arranged_rides"
+    const val MyActivity = "my_activity"
+    const val Wallet = "wallet"
+    const val Notifications = "notifications"
+    const val AccountSettings = "account_settings"
 }
 

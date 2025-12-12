@@ -7,6 +7,7 @@ import androidx.security.crypto.MasterKey
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.limo1800driver.app.data.model.auth.DriverRegistrationState
+import com.limo1800driver.app.data.model.registration.VehicleDetailsStepResponse
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,7 +32,9 @@ class TokenManager @Inject constructor(
         private const val KEY_AFFILIATE_TYPE = "affiliate_type"
         private const val KEY_NEXT_STEP = "registration_next_step"
         private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
+        private const val KEY_IS_PROFILE_COMPLETED = "is_profile_completed"
         private const val KEY_DRIVER_REGISTRATION_STATE = "driver_registration_state"
+        private const val KEY_VEHICLE_DETAILS_STEP_RESPONSE = "vehicle_details_step_response"
     }
     
     private val gson = Gson()
@@ -179,6 +182,22 @@ class TokenManager @Inject constructor(
     }
     
     /**
+     * Save profile completion status
+     */
+    fun saveProfileCompleted(completed: Boolean) {
+        sharedPreferences.edit()
+            .putBoolean(KEY_IS_PROFILE_COMPLETED, completed)
+            .apply()
+    }
+    
+    /**
+     * Check if profile is completed
+     */
+    fun isProfileCompleted(): Boolean {
+        return sharedPreferences.getBoolean(KEY_IS_PROFILE_COMPLETED, false)
+    }
+    
+    /**
      * Save affiliate type
      */
     fun saveAffiliateType(affiliateType: String) {
@@ -233,6 +252,36 @@ class TokenManager @Inject constructor(
     }
     
     /**
+     * Save vehicle details step response (for caching vehicle_id)
+     */
+    fun saveVehicleDetailsStepResponse(response: VehicleDetailsStepResponse) {
+        val json = gson.toJson(response)
+        sharedPreferences.edit()
+            .putString(KEY_VEHICLE_DETAILS_STEP_RESPONSE, json)
+            .apply()
+        // Also save vehicle_id if available for quick access
+        response.data?.vehicleId?.let { 
+            saveSelectedVehicleId(it.toString()) 
+        }
+    }
+    
+    /**
+     * Get cached vehicle details step response
+     */
+    fun getVehicleDetailsStepResponse(): VehicleDetailsStepResponse? {
+        val json = sharedPreferences.getString(KEY_VEHICLE_DETAILS_STEP_RESPONSE, null)
+        return if (json != null) {
+            try {
+                gson.fromJson(json, VehicleDetailsStepResponse::class.java)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+    
+    /**
      * Clear all data (for logout)
      */
     fun clearAll() {
@@ -241,6 +290,8 @@ class TokenManager @Inject constructor(
         sharedPreferences.edit()
             .remove(KEY_SELECTED_VEHICLE_ID)
             .remove(KEY_AFFILIATE_TYPE)
+            .remove(KEY_VEHICLE_DETAILS_STEP_RESPONSE)
+            .remove(KEY_IS_PROFILE_COMPLETED)
             .apply()
     }
 }

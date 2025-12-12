@@ -358,7 +358,12 @@ class DriverRegistrationRepository @Inject constructor(
                 Timber.tag(TAG).d("Completing vehicle details")
                 val response = registrationApi.completeVehicleDetails(request)
                 if (response.success && response.data != null) {
+                    response.data.nextStep?.let { tokenManager.saveNextStep(it) }
+                    // Persist vehicle id when provided in request (edit) so downstream steps can use it
+                    request.vehicleId?.let { tokenManager.saveSelectedVehicleId(it.toString()) }
                     updateRegistrationState("vehicle_details", response.data.nextStep, response.data.isCompleted)
+                    // Refresh cached VehicleDetailsStepResponse after completion to get updated vehicle_id
+                    getVehicleDetailsStep()
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -373,6 +378,11 @@ class DriverRegistrationRepository @Inject constructor(
             try {
                 Timber.tag(TAG).d("Fetching vehicle details step")
                 val response = registrationApi.getVehicleDetailsStep()
+                // Cache the response if successful (iOS pattern)
+                // Note: response.data is VehicleDetailsStepResponse, which contains the step data
+                if (response.success && response.data != null) {
+                    tokenManager.saveVehicleDetailsStepResponse(response.data)
+                }
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch vehicle details step")

@@ -40,6 +40,11 @@ import com.limo1800driver.app.ui.screens.registration.UserProfileDetailsScreen
 import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.data.storage.TokenManager
 import com.limo1800driver.app.ui.screens.registration.VehicleDetailsStepScreen
+import com.limo1800driver.app.ui.screens.dashboard.MyActivityScreen
+import com.limo1800driver.app.ui.screens.dashboard.WalletScreen
+import com.limo1800driver.app.ui.screens.dashboard.PreArrangedRidesScreen
+import com.limo1800driver.app.ui.screens.dashboard.NotificationsScreen
+import com.limo1800driver.app.ui.screens.dashboard.AccountSettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.limo1800driver.app.ui.theme.LimoDriverAppTheme
@@ -90,6 +95,19 @@ fun DriverAppNavigation(
         clearBackStack: Boolean = false,
         forceDirect: Boolean = false
     ) {
+        // Priority check: If profile is completed, always go to dashboard
+        val isProfileCompleted = tokenManager.isProfileCompleted()
+        if (isProfileCompleted) {
+            navController.navigate(NavRoutes.Dashboard) {
+                launchSingleTop = true
+                if (clearBackStack) {
+                    popUpTo(NavRoutes.Splash) { inclusive = true }
+                }
+            }
+            return
+        }
+        
+        // Otherwise, follow the step flow
         val isComplete = registrationNavigationState.isRegistrationComplete(nextStep)
         val profileSteps = setOf("driving_license", "bank_details", "profile_picture")
         val targetRoute = when {
@@ -117,20 +135,28 @@ fun DriverAppNavigation(
                 
                 when {
                     isAuthenticated -> {
-                        // Check stored registration state
-                        val registrationState = tokenManager.getDriverRegistrationState()
-                        val nextStep = registrationState?.nextStep ?: tokenManager.getNextStep()
+                        // Check profile completion status first (priority check)
+                        val isProfileCompleted = tokenManager.isProfileCompleted()
                         
-                        if (registrationState?.isCompleted == true || nextStep == null || nextStep == "dashboard") {
-                            // Registration complete, go to dashboard
+                        if (isProfileCompleted) {
+                            // Profile completed, go directly to dashboard
                             navigateToRegistrationStep("dashboard", true)
-                        } else if (nextStep != null) {
-                            // Navigate to next registration step
-                            navigateToRegistrationStep(nextStep, true, forceDirect = false)
                         } else {
-                            // Fallback to phone entry
-                            navController.navigate(NavRoutes.PhoneEntry) {
-                                popUpTo(NavRoutes.Splash) { inclusive = true }
+                            // Check stored registration state
+                            val registrationState = tokenManager.getDriverRegistrationState()
+                            val nextStep = registrationState?.nextStep ?: tokenManager.getNextStep()
+                            
+                            if (registrationState?.isCompleted == true || nextStep == null || nextStep == "dashboard") {
+                                // Registration complete, go to dashboard
+                                navigateToRegistrationStep("dashboard", true)
+                            } else if (nextStep != null) {
+                                // Navigate to next registration step
+                                navigateToRegistrationStep(nextStep, true, forceDirect = false)
+                            } else {
+                                // Fallback to phone entry
+                                navController.navigate(NavRoutes.PhoneEntry) {
+                                    popUpTo(NavRoutes.Splash) { inclusive = true }
+                                }
                             }
                         }
                     }
@@ -370,17 +396,98 @@ fun DriverAppNavigation(
                 onNavigateToBooking = { bookingId ->
                     // TODO: Navigate to booking details
                 },
-                onNavigateToProfile = {
-                    // TODO: Navigate to profile
-                },
                 onNavigateToWallet = {
-                    // TODO: Navigate to wallet
+                    navController.navigate(NavRoutes.Wallet)
                 },
                 onNavigateToMyActivity = {
-                    // TODO: Navigate to my activity
+                    navController.navigate(NavRoutes.MyActivity)
+                },
+                onNavigateToPreArrangedRides = {
+                    navController.navigate(NavRoutes.PreArrangedRides)
+                },
+                onNavigateToNotifications = {
+                    navController.navigate(NavRoutes.Notifications)
+                },
+                onNavigateToAccountSettings = {
+                    navController.navigate(NavRoutes.AccountSettings)
                 },
                 onLogout = {
-                    // TODO: Handle logout
+                    // Clear all data and navigate to splash
+                    tokenManager.clearAll()
+                    navController.navigate(NavRoutes.Splash) {
+                        popUpTo(NavRoutes.Splash) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        composable(NavRoutes.MyActivity) {
+            MyActivityScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(NavRoutes.Wallet) {
+            WalletScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(NavRoutes.PreArrangedRides) {
+            PreArrangedRidesScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(NavRoutes.Notifications) {
+            NotificationsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(NavRoutes.AccountSettings) {
+            AccountSettingsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToProfile = {
+                    // TODO: Navigate to Profile screen when implemented
+                    // navController.navigate(NavRoutes.Profile)
+                },
+                onNavigateToCompanyInfo = {
+                    navController.navigate(NavRoutes.CompanyInfo) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToDrivingLicense = {
+                    navController.navigate(NavRoutes.DrivingLicense) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToBankDetails = {
+                    navController.navigate(NavRoutes.BankDetails) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToVehicleInsurance = {
+                    navController.navigate(NavRoutes.VehicleInsurance) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToVehicleDetails = {
+                    navController.navigate(NavRoutes.VehicleDetailsStep) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToVehicleRates = {
+                    navController.navigate(NavRoutes.VehicleRates) {
+                        launchSingleTop = true
+                    }
+                },
+                onLogout = {
+                    // Clear token and navigate to splash
+                    tokenManager.clearAll()
+                    navController.navigate(NavRoutes.Splash) {
+                        popUpTo(NavRoutes.Splash) { inclusive = true }
+                    }
                 }
             )
         }

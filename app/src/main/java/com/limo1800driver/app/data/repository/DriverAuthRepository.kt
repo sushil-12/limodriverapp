@@ -83,6 +83,12 @@ class DriverAuthRepository @Inject constructor(
                         expiresIn = response.data.expiresIn
                     )
                     
+                    // Save profile completion status (priority check for navigation)
+                    response.data.user.isProfileCompleted?.let { isCompleted ->
+                        tokenManager.saveProfileCompleted(isCompleted)
+                        Timber.tag(TAG).d("Profile completion status saved: $isCompleted")
+                    }
+                    
                     // Save full driver registration state if available
                     response.data.driverRegistrationState?.let { state ->
                         tokenManager.saveDriverRegistrationState(state)
