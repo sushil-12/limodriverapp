@@ -2,7 +2,6 @@ package com.limo1800driver.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.limo1800driver.app.data.model.dashboard.DriverWalletData
 import com.limo1800driver.app.data.model.dashboard.DriverWalletDetailsData
 import com.limo1800driver.app.data.repository.DriverDashboardRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,20 +36,33 @@ class DriverWalletViewModel @Inject constructor(
             dashboardRepository.getDriverWallet(page = page, perPage = 10)
                 .onSuccess { response ->
                     if (response.success && response.data != null) {
+                        val transfers = response.data.transactions
+                            ?: response.data.allTransfers?.data
+                            ?: emptyList()
+
                         val newTransactions = if (page == 1) {
-                            response.data.transactions ?: emptyList()
+                            transfers
                         } else {
-                            (_uiState.value.transactions + (response.data.transactions ?: emptyList())).distinctBy { it.id }
+                            (_uiState.value.transactions + transfers).distinctBy { it.id }
                         }
                         
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            balance = response.data.balance ?: 0.0,
-                            currencySymbol = response.data.currencySymbol ?: "$",
+                            balance =
+                                response.data.stripeBalance?.totalBalance?.toDoubleOrNull()
+                                    ?: response.data.balance?.currentBalance?.toDoubleOrNull()
+                                    ?: 0.0,
+                            currencySymbol =
+                                response.data.balance?.currencySymbol
+                                    ?: response.data.currencySymbol
+                                    ?: "$",
                             transactions = newTransactions,
-                            canLoadMore = response.data.pagination?.let {
-                                it.currentPage < it.lastPage
-                            } ?: false,
+                            canLoadMore =
+                                response.data.pagination?.let { it.currentPage < it.lastPage }
+                                    ?: response.data.allTransfers?.let { pageInfo ->
+                                        (pageInfo.currentPage != null && pageInfo.lastPage != null && pageInfo.currentPage < pageInfo.lastPage)
+                                    }
+                                    ?: false,
                             error = null
                         )
                         Timber.d("Driver wallet loaded successfully")

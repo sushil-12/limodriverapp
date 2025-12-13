@@ -402,7 +402,10 @@ data class DriverProfileData(
 
 data class DriverWalletData(
     @SerializedName("balance")
-    val balance: Double?,
+    val balance: WalletBalance?,
+
+    @SerializedName("stripe_balance")
+    val stripeBalance: StripeBalance?,
     
     @SerializedName("currency_symbol")
     val currencySymbol: String?,
@@ -410,15 +413,112 @@ data class DriverWalletData(
     @SerializedName("transactions")
     val transactions: List<WalletTransaction>?,
     
+    @SerializedName("all_transfers")
+    val allTransfers: WalletTransfersPage?,
+
     @SerializedName("pagination")
     val pagination: BookingPagination?
 )
 
+/**
+ * Wallet balance information (new API format).
+ */
+data class WalletBalance(
+    @SerializedName("current_balance")
+    val currentBalance: String?,
+
+    @SerializedName("currency")
+    val currency: String?,
+
+    @SerializedName("currency_symbol")
+    val currencySymbol: String?,
+
+    @SerializedName("payout_schedule")
+    val payoutSchedule: String?,
+
+    @SerializedName("payout_schedule_description")
+    val payoutScheduleDescription: String?,
+
+    @SerializedName("account_status")
+    val accountStatus: String?,
+
+    @SerializedName("account_status_description")
+    val accountStatusDescription: String?,
+
+    @SerializedName("total_paid_amount")
+    val totalPaidAmount: String?,
+
+    @SerializedName("total_paid_amount_formatted")
+    val totalPaidAmountFormatted: String?
+)
+
+/**
+ * Stripe balance summary (new API format).
+ * Amount fields are returned as strings by the backend.
+ */
+data class StripeBalance(
+    @SerializedName("available_balance")
+    val availableBalance: String?,
+
+    @SerializedName("available_balance_description")
+    val availableBalanceDescription: String?,
+
+    @SerializedName("pending_balance")
+    val pendingBalance: String?,
+
+    @SerializedName("pending_balance_description")
+    val pendingBalanceDescription: String?,
+
+    @SerializedName("paid_balance")
+    val paidBalance: String?,
+
+    @SerializedName("paid_balance_description")
+    val paidBalanceDescription: String?,
+
+    @SerializedName("instant_available_balance")
+    val instantAvailableBalance: String?,
+
+    @SerializedName("instant_available_balance_description")
+    val instantAvailableBalanceDescription: String?,
+
+    @SerializedName("total_balance")
+    val totalBalance: String?,
+
+    @SerializedName("total_balance_description")
+    val totalBalanceDescription: String?
+)
+
+/**
+ * Transfer list response (often a paginated Laravel-style object).
+ */
+data class WalletTransfersPage(
+    @SerializedName("data")
+    val data: List<WalletTransaction>?,
+
+    @SerializedName("current_page")
+    val currentPage: Int? = null,
+
+    @SerializedName("per_page")
+    val perPage: Int? = null,
+
+    @SerializedName("total")
+    val total: Int? = null,
+
+    @SerializedName("last_page")
+    val lastPage: Int? = null,
+
+    @SerializedName("from")
+    val from: Int? = null,
+
+    @SerializedName("to")
+    val to: Int? = null
+)
+
 data class WalletTransaction(
     @SerializedName("id")
-    val id: Int,
+    val id: String,
     
-    @SerializedName("type")
+    @SerializedName(value = "type", alternate = ["status"])
     val type: String?,
     
     @SerializedName("amount")
@@ -427,10 +527,10 @@ data class WalletTransaction(
     @SerializedName("description")
     val description: String?,
     
-    @SerializedName("created_at")
+    @SerializedName(value = "created_at", alternate = ["created_datetime"])
     val createdAt: String?,
     
-    @SerializedName("booking_id")
+    @SerializedName(value = "booking_id", alternate = ["reservation_id"])
     val bookingId: Int?
 )
 
