@@ -28,9 +28,12 @@ class WalletViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(WalletUiState())
     val uiState: StateFlow<WalletUiState> = _uiState.asStateFlow()
     
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+    private val isoDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+    private val legacyDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
     private val displayDateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
     
+    private fun String?.toDoubleSafe(): Double = this?.toDoubleOrNull() ?: 0.0
+
     /**
      * Fetch wallet data
      */
@@ -44,16 +47,45 @@ class WalletViewModel @Inject constructor(
                 .onSuccess { response ->
                     if (response.success && response.data != null) {
                         val walletData = response.data
+
+                        val transfers = walletData.transactions
+                            ?: walletData.allTransfers?.data
+                            ?: emptyList()
+
+                        val currencySymbol =
+                            walletData.balance?.currencySymbol
+                                ?: walletData.currencySymbol
+                                ?: "$"
+
+                        // The backend provides "total_balance" as "total earnings".
+                        val totalEarnings =
+                            walletData.stripeBalance?.totalBalance.toDoubleSafe()
+                                .takeIf { it != 0.0 }
+                                ?: walletData.balance?.currentBalance.toDoubleSafe()
+
+                        val availableBalance = walletData.stripeBalance?.availableBalance.toDoubleSafe()
+                        val pendingBalance = walletData.stripeBalance?.pendingBalance.toDoubleSafe()
+                        val paidOutBalance =
+                            walletData.stripeBalance?.paidBalance.toDoubleSafe()
+                                .takeIf { it != 0.0 }
+                                ?: walletData.balance?.totalPaidAmount.toDoubleSafe()
+
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            balance = walletData.balance ?: 0.0,
-                            currencySymbol = walletData.currencySymbol ?: "$",
-                            transactions = walletData.transactions ?: emptyList(),
-                            allTransactions = walletData.transactions ?: emptyList(),
-                            currentPage = 1,
-                            canLoadMore = walletData.pagination?.let {
-                                it.currentPage < it.lastPage
-                            } ?: false,
+                            balance = totalEarnings,
+                            availableBalance = availableBalance,
+                            pendingBalance = pendingBalance,
+                            paidOutBalance = paidOutBalance,
+                            currencySymbol = currencySymbol,
+                            transactions = transfers,
+                            allTransactions = transfers,
+                            currentPage = walletData.allTransfers?.currentPage ?: 1,
+                            canLoadMore =
+                                walletData.pagination?.let { it.currentPage < it.lastPage }
+                                    ?: walletData.allTransfers?.let { page ->
+                                        (page.currentPage != null && page.lastPage != null && page.currentPage < page.lastPage)
+                                    }
+                                    ?: false,
                             error = null
                         )
                     } else {
@@ -86,15 +118,22 @@ class WalletViewModel @Inject constructor(
             dashboardRepository.getDriverWallet(page = nextPage, perPage = 20)
                 .onSuccess { response ->
                     if (response.success && response.data != null) {
-                        val newTransactions = response.data.transactions ?: emptyList()
+                        val newTransactions = response.data.transactions
+                            ?: response.data.allTransfers?.data
+                            ?: emptyList()
+
+                        val combined = (_uiState.value.transactions + newTransactions).distinctBy { it.id }
                         _uiState.value = _uiState.value.copy(
                             isLoadingMore = false,
-                            transactions = _uiState.value.transactions + newTransactions,
-                            allTransactions = _uiState.value.allTransactions + newTransactions,
-                            currentPage = nextPage,
-                            canLoadMore = response.data.pagination?.let {
-                                it.currentPage < it.lastPage
-                            } ?: false
+                            transactions = combined,
+                            allTransactions = combined,
+                            currentPage = response.data.allTransfers?.currentPage ?: nextPage,
+                            canLoadMore =
+                                response.data.pagination?.let { it.currentPage < it.lastPage }
+                                    ?: response.data.allTransfers?.let { page ->
+                                        (page.currentPage != null && page.lastPage != null && page.currentPage < page.lastPage)
+                                    }
+                                    ?: false
                         )
                     } else {
                         _uiState.value = _uiState.value.copy(isLoadingMore = false)
@@ -183,12 +222,10 @@ class WalletViewModel @Inject constructor(
     fun formatTransactionDate(dateString: String?): String {
         if (dateString == null) return ""
         return try {
-            val date = dateFormat.parse(dateString)
-            if (date != null) {
-                displayDateFormat.format(date)
-            } else {
-                dateString
-            }
+            val date =
+                isoDateFormat.parse(dateString)
+                    ?: legacyDateFormat.parse(dateString)
+            date?.let { displayDateFormat.format(it) } ?: dateString
         } catch (e: Exception) {
             dateString
         }
