@@ -47,7 +47,10 @@ fun VehicleDetailsImageUploadScreen(
     var activeSlotIndex by remember { mutableStateOf(-1) }
 
     LaunchedEffect(uiState.success) {
-        if (uiState.success) onNext(uiState.nextStep)
+        if (uiState.success) {
+            onNext(uiState.nextStep)
+            viewModel.consumeSuccess()
+        }
     }
 
     // Error Handling

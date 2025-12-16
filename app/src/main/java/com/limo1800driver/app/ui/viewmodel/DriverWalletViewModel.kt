@@ -3,6 +3,7 @@ package com.limo1800driver.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.limo1800driver.app.data.model.dashboard.DriverWalletData
+import com.limo1800driver.app.data.model.dashboard.TransferDetails
 import com.limo1800driver.app.data.model.dashboard.DriverWalletDetailsData
 import com.limo1800driver.app.data.repository.DriverDashboardRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,20 +38,14 @@ class DriverWalletViewModel @Inject constructor(
             dashboardRepository.getDriverWallet(page = page, perPage = 10)
                 .onSuccess { response ->
                     if (response.success && response.data != null) {
-                        val newTransactions = if (page == 1) {
-                            response.data.transactions ?: emptyList()
-                        } else {
-                            (_uiState.value.transactions + (response.data.transactions ?: emptyList())).distinctBy { it.id }
-                        }
-                        
+                        val newTransactions = response.data.allTransfers?.data ?: emptyList()
+
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            balance = response.data.balance ?: 0.0,
-                            currencySymbol = response.data.currencySymbol ?: "$",
+                            balance = response.data.balance?.currentBalance?.toDoubleOrNull() ?: 0.0,
+                            currencySymbol = response.data.balance?.currencySymbol ?: "$",
                             transactions = newTransactions,
-                            canLoadMore = response.data.pagination?.let {
-                                it.currentPage < it.lastPage
-                            } ?: false,
+                            canLoadMore = false, // No pagination in new structure
                             error = null
                         )
                         Timber.d("Driver wallet loaded successfully")
@@ -117,7 +112,7 @@ data class DriverWalletUiState(
     val isLoading: Boolean = false,
     val balance: Double = 0.0,
     val currencySymbol: String = "$",
-    val transactions: List<com.limo1800driver.app.data.model.dashboard.WalletTransaction> = emptyList(),
+    val transactions: List<TransferDetails> = emptyList(),
     val walletDetails: DriverWalletDetailsData? = null,
     val canLoadMore: Boolean = false,
     val error: String? = null

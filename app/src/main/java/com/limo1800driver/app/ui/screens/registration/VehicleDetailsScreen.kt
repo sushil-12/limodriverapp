@@ -2,6 +2,7 @@ package com.limo1800driver.app.ui.screens.registration
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -70,6 +71,7 @@ fun VehicleDetailsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -85,15 +87,21 @@ fun VehicleDetailsScreen(
             Text(text = "CHOOSE ALL THAT APPLY", style = AppTextStyles.bodyMedium.copy(color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp))
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Local Service Only", "Over The Road", "Shuttle Service").forEach { type ->
-                    val isSelected = selectedServices.contains(type)
+                // Backend values are snake_case (e.g. "over_the_road"), UI shows friendly labels.
+                val serviceOptions = listOf(
+                    "Local Service Only" to "local_service_only",
+                    "Over The Road" to "over_the_road",
+                    "Shuttle Service" to "shuttle_service"
+                )
+                serviceOptions.forEach { (label, apiValue) ->
+                    val isSelected = selectedServices.contains(apiValue)
                     FilterChip(
                         selected = isSelected,
                         onClick = {
-                            val newList = if (isSelected) selectedServices - type else selectedServices + type
+                            val newList = if (isSelected) selectedServices - apiValue else selectedServices + apiValue
                             viewModel.selectedServiceTypes.value = newList
                         },
-                        label = { Text(type) },
+                        label = { Text(label) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color.Black,
                             selectedLabelColor = Color.White

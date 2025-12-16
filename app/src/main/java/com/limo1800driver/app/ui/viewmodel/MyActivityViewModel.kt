@@ -149,12 +149,17 @@ class MyActivityViewModel @Inject constructor(
                     earningsResult.onSuccess { earningsResponse ->
                         if (earningsResponse.success && earningsResponse.data != null) {
                             val earnings = earningsResponse.data
+                            // Extract total earnings from paidBalance (String) and convert to Double
+                            val paidBalance = earnings.stripeData?.paidBalance?.toDoubleOrNull() ?: 0.0
+                            // Get currency symbol from currency code
+                            val currencySymbol = getCurrencySymbol(earnings.currency) ?: bookings.firstOrNull()?.currencySymbol ?: "$"
+                            
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 bookings = bookings,
-                                totalEarnings = earnings.totalEarnings ?: activityData.weeklySummary?.earnings ?: 0.0,
-                                totalRides = earnings.totalRides ?: activityData.weeklySummary?.rides ?: bookings.size,
-                                currencySymbol = earnings.currencySymbol ?: bookings.firstOrNull()?.currencySymbol ?: "$",
+                                totalEarnings = paidBalance.takeIf { it > 0.0 } ?: activityData.weeklySummary?.earnings ?: calculateEarningsFromBookings(bookings),
+                                totalRides = activityData.weeklySummary?.rides ?: bookings.size,
+                                currencySymbol = currencySymbol,
                                 error = null
                             )
                         } else {
@@ -337,6 +342,22 @@ class MyActivityViewModel @Inject constructor(
      */
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+    
+    /**
+     * Get currency symbol from currency code
+     */
+    private fun getCurrencySymbol(currency: String?): String? {
+        if (currency == null) return null
+        // Map common currency codes to symbols
+        return when (currency.uppercase()) {
+            "USD" -> "$"
+            "EUR" -> "€"
+            "GBP" -> "£"
+            "CAD" -> "C$"
+            "AUD" -> "A$"
+            else -> currency
+        }
     }
 }
 

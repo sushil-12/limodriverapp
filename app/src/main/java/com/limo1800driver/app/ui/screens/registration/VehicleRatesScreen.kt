@@ -5,11 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.limo1800driver.app.ui.components.BottomActionBar
+import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.theme.AppTextStyles
@@ -41,50 +43,37 @@ fun VehicleRatesScreen(
     val scroll = rememberScrollState()
 
     LaunchedEffect(state.success) {
-        if (state.success) onNext(state.nextStep)
+        if (state.success) {
+            onNext(state.nextStep)
+            viewModel.consumeSuccess()
+        }
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("1-800-LIMO.COM", fontSize = 16.sp, color = LimoOrange, fontWeight = FontWeight.Bold)
-                        Text("Your Personal Driver Everywhere", fontSize = 10.sp, color = Color.Gray)
+            RegistrationTopBar(
+                onBack = {
+                    if (state.currentStep == RateStep.AMENITIES_TAXES) {
+                        viewModel.onEvent(RateEvent.OnBackClick)
+                    } else {
+                        onBack()
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (state.currentStep == RateStep.AMENITIES_TAXES) viewModel.onEvent(RateEvent.OnBackClick) else onBack()
-                    }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black, titleContentColor = LimoOrange)
+                }
             )
         },
         bottomBar = {
-            Button(
-                onClick = {
+            BottomActionBar(
+                isLoading = state.isLoading,
+                onBack = null,
+                onNext = {
                     if (state.currentStep == RateStep.BASE_RATES) {
                         viewModel.onEvent(RateEvent.OnNextClick)
                     } else {
                         viewModel.onEvent(RateEvent.OnSubmitClick)
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LimoOrange),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = if (state.currentStep == RateStep.BASE_RATES) "Next" else "Submit",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+                nextButtonText = if (state.currentStep == RateStep.BASE_RATES) "Next" else "Submit"
+            )
         },
         containerColor = Color.White
     ) { padding ->
@@ -94,6 +83,7 @@ fun VehicleRatesScreen(
                 .fillMaxSize()
                 .background(Color.White)
                 .verticalScroll(scroll)
+                .imePadding()
                 .padding(16.dp)
         ) {
             HeaderCard(state)
@@ -128,40 +118,19 @@ private fun HeaderCard(state: VehicleRatesState) {
                 fontSize = 12.sp,
                 color = Color.Gray
             )
-            if (state.vehicleName.isNotEmpty() || state.vehicleTags.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        state.vehicleName.ifEmpty { "Vehicle" },
-                        color = LimoOrange,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                    state.vehicleTags.take(4).forEach { tag ->
-                        Text(
-                            tag,
-                            fontSize = 11.sp,
-                            color = Color.Black,
-                            modifier = Modifier
-                                .background(Color(0xFFFFF2E5), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
         }
     }
 }
 
 @Composable
 private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
-    // Vehicle details section (matching iOS design)
+    // Vehicle details card (match reference design)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(8.dp))
-            .border(1.dp, Color.Black, RoundedCornerShape(8.dp))
-            .padding(10.dp),
+            .background(Color.White, RoundedCornerShape(14.dp))
+            .border(2.dp, Color.Black, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -172,8 +141,8 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
             Text(
                 text = state.vehicleName.ifEmpty { "Vehicle Type" },
                 color = LimoOrange,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 17.sp
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
             )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -182,25 +151,26 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
                 state.vehicleTags.take(4).forEach { tag ->
                     Text(
                         text = tag,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color.Black,
                         modifier = Modifier
-                            .background(Color(0xFFFFF2E5), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .background(Color(0xFFFFF2E5), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
             }
         }
         
-        // Vehicle image on the right
+        // Vehicle image on the right (bigger like reference)
         Box(
             modifier = Modifier
-                .width(60.dp)
-                .height(36.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.White)
-                .border(1.dp, Color.Gray.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+                .width(96.dp)
+                .height(54.dp)
+                // Order matters: draw border, then clip content so border is visible
+                .border(1.dp, Color.Gray.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.White),
             contentAlignment = Alignment.Center
         ) {
             if (!state.vehicleImageUrl.isNullOrEmpty()) {
@@ -387,7 +357,7 @@ private fun AmenityTaxStep(state: VehicleRatesState, vm: VehicleRatesViewModel) 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             state.amenityRates.values.forEach { amenity ->
                 val label = amenity.label ?: amenity.name
-                val price = state.amenityPrices[label] ?: amenity.price.toString()
+                val price = state.amenityPrices[label] ?: (amenity.price?.toString() ?: "")
                 MoneyRow(amenity.name, price) {
                     vm.onEvent(RateEvent.SetAmenityPrice(label, it))
                 }
@@ -507,16 +477,23 @@ private fun ToggleMoneyRow(
         CustomSegmentedControl(
             items = listOf("FLAT ($)", "PERCENT"),
             selectedIndex = if (isFlat) 0 else 1,
-            onIndexChanged = { onToggle(it == 0) }
+            onIndexChanged = { onToggle(it == 0) },
+            // Prevent the control from taking the entire row width (which squeezes the text field)
+            modifier = Modifier.widthIn(min = 150.dp, max = 180.dp)
         )
     }
     Spacer(modifier = Modifier.height(8.dp))
 }
 
 @Composable
-private fun CustomSegmentedControl(items: List<String>, selectedIndex: Int, onIndexChanged: (Int) -> Unit) {
+private fun CustomSegmentedControl(
+    items: List<String>,
+    selectedIndex: Int,
+    onIndexChanged: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .background(Color(0xFFEEEEEE), RoundedCornerShape(20.dp))
             .padding(4.dp)
             .height(32.dp)

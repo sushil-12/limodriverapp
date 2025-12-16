@@ -139,6 +139,13 @@ class VehicleInsuranceViewModel @Inject constructor(
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
+
+    /**
+     * Reset one-shot navigation flags so the screen doesn't auto-navigate when revisited.
+     */
+    fun consumeSuccess() {
+        _uiState.value = _uiState.value.copy(success = false, nextStep = null)
+    }
 }
 
 data class VehicleInsuranceUiState(

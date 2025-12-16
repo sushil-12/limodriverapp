@@ -3,6 +3,7 @@ package com.limo1800driver.app.di
 import android.app.NotificationManager
 import android.content.Context
 import com.limo1800driver.app.data.model.BooleanIntTypeAdapter
+import com.limo1800driver.app.data.model.SafeDoubleTypeAdapter
 import com.limo1800driver.app.data.network.NetworkConfig
 import com.limo1800driver.app.data.network.interceptors.AuthInterceptor
 import com.limo1800driver.app.data.network.interceptors.LoggingInterceptor
@@ -43,6 +44,9 @@ object NetworkModule {
             .serializeNulls() // Include null fields in JSON (matches web format)
             .registerTypeAdapter(Boolean::class.java, BooleanIntTypeAdapter())
             .registerTypeAdapter(Boolean::class.javaObjectType, BooleanIntTypeAdapter())
+            // Some backend fields come back as "" for numeric values (e.g. amenities_rates.price)
+            .registerTypeAdapter(Double::class.java, SafeDoubleTypeAdapter())
+            .registerTypeAdapter(Double::class.javaObjectType, SafeDoubleTypeAdapter())
             .create()
     }
     
@@ -148,6 +152,23 @@ object NetworkModule {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
     }
+
+    /**
+     * Provide Chat API Retrofit instance (chat server lives on a different host than the main API).
+     */
+    @Provides
+    @Singleton
+    @Named("chat")
+    fun provideChatRetrofit(
+        @Named("main") okHttpClient: OkHttpClient,
+        gson: Gson
+    ): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(NetworkConfig.CHAT_BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+    }
     
     /**
      * Provide DriverAuthApi
@@ -181,7 +202,7 @@ object NetworkModule {
     ): com.limo1800driver.app.data.api.DriverDashboardApi {
         return retrofit.create(com.limo1800driver.app.data.api.DriverDashboardApi::class.java)
     }
-    
+
     /**
      * Provide NotificationManager
      */

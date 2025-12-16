@@ -71,7 +71,8 @@ interface DriverRegistrationApi {
     @GET("api/get-vehicle-data/make")
     suspend fun getVehicleMakes(): BaseResponse<List<VehicleOption>>
 
-    @GET("api/get-vehicle-data/make")
+    // Models are fetched by make_id
+    @GET("api/get-vehicle-data/model")
     suspend fun getVehicleModels(@Query("make_id") makeId: Int): BaseResponse<List<VehicleOption>>
 
     @GET("api/get-vehicle-data/year")
@@ -92,13 +93,15 @@ interface DriverRegistrationApi {
     suspend fun completeVehicleRateSettings(@Body request: VehicleRateSettingsRequest): BaseResponse<VehicleRateSettingsCompleteResponse>
     
     @GET("api/mobile/v1/driver/registration/step/vehicle_rate_settings")
-    suspend fun getVehicleRateSettingsStep(): BaseResponse<VehicleRateSettingsStepResponse>
+    suspend fun getVehicleRateSettingsStep(
+        @Query("vehicle_id") vehicleId: String? = null
+    ): BaseResponse<VehicleRateSettingsStepResponse>
     
     // Vehicle Info (for rate header/amenities)
-    @GET("api/mobile/v1/driver/registration/step/vehicle_rate_settings")
+    @GET("api/affiliate/get-vehicle-info/{vehicle_id}")
     suspend fun getVehicleInfo(
-        @Query("vehicle_id") vehicleId: String
-    ): BaseResponse<VehicleInfoResponse>
+        @Path("vehicle_id") vehicleId: String
+    ): VehicleInfoResponse
 
     // Image Upload
     @POST("api/add-single-image")

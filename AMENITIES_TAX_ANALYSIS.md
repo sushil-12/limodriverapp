@@ -223,3 +223,6 @@ This ensures Android matches iOS behavior by:
 2. ✅ Merging prices from prefill when available
 3. ✅ Displaying all amenities even if prefill is empty
 
+
+
+

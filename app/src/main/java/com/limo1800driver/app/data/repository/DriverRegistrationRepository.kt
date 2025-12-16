@@ -409,11 +409,11 @@ class DriverRegistrationRepository @Inject constructor(
         }
     }
     
-    suspend fun getVehicleRateSettingsStep(): Result<BaseResponse<VehicleRateSettingsStepResponse>> {
+    suspend fun getVehicleRateSettingsStep(vehicleId: String? = null): Result<BaseResponse<VehicleRateSettingsStepResponse>> {
         return withContext(Dispatchers.IO) {
             try {
                 Timber.tag(TAG).d("Fetching vehicle rate settings step")
-                val response = registrationApi.getVehicleRateSettingsStep()
+                val response = registrationApi.getVehicleRateSettingsStep(vehicleId)
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch vehicle rate settings step")
@@ -423,7 +423,7 @@ class DriverRegistrationRepository @Inject constructor(
     }
 
     // ==================== Vehicle Info ====================
-    suspend fun getVehicleInfo(vehicleId: String): Result<BaseResponse<VehicleInfoResponse>> {
+    suspend fun getVehicleInfo(vehicleId: String): Result<VehicleInfoResponse> {
         return withContext(Dispatchers.IO) {
             try {
                 Timber.tag(TAG).d("Fetching vehicle info for id=$vehicleId")

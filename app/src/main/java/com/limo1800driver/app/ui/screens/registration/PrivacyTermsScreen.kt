@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,7 +97,13 @@ fun PrivacyTermsScreen(
                 }
 
                 pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                withStyle(style = SpanStyle(color = AppColors.LimoOrange, fontSize = 15.sp, textDecoration = TextDecoration.Underline)) {
+                withStyle(
+                    style = SpanStyle(
+                        color = AppColors.LimoOrange,
+                        fontSize = 15.sp,
+                        textDecoration = TextDecoration.Underline
+                    )
+                ) {
                     append("Terms of Use")
                 }
                 pop()
@@ -106,7 +113,13 @@ fun PrivacyTermsScreen(
                 }
 
                 pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
-                withStyle(style = SpanStyle(color = AppColors.LimoOrange, fontSize = 15.sp, textDecoration = TextDecoration.Underline)) {
+                withStyle(
+                    style = SpanStyle(
+                        color = AppColors.LimoOrange,
+                        fontSize = 15.sp,
+                        textDecoration = TextDecoration.Underline
+                    )
+                ) {
                     append("Privacy policy")
                 }
                 pop()
@@ -120,11 +133,19 @@ fun PrivacyTermsScreen(
                 text = annotatedString,
                 style = TextStyle(fontFamily = GoogleSansFamily, lineHeight = 22.sp),
                 onClick = { offset ->
-                    annotatedString.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
+                    annotatedString.getStringAnnotations(
+                        tag = "TERMS",
+                        start = offset,
+                        end = offset
+                    )
                         .firstOrNull()?.let {
                             // Handle Terms Link Click
                         }
-                    annotatedString.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset)
+                    annotatedString.getStringAnnotations(
+                        tag = "PRIVACY",
+                        start = offset,
+                        end = offset
+                    )
                         .firstOrNull()?.let {
                             // Handle Privacy Link Click
                         }
@@ -135,7 +156,7 @@ fun PrivacyTermsScreen(
         // Push the Checkbox and Buttons to the bottom
         Spacer(modifier = Modifier.weight(1f))
 
-        Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        HorizontalDivider(thickness = 1.dp, color = Color(0xFFE5E7EB))
 
         // --- 3. Agreement Checkbox Row ---
         Row(

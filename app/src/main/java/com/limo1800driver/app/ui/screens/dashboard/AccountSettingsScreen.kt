@@ -1,6 +1,7 @@
 package com.limo1800driver.app.ui.screens.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.limo1800driver.app.ui.components.CommonMenuHeader
 import com.limo1800driver.app.ui.components.ShimmerBox
 import com.limo1800driver.app.ui.components.ShimmerText
 import com.limo1800driver.app.ui.theme.LimoOrange
@@ -37,6 +40,7 @@ import com.limo1800driver.app.ui.viewmodel.AccountSettingsViewModel
 fun AccountSettingsScreen(
     onBack: () -> Unit,
     onNavigateToProfile: () -> Unit = {},
+    onNavigateToProfilePicture: () -> Unit = {},
     onNavigateToCompanyInfo: () -> Unit = {},
     onNavigateToDrivingLicense: () -> Unit = {},
     onNavigateToBankDetails: () -> Unit = {},
@@ -50,22 +54,9 @@ fun AccountSettingsScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Account Settings",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            CommonMenuHeader(
+                title = "Account Settings",
+                onBackClick = onBack
             )
         }
     ) { paddingValues ->
@@ -82,7 +73,8 @@ fun AccountSettingsScreen(
                     driverName = viewModel.getFullName(),
                     driverImageURL = viewModel.getDriverImageURL(),
                     isLoading = uiState.isLoading,
-                    onViewProfile = onNavigateToProfile
+                    onViewProfile = onNavigateToProfile,
+                    onEditProfilePicture = onNavigateToProfilePicture
                 )
             }
             
@@ -104,30 +96,30 @@ fun AccountSettingsScreen(
                                 isVerified = true,
                                 onEdit = onNavigateToCompanyInfo
                             )
-                            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                thickness = DividerDefaults.Thickness,
+                                color = DividerDefaults.color
+                            )
                         }
-                        
+
                         // Driving License
                         DocumentSection(
                             title = "Driving License",
                             isVerified = true,
                             onEdit = onNavigateToDrivingLicense
                         )
-                        Divider(modifier = Modifier.padding(horizontal = 16.dp))
-                        
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = DividerDefaults.Thickness,
+                            color = DividerDefaults.color
+                        )
+
                         // Bank Details
                         DocumentSection(
                             title = "Bank Details",
                             isVerified = true,
                             onEdit = onNavigateToBankDetails
-                        )
-                        Divider(modifier = Modifier.padding(horizontal = 16.dp))
-                        
-                        // Vehicle Insurance
-                        DocumentSection(
-                            title = "Vehicle Insurance",
-                            isVerified = true,
-                            onEdit = onNavigateToVehicleInsurance
                         )
                     }
                 }
@@ -144,14 +136,29 @@ fun AccountSettingsScreen(
                     
                     // Vehicles List
                     Column {
+                        // Vehicle Insurance (moved here to match iOS)
+                        VehicleSection(
+                            title = "Vehicle Insurance",
+                            vehicleCount = null,
+                            onEdit = onNavigateToVehicleInsurance
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = DividerDefaults.Thickness,
+                            color = DividerDefaults.color
+                        )
                         // Vehicle Details
                         VehicleSection(
                             title = "Vehicle Details",
                             vehicleCount = uiState.vehicleCount,
                             onEdit = onNavigateToVehicleDetails
                         )
-                        Divider(modifier = Modifier.padding(horizontal = 16.dp))
-                        
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = DividerDefaults.Thickness,
+                            color = DividerDefaults.color
+                        )
+
                         // Vehicle Rate Settings
                         VehicleSection(
                             title = "Vehicle Rate Settings",
@@ -165,9 +172,13 @@ fun AccountSettingsScreen(
             // Logout Section
             item {
                 Column {
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        thickness = DividerDefaults.Thickness,
+                        color = DividerDefaults.color
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
-                    
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -223,17 +234,21 @@ private fun ProfileSection(
     driverName: String,
     driverImageURL: String?,
     isLoading: Boolean,
-    onViewProfile: () -> Unit
+    onViewProfile: () -> Unit,
+    onEditProfilePicture: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(Color(243, 147, 61, 26))
             .padding(horizontal = 16.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+
     ) {
         Column(
             modifier = Modifier.weight(1f),
+
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (isLoading) {
@@ -277,38 +292,66 @@ private fun ProfileSection(
             }
         }
         
-        // Profile Image
+        // Profile Image (+ edit pencil)
         if (isLoading) {
             ShimmerBox(
                 modifier = Modifier.size(80.dp),
                 shape = CircleShape
             )
-        } else if (!driverImageURL.isNullOrEmpty()) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(driverImageURL)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "Driver Profile",
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFFFF3E0), CircleShape),
-                contentScale = ContentScale.Crop
-            )
         } else {
             Box(
                 modifier = Modifier
                     .size(80.dp)
-                    .background(Color(0xFFFFF3E0), CircleShape),
+                    .clickable { onViewProfile() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Driver Profile",
-                    modifier = Modifier.size(40.dp),
-                    tint = LimoOrange
-                )
+                if (!driverImageURL.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(driverImageURL)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Driver Profile",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFF3E0), CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFFFF3E0), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Driver Profile",
+                            modifier = Modifier.size(40.dp),
+                            tint = LimoOrange
+                        )
+                    }
+                }
+
+                // Pencil icon overlay
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(LimoOrange, CircleShape)
+                        .border(2.dp, Color.White, CircleShape)
+                        .clickable { onEditProfilePicture() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit profile picture",
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
             }
         }
     }
@@ -440,13 +483,13 @@ private fun VehicleSection(
                 color = Color.Black
             )
             
-            vehicleCount?.let { count ->
-                Text(
-                    text = "$count vehicle${if (count != 1) "s" else ""}",
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-            }
+//            vehicleCount?.let { count ->
+//                Text(
+//                    text = "$count vehicle${if (count != 1) "s" else ""}",
+//                    fontSize = 12.sp,
+//                    color = Color.Gray
+//                )
+//            }
         }
         
         Row(

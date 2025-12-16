@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,14 +66,14 @@ fun WeeklySummaryCard(
                         modifier = Modifier.size(16.dp)
                     )
                 }
-                
+
                 Text(
                     text = dateRange,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
-                
+
                 IconButton(
                     onClick = onNextWeek,
                     enabled = canGoNext,
@@ -86,13 +87,13 @@ fun WeeklySummaryCard(
                     )
                 }
             }
-            
+
             // Divider
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.Gray.copy(alpha = 0.2f)
+                thickness = DividerDefaults.Thickness, color = Color.Gray.copy(alpha = 0.2f)
             )
-            
+
             // Weekly Metrics
             Row(
                 modifier = Modifier
@@ -108,15 +109,15 @@ fun WeeklySummaryCard(
                     isEarnings = true,
                     currencySymbol = currencySymbol
                 )
-                
+
                 // Divider
-                Divider(
+                HorizontalDivider(
                     modifier = Modifier
                         .width(1.dp)
                         .height(40.dp),
-                    color = Color.Gray.copy(alpha = 0.2f)
+                    thickness = DividerDefaults.Thickness, color = Color.Gray.copy(alpha = 0.2f)
                 )
-                
+
                 // Online Time
                 SummaryItem(
                     title = "ONLINE",
@@ -124,15 +125,15 @@ fun WeeklySummaryCard(
                     color = Color.Black,
                     isEarnings = false
                 )
-                
+
                 // Divider
-                Divider(
+                HorizontalDivider(
                     modifier = Modifier
                         .width(1.dp)
                         .height(40.dp),
-                    color = Color.Gray.copy(alpha = 0.2f)
+                    thickness = DividerDefaults.Thickness, color = Color.Gray.copy(alpha = 0.2f)
                 )
-                
+
                 // Rides
                 SummaryItem(
                     title = "RIDES",

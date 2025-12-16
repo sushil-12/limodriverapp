@@ -24,53 +24,74 @@ import javax.inject.Inject
 class PreArrangedRidesViewModel @Inject constructor(
     private val dashboardRepository: DriverDashboardRepository
 ) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(PreArrangedRidesUiState())
     val uiState: StateFlow<PreArrangedRidesUiState> = _uiState.asStateFlow()
-    
+
     private var searchJob: Job? = null
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    private val displayDateFormat = SimpleDateFormat("MMM dd", Locale.US)
-    
+    // API Date format (Standard ISO Date)
+    private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+    // Display Formats
+    private val displayRangeFormat = SimpleDateFormat("MMM dd", Locale.US)
+    private val displayMonthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+    private val displayYearFormat = SimpleDateFormat("yyyy", Locale.US)
+
     init {
         setupCurrentWeek()
     }
-    
+
     /**
      * Setup current week dates
      */
     private fun setupCurrentWeek() {
-        val calendar = Calendar.getInstance()
-        val today = calendar.time
-        
-        // Get start of week (Monday)
-        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
+        val calendar = getCleanCalendar()
+
+        // Calculate Monday of current week
+        calendar.firstDayOfWeek = Calendar.MONDAY
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+
+        calendar.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
         val weekStart = calendar.time
-        
-        // Get end of week (Sunday)
-        calendar.add(Calendar.DAY_OF_WEEK, 6)
+
+        // Calculate Sunday of current week
+        calendar.add(Calendar.DAY_OF_MONTH, 6)
+        // Ensure end date covers the full day for logic, though API sends YYYY-MM-DD
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
         val weekEnd = calendar.time
-        
+
         _uiState.value = _uiState.value.copy(
             currentWeekStart = weekStart,
             currentWeekEnd = weekEnd,
             selectedWeekStart = weekStart,
-            selectedWeekEnd = weekEnd
+            selectedWeekEnd = weekEnd,
+            selectedTimePeriod = TimePeriod.WEEKLY
         )
-        
+
         fetchBookings(resetData = true)
     }
-    
+
+    /**
+     * Helper to get a Calendar instance with time set to 00:00:00
+     */
+    private fun getCleanCalendar(): Calendar {
+        val calendar = Calendar.getInstance(Locale.US)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        return calendar
+    }
+
     /**
      * Fetch bookings from API
      */
     fun fetchBookings(resetData: Boolean = false) {
         if (_uiState.value.isLoading && !resetData) return
-        
+
         viewModelScope.launch {
             if (resetData) {
                 _uiState.value = _uiState.value.copy(
@@ -78,13 +99,15 @@ class PreArrangedRidesViewModel @Inject constructor(
                     currentPage = 1
                 )
             }
-            
+
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
-            val startDate = dateFormat.format(_uiState.value.selectedWeekStart)
-            val endDate = dateFormat.format(_uiState.value.selectedWeekEnd)
+
+            val startDate = apiDateFormat.format(_uiState.value.selectedWeekStart)
+            val endDate = apiDateFormat.format(_uiState.value.selectedWeekEnd)
             val searchText = _uiState.value.searchText.takeIf { it.isNotBlank() }
-            
+
+            Timber.d("PreArrangedRidesViewModel - Fetching: period=${_uiState.value.selectedTimePeriod}, start=$startDate, end=$endDate, page=${_uiState.value.currentPage}")
+
             dashboardRepository.getDriverBookings(
                 page = _uiState.value.currentPage,
                 perPage = _uiState.value.perPage,
@@ -100,7 +123,7 @@ class PreArrangedRidesViewModel @Inject constructor(
                         } else {
                             _uiState.value.bookings + response.data.bookings
                         }
-                        
+
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             bookings = newBookings,
@@ -112,13 +135,11 @@ class PreArrangedRidesViewModel @Inject constructor(
                             } ?: false,
                             error = null
                         )
-                        Timber.d("Bookings loaded: ${newBookings.size}")
                     } else {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = response.message
                         )
-                        Timber.e("Bookings API error: ${response.message}")
                     }
                 }
                 .onFailure { exception ->
@@ -126,56 +147,31 @@ class PreArrangedRidesViewModel @Inject constructor(
                         isLoading = false,
                         error = exception.message ?: "Failed to load bookings"
                     )
-                    Timber.e(exception, "Failed to fetch bookings")
                 }
         }
     }
-    
+
     /**
      * Load more bookings (pagination)
      */
     fun loadMoreBookings() {
         if (_uiState.value.isLoading || !_uiState.value.canLoadMore) return
-        
         _uiState.value = _uiState.value.copy(currentPage = _uiState.value.currentPage + 1)
         fetchBookings()
     }
-    
+
     /**
-     * Update search text with debounce
-     */
-    fun updateSearchText(text: String) {
-        _uiState.value = _uiState.value.copy(searchText = text)
-        
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            delay(500) // Debounce 500ms
-            fetchBookings(resetData = true)
-        }
-    }
-    
-    /**
-     * Set search text (for TextField binding) - matching user app pattern
+     * Set search text
      */
     fun setSearchText(text: String) {
         _uiState.value = _uiState.value.copy(searchText = text)
-        handleSearch(text)
-    }
-    
-    /**
-     * Handle search - matches iOS onChange behavior with debounce
-     */
-    private fun handleSearch(searchText: String) {
         searchJob?.cancel()
-        
         searchJob = viewModelScope.launch {
             delay(500)
-            if (_uiState.value.searchText == searchText) {
-                refreshBookings()
-            }
+            refreshBookings()
         }
     }
-    
+
     /**
      * Clear search
      */
@@ -184,90 +180,74 @@ class PreArrangedRidesViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(searchText = "")
         refreshBookings()
     }
-    
-    /**
-     * Refresh bookings
-     */
+
     fun refreshBookings() {
         _uiState.value = _uiState.value.copy(currentPage = 1)
         fetchBookings(resetData = true)
     }
-    
+
     /**
-     * Handle time period change
+     * Handle time period change logic
      */
     fun handleTimePeriodChange(timePeriod: TimePeriod) {
-        val calendar = Calendar.getInstance()
-        val today = calendar.time
-        
+        // Reset to "Current" time context whenever switching tabs (Standard behavior)
+        val calendar = getCleanCalendar()
+        calendar.firstDayOfWeek = Calendar.MONDAY
+
+        var start: Date
+        var end: Date
+
         when (timePeriod) {
             TimePeriod.WEEKLY -> {
-                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-                val weekStart = calendar.time
-                
-                calendar.add(Calendar.DAY_OF_WEEK, 6)
-                val weekEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedTimePeriod = timePeriod,
-                    selectedWeekStart = weekStart,
-                    selectedWeekEnd = weekEnd,
-                    currentPage = 1
-                )
+                val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+                val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+                calendar.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
+                start = calendar.time
+
+                calendar.add(Calendar.DAY_OF_MONTH, 6)
+                end = calendar.time
             }
             TimePeriod.MONTHLY -> {
                 calendar.set(Calendar.DAY_OF_MONTH, 1)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-                val monthStart = calendar.time
-                
+                start = calendar.time
+
                 calendar.add(Calendar.MONTH, 1)
                 calendar.add(Calendar.DAY_OF_MONTH, -1)
-                val monthEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedTimePeriod = timePeriod,
-                    selectedWeekStart = monthStart,
-                    selectedWeekEnd = monthEnd,
-                    currentPage = 1
-                )
+                end = calendar.time
             }
             TimePeriod.YEARLY -> {
-                calendar.set(Calendar.DAY_OF_YEAR, 1)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-                val yearStart = calendar.time
-                
-                calendar.add(Calendar.YEAR, 1)
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
-                val yearEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedTimePeriod = timePeriod,
-                    selectedWeekStart = yearStart,
-                    selectedWeekEnd = yearEnd,
-                    currentPage = 1
-                )
+                calendar.set(Calendar.DAY_OF_YEAR, 1) // Jan 1st
+                start = calendar.time
+
+                calendar.set(Calendar.MONTH, Calendar.DECEMBER)
+                calendar.set(Calendar.DAY_OF_MONTH, 31)
+                end = calendar.time
             }
             TimePeriod.CUSTOM -> {
-                // Keep current dates, just change period
-                _uiState.value = _uiState.value.copy(
-                    selectedTimePeriod = timePeriod
-                )
+                // Keep existing selection or default to current week if null
+                start = _uiState.value.selectedWeekStart
+                end = _uiState.value.selectedWeekEnd
             }
         }
-        
+
+        // Ensure end of day time for end date (just for safety)
+        val endCalendar = Calendar.getInstance(Locale.US)
+        endCalendar.time = end
+        endCalendar.set(Calendar.HOUR_OF_DAY, 23)
+        endCalendar.set(Calendar.MINUTE, 59)
+        endCalendar.set(Calendar.SECOND, 59)
+        end = endCalendar.time
+
+        _uiState.value = _uiState.value.copy(
+            selectedTimePeriod = timePeriod,
+            selectedWeekStart = start,
+            selectedWeekEnd = end,
+            currentPage = 1
+        )
+
         fetchBookings(resetData = true)
     }
-    
+
     /**
      * Handle custom date range selection
      */
@@ -279,329 +259,120 @@ class PreArrangedRidesViewModel @Inject constructor(
         )
         fetchBookings(resetData = true)
     }
-    
-    /**
-     * Navigate to previous week
-     */
-    fun goToPreviousWeek() {
-        val calendar = Calendar.getInstance()
-        calendar.time = _uiState.value.selectedWeekStart
-        calendar.add(Calendar.WEEK_OF_YEAR, -1)
-        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        val newStart = calendar.time
-        
-        calendar.add(Calendar.DAY_OF_WEEK, 6)
-        val newEnd = calendar.time
-        
-        _uiState.value = _uiState.value.copy(
-            selectedWeekStart = newStart,
-            selectedWeekEnd = newEnd,
-            currentPage = 1
-        )
-        fetchBookings(resetData = true)
-    }
-    
-    /**
-     * Navigate to previous month
-     */
-    fun goToPreviousMonth() {
-        val calendar = Calendar.getInstance()
-        calendar.time = _uiState.value.selectedWeekStart
-        calendar.add(Calendar.MONTH, -1)
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        val newStart = calendar.time
-        
-        calendar.add(Calendar.MONTH, 1)
-        calendar.add(Calendar.DAY_OF_MONTH, -1)
-        val newEnd = calendar.time
-        
-        _uiState.value = _uiState.value.copy(
-            selectedWeekStart = newStart,
-            selectedWeekEnd = newEnd,
-            currentPage = 1
-        )
-        fetchBookings(resetData = true)
-    }
-    
-    /**
-     * Navigate to previous year
-     */
-    fun goToPreviousYear() {
-        val calendar = Calendar.getInstance()
-        calendar.time = _uiState.value.selectedWeekStart
-        calendar.add(Calendar.YEAR, -1)
-        calendar.set(Calendar.DAY_OF_YEAR, 1)
-        val newStart = calendar.time
-        
-        calendar.add(Calendar.YEAR, 1)
-        calendar.add(Calendar.DAY_OF_YEAR, -1)
-        val newEnd = calendar.time
-        
-        _uiState.value = _uiState.value.copy(
-            selectedWeekStart = newStart,
-            selectedWeekEnd = newEnd,
-            currentPage = 1
-        )
-        fetchBookings(resetData = true)
-    }
-    
-    /**
-     * Navigate to previous period
-     */
+
+    // --- Navigation Logic ---
+
     fun goToPreviousPeriod() {
-        val calendar = Calendar.getInstance()
-        val period = _uiState.value.selectedTimePeriod
-        
-        when (period) {
-            TimePeriod.WEEKLY -> {
-                calendar.time = _uiState.value.selectedWeekStart
-                calendar.add(Calendar.WEEK_OF_YEAR, -1)
-                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-                val newStart = calendar.time
-                
-                calendar.add(Calendar.DAY_OF_WEEK, 6)
-                val newEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedWeekStart = newStart,
-                    selectedWeekEnd = newEnd,
-                    currentPage = 1
-                )
-            }
-            TimePeriod.MONTHLY -> {
-                calendar.time = _uiState.value.selectedWeekStart
-                calendar.add(Calendar.MONTH, -1)
-                calendar.set(Calendar.DAY_OF_MONTH, 1)
-                val newStart = calendar.time
-                
-                calendar.add(Calendar.MONTH, 1)
-                calendar.add(Calendar.DAY_OF_MONTH, -1)
-                val newEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedWeekStart = newStart,
-                    selectedWeekEnd = newEnd,
-                    currentPage = 1
-                )
-            }
-            TimePeriod.YEARLY -> {
-                calendar.time = _uiState.value.selectedWeekStart
-                calendar.add(Calendar.YEAR, -1)
-                calendar.set(Calendar.DAY_OF_YEAR, 1)
-                val newStart = calendar.time
-                
-                calendar.add(Calendar.YEAR, 1)
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
-                val newEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedWeekStart = newStart,
-                    selectedWeekEnd = newEnd,
-                    currentPage = 1
-                )
-            }
-            TimePeriod.CUSTOM -> {
-                // For custom, move back by the same duration
-                val duration = _uiState.value.selectedWeekEnd.time - _uiState.value.selectedWeekStart.time
-                calendar.time = _uiState.value.selectedWeekStart
-                calendar.timeInMillis -= duration
-                val newStart = calendar.time
-                
-                calendar.timeInMillis += duration
-                val newEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedWeekStart = newStart,
-                    selectedWeekEnd = newEnd,
-                    currentPage = 1
-                )
-            }
-        }
-        
-        fetchBookings(resetData = true)
+        navigatePeriod(-1)
     }
-    
-    /**
-     * Navigate to next week
-     */
-    fun goToNextWeek() {
-        val calendar = Calendar.getInstance()
-        calendar.time = _uiState.value.selectedWeekStart
-        calendar.add(Calendar.WEEK_OF_YEAR, 1)
-        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        val newStart = calendar.time
-        
-        calendar.add(Calendar.DAY_OF_WEEK, 6)
-        val newEnd = calendar.time
-        
-        _uiState.value = _uiState.value.copy(
-            selectedWeekStart = newStart,
-            selectedWeekEnd = newEnd,
-            currentPage = 1
-        )
-        fetchBookings(resetData = true)
-    }
-    
-    /**
-     * Navigate to next month
-     */
-    fun goToNextMonth() {
-        val calendar = Calendar.getInstance()
-        calendar.time = _uiState.value.selectedWeekStart
-        calendar.add(Calendar.MONTH, 1)
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        val newStart = calendar.time
-        
-        calendar.add(Calendar.MONTH, 1)
-        calendar.add(Calendar.DAY_OF_MONTH, -1)
-        val newEnd = calendar.time
-        
-        _uiState.value = _uiState.value.copy(
-            selectedWeekStart = newStart,
-            selectedWeekEnd = newEnd,
-            currentPage = 1
-        )
-        fetchBookings(resetData = true)
-    }
-    
-    /**
-     * Navigate to next year
-     */
-    fun goToNextYear() {
-        val calendar = Calendar.getInstance()
-        calendar.time = _uiState.value.selectedWeekStart
-        calendar.add(Calendar.YEAR, 1)
-        calendar.set(Calendar.DAY_OF_YEAR, 1)
-        val newStart = calendar.time
-        
-        calendar.add(Calendar.YEAR, 1)
-        calendar.add(Calendar.DAY_OF_YEAR, -1)
-        val newEnd = calendar.time
-        
-        _uiState.value = _uiState.value.copy(
-            selectedWeekStart = newStart,
-            selectedWeekEnd = newEnd,
-            currentPage = 1
-        )
-        fetchBookings(resetData = true)
-    }
-    
-    /**
-     * Navigate to next period
-     */
+
     fun goToNextPeriod() {
-        val calendar = Calendar.getInstance()
-        val period = _uiState.value.selectedTimePeriod
-        
-        when (period) {
+        navigatePeriod(1)
+    }
+
+    private fun navigatePeriod(direction: Int) {
+        val calendar = getCleanCalendar()
+        calendar.time = _uiState.value.selectedWeekStart
+        calendar.firstDayOfWeek = Calendar.MONDAY
+
+        var newStart: Date
+        var newEnd: Date
+
+        when (_uiState.value.selectedTimePeriod) {
             TimePeriod.WEEKLY -> {
-                calendar.time = _uiState.value.selectedWeekStart
-                calendar.add(Calendar.WEEK_OF_YEAR, 1)
-                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-                val newStart = calendar.time
-                
-                calendar.add(Calendar.DAY_OF_WEEK, 6)
-                val newEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedWeekStart = newStart,
-                    selectedWeekEnd = newEnd,
-                    currentPage = 1
-                )
+                calendar.add(Calendar.WEEK_OF_YEAR, direction)
+                newStart = calendar.time
+
+                calendar.add(Calendar.DAY_OF_MONTH, 6)
+                newEnd = calendar.time
             }
             TimePeriod.MONTHLY -> {
-                calendar.time = _uiState.value.selectedWeekStart
-                calendar.add(Calendar.MONTH, 1)
-                calendar.set(Calendar.DAY_OF_MONTH, 1)
-                val newStart = calendar.time
-                
+                calendar.add(Calendar.MONTH, direction)
+                calendar.set(Calendar.DAY_OF_MONTH, 1) // Ensure 1st
+                newStart = calendar.time
+
                 calendar.add(Calendar.MONTH, 1)
                 calendar.add(Calendar.DAY_OF_MONTH, -1)
-                val newEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedWeekStart = newStart,
-                    selectedWeekEnd = newEnd,
-                    currentPage = 1
-                )
+                newEnd = calendar.time
             }
             TimePeriod.YEARLY -> {
-                calendar.time = _uiState.value.selectedWeekStart
-                calendar.add(Calendar.YEAR, 1)
-                calendar.set(Calendar.DAY_OF_YEAR, 1)
-                val newStart = calendar.time
-                
-                calendar.add(Calendar.YEAR, 1)
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
-                val newEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedWeekStart = newStart,
-                    selectedWeekEnd = newEnd,
-                    currentPage = 1
-                )
+                calendar.add(Calendar.YEAR, direction)
+                calendar.set(Calendar.DAY_OF_YEAR, 1) // Jan 1
+                newStart = calendar.time
+
+                calendar.set(Calendar.MONTH, Calendar.DECEMBER)
+                calendar.set(Calendar.DAY_OF_MONTH, 31)
+                newEnd = calendar.time
             }
             TimePeriod.CUSTOM -> {
-                // For custom, move forward by the same duration
+                // Shift both dates by the duration of the current range
                 val duration = _uiState.value.selectedWeekEnd.time - _uiState.value.selectedWeekStart.time
-                calendar.time = _uiState.value.selectedWeekEnd
-                calendar.timeInMillis += 1 // Move to next day
-                val newStart = calendar.time
-                
-                calendar.timeInMillis += duration
-                val newEnd = calendar.time
-                
-                _uiState.value = _uiState.value.copy(
-                    selectedWeekStart = newStart,
-                    selectedWeekEnd = newEnd,
-                    currentPage = 1
-                )
+                // Approx days
+                val daysDiff = ((duration / (1000 * 60 * 60 * 24)) + 1).toInt()
+
+                calendar.add(Calendar.DAY_OF_MONTH, daysDiff * direction)
+                newStart = calendar.time
+
+                val endCal = getCleanCalendar()
+                endCal.time = _uiState.value.selectedWeekEnd
+                endCal.add(Calendar.DAY_OF_MONTH, daysDiff * direction)
+                newEnd = endCal.time
             }
         }
-        
+
+        // Ensure end time is EOD
+        val endCalFix = Calendar.getInstance(Locale.US)
+        endCalFix.time = newEnd
+        endCalFix.set(Calendar.HOUR_OF_DAY, 23)
+        endCalFix.set(Calendar.MINUTE, 59)
+        newEnd = endCalFix.time
+
+        _uiState.value = _uiState.value.copy(
+            selectedWeekStart = newStart,
+            selectedWeekEnd = newEnd,
+            currentPage = 1
+        )
         fetchBookings(resetData = true)
     }
-    
-    /**
-     * Get formatted date range string
-     */
+
+    // --- Helper for Date String Display ---
+
     fun getDateRangeString(): String {
-        val startStr = displayDateFormat.format(_uiState.value.selectedWeekStart)
-        val endStr = displayDateFormat.format(_uiState.value.selectedWeekEnd)
-        return "$startStr - $endStr"
+        val start = _uiState.value.selectedWeekStart
+        val end = _uiState.value.selectedWeekEnd
+
+        return when (_uiState.value.selectedTimePeriod) {
+            TimePeriod.WEEKLY -> {
+                val startStr = displayRangeFormat.format(start)
+                val endStr = displayRangeFormat.format(end)
+                "$startStr - $endStr"
+            }
+            TimePeriod.MONTHLY -> {
+                displayMonthFormat.format(start)
+            }
+            TimePeriod.YEARLY -> {
+                displayYearFormat.format(start)
+            }
+            TimePeriod.CUSTOM -> {
+                val startStr = displayRangeFormat.format(start)
+                val endStr = displayRangeFormat.format(end)
+                "$startStr - $endStr"
+            }
+        }
     }
-    
-    /**
-     * Check if can go to previous period
-     */
+
     fun canGoPrevious(): Boolean {
-        // Allow going back up to 1 year
-        val calendar = Calendar.getInstance()
-        calendar.time = _uiState.value.currentWeekStart
-        calendar.add(Calendar.YEAR, -1)
+        // Simple logic: Allow going back up to ~5 years
+        val calendar = getCleanCalendar()
+        calendar.add(Calendar.YEAR, -5)
         return _uiState.value.selectedWeekStart.after(calendar.time)
     }
-    
-    /**
-     * Check if can go to next period
-     */
+
     fun canGoNext(): Boolean {
-        // Don't allow going to future periods beyond current date
-        val today = Calendar.getInstance()
-        today.set(Calendar.HOUR_OF_DAY, 0)
-        today.set(Calendar.MINUTE, 0)
-        today.set(Calendar.SECOND, 0)
-        today.set(Calendar.MILLISECOND, 0)
-        
-        return _uiState.value.selectedWeekStart.before(today.time) ||
-               _uiState.value.selectedWeekStart == today.time
-    }
-    
-    /**
-     * Clear error state
-     */
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+        // Prevent going into future periods (beyond current date context)
+        // If current selection end date is >= today, disable next
+        val today = getCleanCalendar()
+        return _uiState.value.selectedWeekEnd.before(today.time)
     }
 }
 
@@ -625,4 +396,3 @@ data class PreArrangedRidesUiState(
     val selectedWeekEnd: Date = Date(),
     val error: String? = null
 )
-

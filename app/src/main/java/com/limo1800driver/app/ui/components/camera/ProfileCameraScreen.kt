@@ -6,11 +6,14 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
+import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
+import android.net.Uri
+import android.os.Build
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +27,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -69,6 +73,19 @@ fun ProfileCameraScreen(
         onResult = { isGranted -> hasPermission = isGranted }
     )
 
+    // Gallery picker (system picker, no storage permission required)
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri: Uri? ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val bitmap = decodeBitmapFromUri(context, uri)
+                onImageCaptured(bitmap)
+                onDismiss()
+            }
+        }
+    )
+
     // Initial Permission Check
     LaunchedEffect(Unit) {
         val permission = Manifest.permission.CAMERA
@@ -98,6 +115,9 @@ fun ProfileCameraScreen(
                                 onImageCaptured(bitmap)
                             }
                         }
+                    },
+                    onPickFromGallery = {
+                        galleryLauncher.launch("image/*")
                     }
                 )
             } else {
@@ -206,7 +226,8 @@ private fun CameraOverlay() {
 @Composable
 private fun CameraControls(
     onDismiss: () -> Unit,
-    onCaptureClick: () -> Unit
+    onCaptureClick: () -> Unit,
+    onPickFromGallery: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -232,22 +253,70 @@ private fun CameraControls(
                 color = Color.White.copy(alpha = 0.9f)
             )
 
-            Button(
-                onClick = onCaptureClick,
-                modifier = Modifier.size(80.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                contentPadding = PaddingValues(0.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Inner circle for aesthetics
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .background(Color.White, CircleShape)
-                        .border(4.dp, Color.Black.copy(alpha = 0.1f), CircleShape)
-                )
+                IconButton(
+                    onClick = onPickFromGallery,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhotoLibrary,
+                        contentDescription = "Pick from gallery",
+                        tint = Color.White
+                    )
+                }
+
+                Button(
+                    onClick = onCaptureClick,
+                    modifier = Modifier.size(80.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    // Inner circle for aesthetics
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(Color.White, CircleShape)
+                            .border(4.dp, Color.Black.copy(alpha = 0.1f), CircleShape)
+                    )
+                }
+
+                Box(modifier = Modifier.size(56.dp))
             }
         }
+    }
+}
+
+private fun decodeBitmapFromUri(context: Context, uri: Uri): Bitmap? {
+    return try {
+        val raw = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val source = ImageDecoder.createSource(context.contentResolver, uri)
+            ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                decoder.isMutableRequired = true
+            }
+        } else {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        } ?: return null
+
+        val maxDim = maxOf(raw.width, raw.height)
+        val target = 2000
+        if (maxDim <= target) raw
+        else {
+            val scale = target.toFloat() / maxDim.toFloat()
+            val w = (raw.width * scale).toInt().coerceAtLeast(1)
+            val h = (raw.height * scale).toInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(raw, w, h, true)
+        }
+    } catch (e: Exception) {
+        null
     }
 }
 

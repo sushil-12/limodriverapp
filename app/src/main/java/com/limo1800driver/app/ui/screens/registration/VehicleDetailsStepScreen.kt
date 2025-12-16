@@ -23,6 +23,7 @@ import com.limo1800driver.app.ui.viewmodel.VehicleDetailsStepViewModel
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.HorizontalDivider
 
 @Composable
 fun VehicleDetailsStepScreen(
@@ -78,7 +79,7 @@ fun VehicleDetailsStepScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Location header
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -106,9 +107,13 @@ fun VehicleDetailsStepScreen(
                     )
                 }
             }
-            
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-            
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = DividerDefaults.Thickness,
+                color = DividerDefaults.color
+            )
+
             // Welcome message
             Text(
                 text = "Welcome $userName!",
@@ -118,9 +123,9 @@ fun VehicleDetailsStepScreen(
                 ),
                 modifier = Modifier.padding(top = 8.dp)
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Progress bars
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -131,7 +136,9 @@ fun VehicleDetailsStepScreen(
                         .weight(1f)
                         .height(8.dp)
                         .background(
-                            if (isVehicleInsuranceCompleted) AppColors.LimoOrange else Color(0xFFE5E5E5),
+                            if (isVehicleInsuranceCompleted) AppColors.LimoOrange else Color(
+                                0xFFE5E5E5
+                            ),
                             RoundedCornerShape(2.dp)
                         )
                 )
@@ -140,7 +147,9 @@ fun VehicleDetailsStepScreen(
                         .weight(1f)
                         .height(8.dp)
                         .background(
-                            if (isVehicleDetailsCompleted) AppColors.LimoOrange else Color(0xFFE5E5E5),
+                            if (isVehicleDetailsCompleted) AppColors.LimoOrange else Color(
+                                0xFFE5E5E5
+                            ),
                             RoundedCornerShape(2.dp)
                         )
                 )
@@ -154,9 +163,9 @@ fun VehicleDetailsStepScreen(
                         )
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Steps list
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -171,11 +180,14 @@ fun VehicleDetailsStepScreen(
                         enabled = true,
                         onClick = { onNavigateToStep(NavRoutes.VehicleInsurance) }
                     )
-                    
-                    Divider(color = Color(0xFF121212).copy(alpha = 0.05f), thickness = 1.dp)
-                    
+
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = Color(0xFF121212).copy(alpha = 0.05f)
+                    )
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     // Vehicle Details
                     StepRow(
                         title = "Vehicle Details",
@@ -183,11 +195,14 @@ fun VehicleDetailsStepScreen(
                         enabled = isVehicleInsuranceCompleted,
                         onClick = { onNavigateToStep(NavRoutes.VehicleDetails) }
                     )
-                    
-                    Divider(color = Color(0xFF121212).copy(alpha = 0.05f), thickness = 1.dp)
-                    
+
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = Color(0xFF121212).copy(alpha = 0.05f)
+                    )
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     // Vehicle Rate Settings
                     StepRow(
                         title = "Vehicle Rate Settings",

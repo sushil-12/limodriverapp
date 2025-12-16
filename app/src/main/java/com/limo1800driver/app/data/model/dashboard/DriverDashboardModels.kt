@@ -290,25 +290,86 @@ data class WeeklySummary(
 // ==================== Driver Earnings Summary ====================
 
 data class DriverEarningsSummaryData(
-    @SerializedName("total_earnings")
-    val totalEarnings: Double?,
+    @SerializedName("currency")
+    val currency: String?,
     
-    @SerializedName("total_rides")
-    val totalRides: Int?,
-    
-    @SerializedName("currency_symbol")
-    val currencySymbol: String?,
-    
-    @SerializedName("period")
-    val period: EarningsPeriod?
+    @SerializedName("stripe_data")
+    val stripeData: StripeData?
 )
 
-data class EarningsPeriod(
-    @SerializedName("start_date")
-    val startDate: String?,
+data class StripeData(
+    @SerializedName("total_volume")
+    val totalVolume: String?,
     
-    @SerializedName("end_date")
-    val endDate: String?
+    @SerializedName("lifetime_volume")
+    val lifetimeVolume: String?,
+    
+    @SerializedName("available_balance")
+    val availableBalance: String?,
+    
+    @SerializedName("pending_balance")
+    val pendingBalance: Any?, // Can be Int or Double
+    
+    @SerializedName("paid_balance")
+    val paidBalance: String?,
+    
+    @SerializedName("recent_transfers")
+    val recentTransfers: List<RecentTransfer>?,
+    
+    @SerializedName("next_payout_date")
+    val nextPayoutDate: String?,
+    
+    @SerializedName("account_status")
+    val accountStatus: String?,
+    
+    @SerializedName("account_info")
+    val accountInfo: AccountInfo?
+)
+
+data class RecentTransfer(
+    @SerializedName("id")
+    val id: String?,
+    
+    @SerializedName("amount")
+    val amount: String?,
+    
+    @SerializedName("currency")
+    val currency: String?,
+    
+    @SerializedName("description")
+    val description: String?,
+    
+    @SerializedName("transfer_group")
+    val transferGroup: String?,
+    
+    @SerializedName("reservation_id")
+    val reservationId: Int?,
+    
+    @SerializedName("created_date")
+    val createdDate: String?,
+    
+    @SerializedName("source_transaction")
+    val sourceTransaction: String?,
+    
+    @SerializedName("status")
+    val status: String?,
+    
+    @SerializedName("payout_date")
+    val payoutDate: String?,
+    
+    @SerializedName("payout_id")
+    val payoutId: String?
+)
+
+data class AccountInfo(
+    @SerializedName("account_id")
+    val accountId: String?,
+    
+    @SerializedName("charges_enabled")
+    val chargesEnabled: Boolean?,
+    
+    @SerializedName("payouts_enabled")
+    val payoutsEnabled: Boolean?
 )
 
 // ==================== Driver Updates ====================
@@ -376,20 +437,39 @@ data class DriverUpdateItem(
 // ==================== Driver Profile ====================
 
 data class DriverProfileData(
+    @SerializedName("driver_id")
+    val driverId: Int? = null,
+
+    @SerializedName("user_id")
+    val userId: Int? = null,
+
     @SerializedName("driver_first_name")
     val driverFirstName: String?,
     
     @SerializedName("driver_last_name")
     val driverLastName: String?,
+
+    @SerializedName("driver_cell_isd", alternate = ["driverCellIsd"])
+    val driverCellIsd: String? = null,
+
+    @SerializedName("driver_cell_number", alternate = ["driverCellNumber", "driver_cell_mobile"])
+    val driverCellNumber: String? = null,
     
     @SerializedName("driver_email")
     val driverEmail: String?,
     
-    @SerializedName("driver_phone")
-    val driverPhone: String?,
+    // Some older endpoints may still return `driver_phone`.
+    @SerializedName("driver_phone", alternate = ["driverPhone"])
+    val driverPhone: String? = null,
     
     @SerializedName("driver_image")
     val driverImage: String?,
+
+    @SerializedName("account")
+    val account: DriverAccountSummary? = null,
+
+    @SerializedName("vehicle")
+    val vehicle: DriverVehicleSummary? = null,
     
     @SerializedName("affiliate_type")
     val affiliateType: String?,
@@ -398,20 +478,206 @@ data class DriverProfileData(
     val companyName: String?
 )
 
+data class DriverAccountSummary(
+    @SerializedName("account_id")
+    val accountId: Int? = null,
+
+    @SerializedName("account_first_name")
+    val accountFirstName: String? = null,
+
+    @SerializedName("account_last_name")
+    val accountLastName: String? = null,
+
+    @SerializedName("account_email")
+    val accountEmail: String? = null
+)
+
+data class DriverVehicleSummary(
+    @SerializedName("vehicle_id")
+    val vehicleId: Int? = null,
+
+    @SerializedName("vehicle_cat_name")
+    val vehicleCatName: String? = null,
+
+    @SerializedName("vehicle_make_name")
+    val vehicleMakeName: String? = null,
+
+    @SerializedName("vehicle_model_name")
+    val vehicleModelName: String? = null,
+
+    @SerializedName("vehicle_year_name")
+    val vehicleYearName: String? = null,
+
+    @SerializedName("vehicle_color")
+    val vehicleColor: String? = null,
+
+    @SerializedName("vehicle_image")
+    val vehicleImage: String? = null
+)
+
 // ==================== Driver Wallet ====================
 
 data class DriverWalletData(
     @SerializedName("balance")
-    val balance: Double?,
-    
+    val balance: BalanceDetails?,
+
+    @SerializedName("stripe_balance")
+    val stripeBalance: StripeBalanceDetails?,
+
+    @SerializedName("all_transfers")
+    val allTransfers: AllTransfersData?
+)
+
+data class BalanceDetails(
+    @SerializedName("current_balance")
+    val currentBalance: String?,
+
+    @SerializedName("currency")
+    val currency: String?,
+
     @SerializedName("currency_symbol")
     val currencySymbol: String?,
-    
-    @SerializedName("transactions")
-    val transactions: List<WalletTransaction>?,
-    
-    @SerializedName("pagination")
-    val pagination: BookingPagination?
+
+    @SerializedName("payout_schedule")
+    val payoutSchedule: String?,
+
+    @SerializedName("payout_schedule_description")
+    val payoutScheduleDescription: String?,
+
+    @SerializedName("account_status")
+    val accountStatus: String?,
+
+    @SerializedName("account_status_description")
+    val accountStatusDescription: String?,
+
+    @SerializedName("total_paid_amount")
+    val totalPaidAmount: String?,
+
+    @SerializedName("total_paid_amount_formatted")
+    val totalPaidAmountFormatted: String?
+)
+
+data class StripeBalanceDetails(
+    @SerializedName("available_balance")
+    val availableBalance: String?,
+
+    @SerializedName("available_balance_description")
+    val availableBalanceDescription: String?,
+
+    @SerializedName("pending_balance")
+    val pendingBalance: String?,
+
+    @SerializedName("pending_balance_description")
+    val pendingBalanceDescription: String?,
+
+    @SerializedName("paid_balance")
+    val paidBalance: String?,
+
+    @SerializedName("paid_balance_description")
+    val paidBalanceDescription: String?,
+
+    @SerializedName("instant_available_balance")
+    val instantAvailableBalance: String?,
+
+    @SerializedName("instant_available_balance_description")
+    val instantAvailableBalanceDescription: String?,
+
+    @SerializedName("total_balance")
+    val totalBalance: String?,
+
+    @SerializedName("total_balance_description")
+    val totalBalanceDescription: String?
+)
+
+data class AllTransfersData(
+    @SerializedName("data")
+    val data: List<TransferDetails>?
+)
+
+data class TransferDetails(
+    @SerializedName("id")
+    val id: String?,
+
+    @SerializedName("amount")
+    val amount: Double?,
+
+    @SerializedName("currency")
+    val currency: String?,
+
+    @SerializedName("description")
+    val description: String?,
+
+    @SerializedName("transfer_group")
+    val transferGroup: String?,
+
+    @SerializedName("reservation_id")
+    val reservationId: Int?,
+
+    @SerializedName("created_date")
+    val createdDate: String?,
+
+    @SerializedName("created_datetime")
+    val createdDatetime: String?,
+
+    @SerializedName("source_transaction")
+    val sourceTransaction: String?,
+
+    @SerializedName("status")
+    val status: String?,
+
+    @SerializedName("payout_date")
+    val payoutDate: String?,
+
+    @SerializedName("payout_id")
+    val payoutId: String?,
+
+    @SerializedName("payout_method")
+    val payoutMethod: String?,
+
+    @SerializedName("payout_bank_account")
+    val payoutBankAccount: String?,
+
+    @SerializedName("application_fee")
+    val applicationFee: Int?,
+
+    @SerializedName("application_fee_percentage")
+    val applicationFeePercentage: Double?,
+
+    @SerializedName("destination_payment")
+    val destinationPayment: String?,
+
+    @SerializedName("livemode")
+    val livemode: Boolean?,
+
+    @SerializedName("metadata")
+    val metadata: List<Any>?,
+
+    @SerializedName("reversed")
+    val reversed: Boolean?,
+
+    @SerializedName("reversal")
+    val reversal: Any?,
+
+    @SerializedName("source_transaction_created")
+    val sourceTransactionCreated: String?,
+
+    @SerializedName("net_amount")
+    val netAmount: Double?,
+
+    @SerializedName("fee_percentage")
+    val feePercentage: Int?,
+
+    @SerializedName("days_since_created")
+    val daysSinceCreated: Int?,
+
+    @SerializedName("is_recent")
+    val isRecent: Boolean?,
+
+    @SerializedName("is_this_month")
+    val isThisMonth: Boolean?,
+
+    @SerializedName("is_this_year")
+    val isThisYear: Boolean?
 )
 
 data class WalletTransaction(
@@ -522,6 +788,61 @@ data class ReservationRates(
     val currency: String?
 )
 
+// ==================== Admin Reservation Rates (Finalize/Edit flows) ====================
+
+/**
+ * Matches iOS `ReservationRatesResponse.data` shape:
+ * - sub_total / grand_total
+ * - min_rate_involved
+ * - rateArray (all_inclusive_rates, taxes, amenities, misc)
+ */
+data class AdminReservationRatesData(
+    @SerializedName("sub_total")
+    val subTotal: Double? = null,
+    @SerializedName("grand_total")
+    val grandTotal: Double? = null,
+    @SerializedName("min_rate_involved")
+    val minRateInvolved: Boolean? = null,
+    @SerializedName("rateArray")
+    val rateArray: AdminReservationRateArray
+)
+
+data class AdminReservationRateArray(
+    @SerializedName("all_inclusive_rates")
+    val allInclusiveRates: Map<String, AdminReservationRateItem> = emptyMap(),
+    @SerializedName("all_inclusive_rates_order")
+    val allInclusiveRatesOrder: List<String> = emptyList(),
+    @SerializedName("taxes")
+    val taxes: Map<String, AdminReservationRateItem> = emptyMap(),
+    @SerializedName("taxes_order")
+    val taxesOrder: List<String> = emptyList(),
+    @SerializedName("amenities")
+    val amenities: Map<String, AdminReservationRateItem> = emptyMap(),
+    @SerializedName("amenities_order")
+    val amenitiesOrder: List<String> = emptyList(),
+    @SerializedName("misc")
+    val misc: Map<String, AdminReservationRateItem> = emptyMap(),
+    @SerializedName("misc_order")
+    val miscOrder: List<String> = emptyList()
+)
+
+data class AdminReservationRateItem(
+    @SerializedName("rate_label")
+    val rateLabel: String,
+    @SerializedName("baserate")
+    val baserate: Double? = null,
+    @SerializedName("multiple")
+    val multiple: Double? = null,
+    @SerializedName("percentage")
+    val percentage: Double? = null,
+    @SerializedName("amount")
+    val amount: Double? = null,
+    @SerializedName("type")
+    val type: String? = null,
+    @SerializedName("flat_baserate")
+    val flatBaserate: Double? = null
+)
+
 // ==================== Booking Rates Vehicle ====================
 
 data class BookingRatesVehicleRequest(
@@ -556,12 +877,66 @@ data class BookingRates(
 
 // ==================== Finalize Rate Edit ====================
 
-data class FinalizeRateEditRequest(
-    @SerializedName("booking_id")
-    val bookingId: Int,
-    
-    @SerializedName("rates")
-    val rates: Map<String, Any>
+data class FinalizeRatesRequest(
+    @SerializedName("reservation_id")
+    val reservationId: String,
+    @SerializedName("rateArray")
+    val rateArray: FinalizeRateArray,
+    @SerializedName("sub_total")
+    val subTotal: Double,
+    @SerializedName("grand_total")
+    val grandTotal: Double,
+    @SerializedName("number_of_hours")
+    val numberOfHours: Int,
+    @SerializedName("shareArray")
+    val shareArray: FinalizeShareArray,
+    @SerializedName("waiting_time_in_mins")
+    val waitingTimeInMins: Int
+)
+
+data class FinalizeRateArray(
+    @SerializedName("all_inclusive_rates")
+    val allInclusiveRates: Map<String, FinalizeRateItem>,
+    @SerializedName("taxes")
+    val taxes: Map<String, FinalizeRateItem>,
+    @SerializedName("amenities")
+    val amenities: Map<String, FinalizeRateItem>,
+    @SerializedName("misc")
+    val misc: Map<String, FinalizeRateItem>
+)
+
+data class FinalizeRateItem(
+    @SerializedName("rate_label")
+    val rateLabel: String,
+    @SerializedName("baserate")
+    val baserate: Double,
+    @SerializedName("multiple")
+    val multiple: Double? = null,
+    @SerializedName("percentage")
+    val percentage: Double? = null,
+    @SerializedName("amount")
+    val amount: Double? = null,
+    @SerializedName("type")
+    val type: String? = null
+)
+
+data class FinalizeShareArray(
+    @SerializedName("baseRate")
+    val baseRate: Double,
+    @SerializedName("grandTotal")
+    val grandTotal: Double,
+    @SerializedName("stripeFee")
+    val stripeFee: Double,
+    @SerializedName("adminShare")
+    val adminShare: Double,
+    @SerializedName("deducted_admin_share")
+    val deductedAdminShare: Double,
+    @SerializedName("affiliateShare")
+    val affiliateShare: Double,
+    @SerializedName("travelAgentShare")
+    val travelAgentShare: Double? = null,
+    @SerializedName("farmoutShare")
+    val farmoutShare: Double? = null
 )
 
 data class FinalizeRateEditData(
@@ -575,10 +950,11 @@ data class FinalizeRateEditData(
 // ==================== Payment Processing ====================
 
 data class PaymentProcessingRequest(
-    @SerializedName("booking_id")
-    val bookingId: Int,
-    
-    @SerializedName("payment_method")
+    @SerializedName("reservation_id")
+    val reservationId: String,
+    @SerializedName("grand_total")
+    val grandTotal: Double,
+    @SerializedName("paymentMethod")
     val paymentMethod: String
 )
 
@@ -590,7 +966,51 @@ data class PaymentProcessingData(
     val message: String?,
     
     @SerializedName("transaction_id")
-    val transactionId: String?
+    val transactionId: String?,
+
+    // iOS uses order_id from API response; keep optional for navigation
+    @SerializedName("order_id")
+    val orderId: Int? = null
+)
+
+// Credit card payment
+data class CreditCardPaymentRequest(
+    @SerializedName("isExistingCard")
+    val isExistingCard: Boolean,
+    @SerializedName("paymentMethod")
+    val paymentMethod: String,
+    @SerializedName("CreditCardsDetail")
+    val creditCardsDetail: CreditCardDetail,
+    @SerializedName("reservation_id")
+    val reservationId: String,
+    @SerializedName("grand_total")
+    val grandTotal: Double
+)
+
+data class CreditCardDetail(
+    @SerializedName("cardID")
+    val cardId: String
+)
+
+data class CreditCardData(
+    @SerializedName("id")
+    val id: String? = null,
+    @SerializedName("ID")
+    val ID: String? = null,
+    @SerializedName("name")
+    val name: String? = null,
+    @SerializedName("brand")
+    val brand: String? = null,
+    @SerializedName("exp_month")
+    val expMonth: Int? = null,
+    @SerializedName("exp_year")
+    val expYear: Int? = null,
+    @SerializedName("last4")
+    val last4: String? = null,
+    @SerializedName("card_type")
+    val cardType: String? = null,
+    @SerializedName("cc_prority")
+    val ccPriority: String? = null
 )
 
 // ==================== Booking Preview ====================
@@ -626,6 +1046,155 @@ data class BookingPreview(
     val currencySymbol: String?
 )
 
+// ==================== Admin Booking Preview (Accept/Reject + Preview screen) ====================
+
+data class AdminBookingPreviewExtraStop(
+    @SerializedName("rate")
+    val rate: String? = null,
+    @SerializedName("address")
+    val address: String? = null,
+    @SerializedName("latitude")
+    val latitude: String? = null,
+    @SerializedName("longitude")
+    val longitude: String? = null,
+    @SerializedName("booking_instructions")
+    val bookingInstructions: String? = null
+)
+
+data class AdminRatesPreview(
+    @SerializedName("baseRate")
+    val baseRate: String? = null,
+    @SerializedName("stripeFee")
+    val stripeFee: String? = null,
+    @SerializedName("adminShare")
+    val adminShare: String? = null,
+    @SerializedName("grandTotal")
+    val grandTotal: String? = null,
+    @SerializedName("affiliateShare")
+    val affiliateShare: String? = null,
+    @SerializedName("travelAgentShare")
+    val travelAgentShare: String? = null,
+    @SerializedName("deducted_admin_share")
+    val deductedAdminShare: String? = null
+)
+
+/**
+ * Matches iOS `BookingPreviewData` for /api/admin/get-booking-preview/{bookingId}.
+ * We intentionally include the subset we need for the UI; Gson will ignore extra fields.
+ */
+data class AdminBookingPreviewData(
+    @SerializedName("reservation_id")
+    val reservationId: Int? = null,
+    @SerializedName("booking_id")
+    val bookingId: Int? = null,
+    @SerializedName("transfer_type")
+    val transferType: String? = null,
+    @SerializedName("service_type")
+    val serviceType: String? = null,
+    @SerializedName("account_type")
+    val accountType: String? = null,
+    @SerializedName("created_by")
+    val createdBy: Int? = null,
+    @SerializedName("reservation_type")
+    val reservationType: String? = null,
+    @SerializedName("pickup_address")
+    val pickupAddress: String? = null,
+    @SerializedName("pickup_airport")
+    val pickupAirport: String? = null,
+    @SerializedName("pickup_airport_name")
+    val pickupAirportName: String? = null,
+    @SerializedName("pickup_airline")
+    val pickupAirline: String? = null,
+    @SerializedName("pickup_airline_name")
+    val pickupAirlineName: String? = null,
+    @SerializedName("pickup_flight")
+    val pickupFlight: String? = null,
+    @SerializedName("origin_airport_city")
+    val originAirportCity: String? = null,
+    @SerializedName("departing_airport_city")
+    val departingAirportCity: String? = null,
+    @SerializedName("dropoff_address")
+    val dropoffAddress: String? = null,
+    @SerializedName("dropoff_airport")
+    val dropoffAirport: String? = null,
+    @SerializedName("dropoff_airport_name")
+    val dropoffAirportName: String? = null,
+    @SerializedName("dropoff_airline")
+    val dropoffAirline: String? = null,
+    @SerializedName("dropoff_airline_name")
+    val dropoffAirlineName: String? = null,
+    @SerializedName("dropoff_flight")
+    val dropoffFlight: String? = null,
+    @SerializedName("pickup_date")
+    val pickupDate: String? = null,
+    @SerializedName("pickup_time")
+    val pickupTime: String? = null,
+    @SerializedName("pickup_latitude")
+    val pickupLatitude: String? = null,
+    @SerializedName("pickup_longitude")
+    val pickupLongitude: String? = null,
+    @SerializedName("dropoff_latitude")
+    val dropoffLatitude: String? = null,
+    @SerializedName("dropoff_longitude")
+    val dropoffLongitude: String? = null,
+    @SerializedName("pickup_airport_latitude")
+    val pickupAirportLatitude: Double? = null,
+    @SerializedName("pickup_airport_longitude")
+    val pickupAirportLongitude: Double? = null,
+    @SerializedName("dropoff_airport_latitude")
+    val dropoffAirportLatitude: Double? = null,
+    @SerializedName("dropoff_airport_longitude")
+    val dropoffAirportLongitude: Double? = null,
+    @SerializedName("extra_stops")
+    val extraStops: List<AdminBookingPreviewExtraStop>? = null,
+    @SerializedName("cruise_port")
+    val cruisePort: String? = null,
+    @SerializedName("cruise_name")
+    val cruiseName: String? = null,
+    @SerializedName("cruise_time")
+    val cruiseTime: String? = null,
+    @SerializedName("booking_instructions")
+    val bookingInstructions: String? = null,
+    @SerializedName("meet_greet_choice_name")
+    val meetGreetChoiceName: String? = null,
+    @SerializedName("vehicle_type_name")
+    val vehicleTypeName: String? = null,
+    @SerializedName("vehicle_id")
+    val vehicleId: Int? = null,
+    @SerializedName("cancellation_hours")
+    val cancellationHours: Int? = null,
+    @SerializedName("total_passengers")
+    val totalPassengers: Int? = null,
+    @SerializedName("luggage_count")
+    val luggageCount: Int? = null,
+    @SerializedName("number_of_hours")
+    val numberOfHours: Int? = null,
+    @SerializedName("number_of_vehicles")
+    val numberOfVehicles: Int? = null,
+    @SerializedName("passenger_name")
+    val passengerName: String? = null,
+    @SerializedName("passenger_email")
+    val passengerEmail: String? = null,
+    @SerializedName("passenger_cell_isd")
+    val passengerCellIsd: String? = null,
+    @SerializedName("passenger_cell")
+    val passengerCell: String? = null,
+    @SerializedName("distance")
+    val distance: String? = null,
+    @SerializedName("duration")
+    val duration: String? = null,
+    @SerializedName("payment_status")
+    val paymentStatus: String? = null,
+    @SerializedName("booking_status")
+    val bookingStatus: String? = null,
+    @SerializedName("grand_total")
+    val grandTotal: Double? = null,
+    @SerializedName("currency_symbol")
+    val currencySymbol: String? = null,
+    @SerializedName("rates_preview")
+    val ratesPreview: AdminRatesPreview? = null
+)
+
 // ==================== Edit Reservation ====================
 
 data class EditReservationRequest(
@@ -646,9 +1215,90 @@ data class EditReservationRequest(
     
     @SerializedName("vehicle_id")
     val vehicleId: Int?,
+
+    // --- Optional: richer edit payload (matches iOS more closely; backend tolerates missing fields) ---
+    @SerializedName("service_type")
+    val serviceType: String? = null,
+
+    @SerializedName("transfer_type")
+    val transferType: String? = null,
+
+    @SerializedName("number_of_hours")
+    val numberOfHours: Int? = null,
+
+    @SerializedName("number_of_vehicles")
+    val numberOfVehicles: Int? = null,
+
+    @SerializedName("meet_greet_choices_name")
+    val meetGreetChoiceName: String? = null,
+
+    @SerializedName("booking_instructions")
+    val bookingInstructions: String? = null,
+
+    // --- Passenger fields (iOS edit flow includes these) ---
+    @SerializedName("passenger_name")
+    val passengerName: String? = null,
+
+    @SerializedName("passenger_email")
+    val passengerEmail: String? = null,
+
+    @SerializedName("passenger_cell_isd")
+    val passengerCellIsd: String? = null,
+
+    @SerializedName("passenger_cell")
+    val passengerCell: String? = null,
+
+    @SerializedName("pickup_airport_name")
+    val pickupAirportName: String? = null,
+
+    @SerializedName("pickup_airline_name")
+    val pickupAirlineName: String? = null,
+
+    @SerializedName("pickup_flight")
+    val pickupFlight: String? = null,
+
+    @SerializedName("origin_airport_city")
+    val originAirportCity: String? = null,
+
+    @SerializedName("cruise_port")
+    val cruisePort: String? = null,
+
+    @SerializedName("cruise_name")
+    val cruiseName: String? = null,
+
+    @SerializedName("cruise_time")
+    val cruiseTime: String? = null,
+
+    @SerializedName("dropoff_airport_name")
+    val dropoffAirportName: String? = null,
+
+    @SerializedName("dropoff_airline_name")
+    val dropoffAirlineName: String? = null,
+
+    @SerializedName("dropoff_flight")
+    val dropoffFlight: String? = null,
+
+    @SerializedName("departing_airport_city")
+    val departingAirportCity: String? = null,
+
+    @SerializedName("extra_stops")
+    val extraStops: List<EditReservationExtraStopRequest>? = null,
     
     @SerializedName("rates")
     val rates: Map<String, Any>?
+)
+
+data class EditReservationExtraStopRequest(
+    @SerializedName("rate")
+    val rate: String? = null,
+    @SerializedName("address")
+    val address: String? = null,
+    @SerializedName("latitude")
+    val latitude: String? = null,
+    @SerializedName("longitude")
+    val longitude: String? = null,
+    @SerializedName("booking_instructions")
+    val bookingInstructions: String? = null
 )
 
 data class EditReservationData(
@@ -660,5 +1310,18 @@ data class EditReservationData(
     
     @SerializedName("booking")
     val booking: DriverBooking?
+)
+
+// ==================== Booking Status (Accept/Reject) ====================
+
+/**
+ * Minimal payload used by accept/reject endpoints.
+ * iOS primarily uses the message + success; data is optional and may vary.
+ */
+data class BookingStatusData(
+    @SerializedName("status")
+    val status: String? = null,
+    @SerializedName("booking_id")
+    val bookingId: Int? = null
 )
 

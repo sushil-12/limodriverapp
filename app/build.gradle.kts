@@ -80,6 +80,7 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.48")
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.foundation)
     kapt("com.google.dagger:hilt-compiler:2.48") {
         exclude(group = "androidx.compose")
     }

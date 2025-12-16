@@ -56,9 +56,16 @@ fun LocationAutocomplete(
     var isLoading by remember { mutableStateOf(false) }
     var showSuggestions by remember { mutableStateOf(false) }
     var suppressSearch by remember { mutableStateOf(false) }
+    var userHasTyped by remember { mutableStateOf(false) }
 
     // Debounced search logic
     LaunchedEffect(value, placesService, suppressSearch) {
+        // If the field is pre-filled programmatically (e.g. from API), don't auto-open suggestions.
+        if (!userHasTyped) {
+            showSuggestions = false
+            predictions = emptyList()
+            return@LaunchedEffect
+        }
         if (suppressSearch) return@LaunchedEffect
 
         if (value.length >= 2) {
@@ -114,6 +121,7 @@ fun LocationAutocomplete(
                 value = value,
                 onValueChange = { newValue ->
                     suppressSearch = false
+                    userHasTyped = true
                     onValueChange(newValue)
                 },
                 placeholder = {
@@ -170,8 +178,10 @@ fun LocationAutocomplete(
                                 prediction = prediction,
                                 onClick = {
                                     suppressSearch = true
+                                    userHasTyped = false
                                     onValueChange(prediction.fullText)
                                     showSuggestions = false
+                                    predictions = emptyList()
 
                                     // Fetch place details
                                     coroutineScope.launch {

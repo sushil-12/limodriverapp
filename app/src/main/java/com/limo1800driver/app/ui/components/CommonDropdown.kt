@@ -1,22 +1,26 @@
 package com.limo1800driver.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.PopupProperties
 import com.limo1800driver.app.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommonDropdown(
     label: String,
@@ -26,118 +30,219 @@ fun CommonDropdown(
     onValueSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     isRequired: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    searchable: Boolean = options.size >= 10
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var sheetOpen by remember { mutableStateOf(false) }
+    var search by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // State to track "focus" (simulated when sheet is open)
+    val isFocused = sheetOpen
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         // --- Label Section ---
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = label.uppercase(),
-                style = AppTextStyles.bodyMedium.copy(
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF6B7280) // Dark Gray
-                )
-            )
-            if (isRequired) {
-                Spacer(modifier = Modifier.width(4.dp))
+        if (label.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "*",
-                    style = AppTextStyles.bodyMedium.copy(
+                    text = label.uppercase(),
+                    style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFEF4444) // Red
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Gray
                     )
                 )
+                if (isRequired) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "*",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFEF4444)
+                        )
+                    )
+                }
             }
         }
 
-        // --- Dropdown Trigger Section ---
-        Box {
-            OutlinedTextField(
-                value = selectedValue ?: "",
-                onValueChange = {}, // Read-only, so no change handling needed here
-                placeholder = {
-                    Text(
-                        text = placeholder,
-                        style = AppTextStyles.bodyMedium.copy(
-                            color = Color(0xFF9CA3AF), // Placeholder Gray
-                            fontSize = 16.sp
+        // --- Custom Input Container (Matches CommonTextField) ---
+        val shape = RoundedCornerShape(8.dp)
+        // Highlight border orange if the dropdown sheet is currently open
+        val borderColor = if (isFocused) LimoOrange else Color(0xFFE0E0E0)
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp) // Fixed height like single-line TextField
+                .background(Color(0xFFF5F5F5), shape)
+                .border(1.dp, borderColor, shape)
+                .clickable(enabled = enabled) { sheetOpen = true }
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Text Content
+                Box(modifier = Modifier.weight(1f)) {
+                    if (selectedValue.isNullOrBlank()) {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFF9CA3AF), // Placeholder Gray
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    )
-                },
+                    } else {
+                        Text(
+                            text = selectedValue,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = AppColors.LimoBlack,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Trailing Icon
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Select",
+                    tint = AppColors.LimoBlack.copy(alpha = 0.6f)
+                )
+            }
+        }
+    }
+
+    // --- Bottom Sheet Logic (Unchanged functionality) ---
+    if (sheetOpen) {
+        val filtered = remember(options, search) {
+            if (!searchable || search.isBlank()) options
+            else options.filter { it.contains(search, ignoreCase = true) }
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = {
+                sheetOpen = false
+                search = ""
+            },
+            sheetState = sheetState,
+            containerColor = Color.White,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp), // Fixed height matching TextField
-                enabled = enabled,
-                readOnly = true, // Key change: Keeps text bold but prevents typing
-                trailingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = "Select",
-                        tint = AppColors.LimoBlack.copy(alpha = 0.6f)
-                    )
-                },
-                textStyle = AppTextStyles.bodyMedium.copy(
-                    fontSize = 16.sp,
-                    color = AppColors.LimoBlack,
-                    fontWeight = FontWeight.Normal
-                ),
-                shape = RoundedCornerShape(8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    // Background Colors (Light Gray filled look)
-                    focusedContainerColor = Color(0xFFF3F4F6),
-                    unfocusedContainerColor = Color(0xFFF3F4F6),
-                    disabledContainerColor = Color(0xFFF3F4F6),
-
-                    // Border Colors
-                    focusedBorderColor = AppColors.LimoBlack.copy(alpha = 0.5f),
-                    unfocusedBorderColor = Color(0xFFE5E7EB), // Subtle gray border
-                    disabledBorderColor = Color(0xFFE5E7EB),
-
-                    // Icons/Cursor
-                    cursorColor = AppColors.LimoOrange
-                )
-            )
-
-            // Transparent overlay to capture clicks perfectly
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clickable(enabled = enabled) { expanded = true }
-            )
-
-            // --- Dropdown Menu ---
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier
-                    .fillMaxWidth(0.9f) // Slightly smaller than full width for visual balance
-                    .background(Color.White),
-                properties = PopupProperties(focusable = true)
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 24.dp), // Safe area padding
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = option,
-                                style = AppTextStyles.bodyMedium.copy(
-                                    fontSize = 16.sp,
-                                    color = AppColors.LimoBlack
-                                )
-                            )
-                        },
-                        onClick = {
-                            onValueSelected(option)
-                            expanded = false
-                        },
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                // Sheet Title
+                Text(
+                    text = label.lowercase().replaceFirstChar { it.uppercase() },
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.LimoBlack
+                )
+
+                // Search Bar (Only if list is long)
+                if (searchable) {
+                    // Using standard OutlinedTextField for search inside sheet (standard styling)
+                    OutlinedTextField(
+                        value = search,
+                        onValueChange = { search = it },
+                        placeholder = { Text("Search") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = LimoOrange,
+                            unfocusedBorderColor = Color(0xFFE5E7EB)
+                        )
                     )
+                }
+
+                val maxListHeight = 420.dp
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxListHeight)
+                ) {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 8.dp)
+                    ) {
+                        items(filtered.size) { idx ->
+                            val option = filtered[idx]
+                            val isSelected = option == selectedValue
+
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onValueSelected(option)
+                                        sheetOpen = false
+                                        search = ""
+                                    },
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFFF8F8F8),
+                                tonalElevation = 1.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp, horizontal = 14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = option,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                        color = AppColors.LimoBlack,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Selected",
+                                            tint = LimoOrange
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (filtered.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "No results",
+                                    color = Color.Gray,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(vertical = 16.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

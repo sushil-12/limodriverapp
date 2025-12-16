@@ -1,20 +1,24 @@
 package com.limo1800driver.app
 
 import DriverLicenseFormScreen
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -37,6 +41,7 @@ import com.limo1800driver.app.ui.screens.registration.VehicleDetailsImageUploadS
 import com.limo1800driver.app.ui.screens.registration.VehicleInsuranceScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleRatesScreen
 import com.limo1800driver.app.ui.screens.registration.UserProfileDetailsScreen
+import com.limo1800driver.app.ui.screens.registration.VehicleDetailsCoordinatorFromAccountSettings
 import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.data.storage.TokenManager
 import com.limo1800driver.app.ui.screens.registration.VehicleDetailsStepScreen
@@ -45,6 +50,12 @@ import com.limo1800driver.app.ui.screens.dashboard.WalletScreen
 import com.limo1800driver.app.ui.screens.dashboard.PreArrangedRidesScreen
 import com.limo1800driver.app.ui.screens.dashboard.NotificationsScreen
 import com.limo1800driver.app.ui.screens.dashboard.AccountSettingsScreen
+import com.limo1800driver.app.ui.screens.booking.BookingPreviewScreen
+import com.limo1800driver.app.ui.screens.booking.EditBookingDetailsAndRatesScreen
+import com.limo1800driver.app.ui.screens.booking.FinalizeBookingScreen
+import com.limo1800driver.app.ui.screens.booking.FinalizeRatesScreen
+import com.limo1800driver.app.ui.screens.chat.ChatScreen
+import com.limo1800driver.app.ui.screens.ride.RideInProgressScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.limo1800driver.app.ui.theme.LimoDriverAppTheme
@@ -70,12 +81,22 @@ class MainActivity : ComponentActivity() {
             )
         }
         
+        // Android 13+ notification runtime permission
+        val requestNotificationsPermission = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { /* no-op */ }
+
         setContent {
             LimoDriverAppTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    LaunchedEffect(Unit) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            requestNotificationsPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
                     DriverAppNavigation(tokenManager)
                 }
             }
@@ -89,6 +110,29 @@ fun DriverAppNavigation(
 ) {
     val navController = rememberNavController()
     val registrationNavigationState = remember { RegistrationNavigationState() }
+
+    fun navigateToDashboardHome(openDrawer: Boolean = false) {
+        if (openDrawer) {
+            // Signal Dashboard to open the drawer when we return.
+            runCatching {
+                navController.getBackStackEntry(NavRoutes.Dashboard)
+                    .savedStateHandle["openDrawer"] = true
+            }
+        }
+        // Prefer returning to an existing Dashboard instance to preserve its state.
+        // If Dashboard isn't on the stack (edge cases), navigate to it.
+        val popped = navController.popBackStack(NavRoutes.Dashboard, inclusive = false)
+        if (!popped) {
+            navController.navigate(NavRoutes.Dashboard) {
+                launchSingleTop = true
+            }
+            if (openDrawer) {
+                runCatching {
+                    navController.currentBackStackEntry?.savedStateHandle?.set("openDrawer", true)
+                }
+            }
+        }
+    }
 
     fun navigateToRegistrationStep(
         nextStep: String?,
@@ -318,6 +362,14 @@ fun DriverAppNavigation(
                 }
             )
         }
+        
+        // Profile picture edit when launched from Account Settings -> Profile
+        composable(NavRoutes.ProfilePictureFromAccountSettings) {
+            ProfilePictureScreen(
+                onNext = { _ -> navController.popBackStack() }, // return to Account Settings
+                onBack = { navController.popBackStack() }
+            )
+        }
 
         composable(NavRoutes.VehicleSelection) {
             VehicleSelectionScreen(
@@ -340,6 +392,22 @@ fun DriverAppNavigation(
                         }
                     }
                 }
+            )
+        }
+
+        // Vehicle details flow when launched from Account Settings -> Vehicles
+        composable(NavRoutes.VehicleDetailsStepFromAccountSettings) {
+            VehicleDetailsStepScreen(
+                onNavigateToStep = { route -> navController.navigate(route) },
+                onContinue = { navController.popBackStack() }, // return to Account Settings
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // iOS-style coordinator flow used from Account Settings
+        composable(NavRoutes.VehicleDetailsCoordinatorFromAccountSettings) {
+            VehicleDetailsCoordinatorFromAccountSettings(
+                onClose = { navController.popBackStack() }
             )
         }
 
@@ -376,9 +444,25 @@ fun DriverAppNavigation(
             )
         }
 
+        // Vehicle insurance when launched from Account Settings -> Vehicles
+        composable(NavRoutes.VehicleInsuranceFromAccountSettings) {
+            VehicleInsuranceScreen(
+                onNext = { _ -> navController.popBackStack() }, // return to Account Settings
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(NavRoutes.VehicleRates) {
             VehicleRatesScreen(
                 onNext = { nextStep -> navigateToRegistrationStep(nextStep) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // Vehicle rates when launched from Account Settings -> Vehicles
+        composable(NavRoutes.VehicleRatesFromAccountSettings) {
+            VehicleRatesScreen(
+                onNext = { _ -> navController.popBackStack() }, // return to Account Settings
                 onBack = { navController.popBackStack() }
             )
         }
@@ -392,9 +476,25 @@ fun DriverAppNavigation(
         }
 
         composable(NavRoutes.Dashboard) {
+            val openDrawer by it.savedStateHandle
+                .getStateFlow("openDrawer", false)
+                .collectAsStateWithLifecycle()
+
             com.limo1800driver.app.ui.screens.dashboard.DashboardScreen(
+                openDrawerRequest = openDrawer,
+                onDrawerRequestConsumed = { it.savedStateHandle["openDrawer"] = false },
                 onNavigateToBooking = { bookingId ->
-                    // TODO: Navigate to booking details
+                    // Booking tap from dashboard - route to BookingPreview for now
+                    navController.navigate("${NavRoutes.BookingPreview}/$bookingId")
+                },
+                onNavigateToBookingPreview = { bookingId ->
+                    navController.navigate("${NavRoutes.BookingPreview}/$bookingId")
+                },
+                onNavigateToFinalizeRates = { bookingId, mode, source ->
+                    navController.navigate("${NavRoutes.FinalizeRates}/$bookingId/$mode/$source")
+                },
+                onNavigateToEditBooking = { bookingId, source ->
+                    navController.navigate("${NavRoutes.EditBooking}/$bookingId/$source")
                 },
                 onNavigateToWallet = {
                     navController.navigate(NavRoutes.Wallet)
@@ -411,6 +511,9 @@ fun DriverAppNavigation(
                 onNavigateToAccountSettings = {
                     navController.navigate(NavRoutes.AccountSettings)
                 },
+                onNavigateToRideInProgress = { bookingId ->
+                    navController.navigate("${NavRoutes.RideInProgress}/$bookingId")
+                },
                 onLogout = {
                     // Clear all data and navigate to splash
                     tokenManager.clearAll()
@@ -423,34 +526,165 @@ fun DriverAppNavigation(
         
         composable(NavRoutes.MyActivity) {
             MyActivityScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navigateToDashboardHome(openDrawer = true) }
             )
         }
         
         composable(NavRoutes.Wallet) {
             WalletScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navigateToDashboardHome(openDrawer = true) }
             )
         }
         
         composable(NavRoutes.PreArrangedRides) {
+            val refreshBookings by it.savedStateHandle
+                .getStateFlow("refreshBookings", false)
+                .collectAsStateWithLifecycle()
             PreArrangedRidesScreen(
+                onBack = { navigateToDashboardHome(openDrawer = true) },
+                onNavigateToBookingPreview = { bookingId ->
+                    navController.navigate("${NavRoutes.BookingPreview}/$bookingId")
+                },
+                onNavigateToFinalizeBooking = { bookingId, source ->
+                    // Keep callback for backwards compatibility, but route directly to rates screen.
+                    navController.navigate("${NavRoutes.FinalizeRates}/$bookingId/finalizeOnly/$source")
+                },
+                onNavigateToFinalizeRates = { bookingId, mode, source ->
+                    navController.navigate("${NavRoutes.FinalizeRates}/$bookingId/$mode/$source")
+                },
+                onNavigateToEditBooking = { bookingId, source ->
+                    navController.navigate("${NavRoutes.EditBooking}/$bookingId/$source")
+                },
+                onNavigateToMap = { bookingId ->
+                    // TODO: Map screen not implemented yet
+                    android.util.Log.d("BookingNav", "Map requested for bookingId=$bookingId")
+                },
+                refreshRequested = refreshBookings,
+                onRefreshConsumed = { it.savedStateHandle["refreshBookings"] = false }
+            )
+        }
+
+        // --- Booking flow screens (ported from iOS driver) ---
+        composable("${NavRoutes.BookingPreview}/{bookingId}") { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId")?.toIntOrNull() ?: 0
+            BookingPreviewScreen(
+                bookingId = bookingId,
+                onBack = { navController.popBackStack() },
+                onCompleted = {
+                    runCatching {
+                        navController.getBackStackEntry(NavRoutes.PreArrangedRides)
+                            .savedStateHandle["refreshBookings"] = true
+                    }
+                    navController.popBackStack()
+                },
+                onNavigateToFinalizeRates = { id, mode, source ->
+                    navController.navigate("${NavRoutes.FinalizeRates}/$id/$mode/$source")
+                },
+                source = "prearranged"
+            )
+        }
+
+        composable("${NavRoutes.FinalizeBooking}/{bookingId}/{source}") { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId")?.toIntOrNull() ?: 0
+            val source = backStackEntry.arguments?.getString("source") ?: "prearranged"
+            FinalizeBookingScreen(
+                bookingId = bookingId,
+                source = source,
+                onBack = { navController.popBackStack() },
+                onNext = { id, mode, src ->
+                    navController.navigate("${NavRoutes.FinalizeRates}/$id/$mode/$src")
+                }
+            )
+        }
+
+        composable("${NavRoutes.FinalizeRates}/{bookingId}/{mode}/{source}") { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId")?.toIntOrNull() ?: 0
+            val mode = backStackEntry.arguments?.getString("mode") ?: "finalizeOnly"
+            val source = backStackEntry.arguments?.getString("source") ?: "prearranged"
+            FinalizeRatesScreen(
+                bookingId = bookingId,
+                mode = mode,
+                source = source,
+                onBack = { navController.popBackStack() },
+                onDone = {
+                    if (source == "prearranged") {
+                        runCatching {
+                            navController.getBackStackEntry(NavRoutes.PreArrangedRides)
+                                .savedStateHandle["refreshBookings"] = true
+                        }
+                        navController.popBackStack(NavRoutes.PreArrangedRides, inclusive = false)
+                    } else {
+                        // RideInProgress / Dashboard flows should return home.
+                        navigateToDashboardHome()
+                    }
+                }
+            )
+        }
+
+        composable("${NavRoutes.EditBooking}/{bookingId}/{source}") { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId")?.toIntOrNull() ?: 0
+            val source = backStackEntry.arguments?.getString("source") ?: "prearranged"
+            EditBookingDetailsAndRatesScreen(
+                bookingId = bookingId,
+                source = source,
+                onBack = { navController.popBackStack() },
+                onCompleted = {
+                    runCatching {
+                        navController.getBackStackEntry(NavRoutes.PreArrangedRides)
+                            .savedStateHandle["refreshBookings"] = true
+                    }
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // --- Live ride screen (active_ride -> RideInProgress) ---
+        composable("${NavRoutes.RideInProgress}/{bookingId}") { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId")?.toIntOrNull() ?: 0
+            RideInProgressScreen(
+                bookingId = bookingId,
+                onBack = { navController.popBackStack() },
+                onNavigateToFinalizeRates = { id, mode, source ->
+                    navController.navigate("${NavRoutes.FinalizeRates}/$id/$mode/$source")
+                },
+                onNavigateToChat = { id, customerId, customerName ->
+                    navController.navigate(
+                        "${NavRoutes.Chat}/$id/$customerId/${Uri.encode(customerName)}"
+                    )
+                }
+            )
+        }
+
+        composable("${NavRoutes.Chat}/{bookingId}/{customerId}/{customerName}") { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId")?.toIntOrNull() ?: 0
+            val customerId = backStackEntry.arguments?.getString("customerId").orEmpty()
+            val customerName = Uri.decode(backStackEntry.arguments?.getString("customerName").orEmpty())
+            ChatScreen(
+                bookingId = bookingId,
+                customerId = customerId,
+                customerName = customerName.ifBlank { "Passenger" },
                 onBack = { navController.popBackStack() }
             )
         }
         
         composable(NavRoutes.Notifications) {
             NotificationsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navigateToDashboardHome(openDrawer = true) }
             )
         }
         
         composable(NavRoutes.AccountSettings) {
             AccountSettingsScreen(
-                onBack = { navController.popBackStack() },
+                onBack = { navigateToDashboardHome(openDrawer = true) },
                 onNavigateToProfile = {
-                    // TODO: Navigate to Profile screen when implemented
-                    // navController.navigate(NavRoutes.Profile)
+                    navController.navigate(NavRoutes.UserProfileDetails) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToProfilePicture = {
+                    navController.navigate(NavRoutes.ProfilePictureFromAccountSettings) {
+                        launchSingleTop = true
+                    }
                 },
                 onNavigateToCompanyInfo = {
                     navController.navigate(NavRoutes.CompanyInfo) {
@@ -468,17 +702,17 @@ fun DriverAppNavigation(
                     }
                 },
                 onNavigateToVehicleInsurance = {
-                    navController.navigate(NavRoutes.VehicleInsurance) {
+                    navController.navigate(NavRoutes.VehicleInsuranceFromAccountSettings) {
                         launchSingleTop = true
                     }
                 },
                 onNavigateToVehicleDetails = {
-                    navController.navigate(NavRoutes.VehicleDetailsStep) {
+                    navController.navigate(NavRoutes.VehicleDetailsCoordinatorFromAccountSettings) {
                         launchSingleTop = true
                     }
                 },
                 onNavigateToVehicleRates = {
-                    navController.navigate(NavRoutes.VehicleRates) {
+                    navController.navigate(NavRoutes.VehicleRatesFromAccountSettings) {
                         launchSingleTop = true
                     }
                 },

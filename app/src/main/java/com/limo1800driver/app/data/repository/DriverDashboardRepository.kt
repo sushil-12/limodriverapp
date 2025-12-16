@@ -194,7 +194,7 @@ class DriverDashboardRepository @Inject constructor(
         }
     }
     
-    suspend fun getReservationRates(bookingId: Int): Result<BaseResponse<ReservationRatesData>> {
+    suspend fun getReservationRates(bookingId: Int): Result<BaseResponse<AdminReservationRatesData>> {
         return withContext(Dispatchers.IO) {
             try {
                 Timber.tag(TAG).d("Fetching reservation rates for booking: $bookingId")
@@ -227,7 +227,7 @@ class DriverDashboardRepository @Inject constructor(
     // ==================== Finalize Rate Edit ====================
     
     suspend fun finalizeRateEdit(
-        request: FinalizeRateEditRequest
+        request: FinalizeRatesRequest
     ): Result<BaseResponse<FinalizeRateEditData>> {
         return withContext(Dispatchers.IO) {
             try {
@@ -260,7 +260,7 @@ class DriverDashboardRepository @Inject constructor(
     
     // ==================== Booking Preview ====================
     
-    suspend fun getBookingPreview(bookingId: Int): Result<BaseResponse<BookingPreviewData>> {
+    suspend fun getBookingPreview(bookingId: Int): Result<BaseResponse<AdminBookingPreviewData>> {
         return withContext(Dispatchers.IO) {
             try {
                 Timber.tag(TAG).d("Fetching booking preview for booking: $bookingId")
@@ -285,6 +285,94 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to edit reservation")
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    // ==================== Booking Status (Accept/Reject) ====================
+
+    suspend fun acceptBooking(
+        bookingId: Int
+    ): Result<BaseResponse<BookingStatusData>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Timber.tag(TAG).d("Accepting booking: $bookingId")
+                val response = dashboardApi.acceptBooking(bookingId)
+                Result.success(response)
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to accept booking")
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    suspend fun rejectBooking(
+        bookingId: Int
+    ): Result<BaseResponse<BookingStatusData>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Timber.tag(TAG).d("Rejecting booking: $bookingId")
+                val response = dashboardApi.rejectBooking(bookingId)
+                Result.success(response)
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to reject booking")
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    suspend fun getCreditCardDetails(bookingId: Int): Result<BaseResponse<com.google.gson.JsonElement>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Timber.tag(TAG).d("Fetching credit card details for booking: $bookingId")
+                val response = dashboardApi.getCreditCardDetails(bookingId)
+                Result.success(response)
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to fetch credit card details")
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    suspend fun processCreditCardPayment(
+        request: CreditCardPaymentRequest
+    ): Result<BaseResponse<PaymentProcessingData>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Timber.tag(TAG).d("Processing credit card payment")
+                val response = dashboardApi.processCreditCardPayment(request)
+                Result.success(response)
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to process credit card payment")
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    // ==================== Mobile Data (Airports/Airlines) ====================
+
+    suspend fun getMobileDataAirlines(): Result<BaseResponse<MobileDataAirlinesData>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Timber.tag(TAG).d("Fetching mobile data: airlines")
+                val response = dashboardApi.getMobileDataAirlines(true)
+                Result.success(response)
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to fetch mobile airlines")
+                Result.failure(Exception(errorHandler.handleApiError(e)))
+            }
+        }
+    }
+
+    suspend fun getMobileDataAirports(): Result<BaseResponse<MobileDataAirportsData>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Timber.tag(TAG).d("Fetching mobile data: airports")
+                val response = dashboardApi.getMobileDataAirports(true)
+                Result.success(response)
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to fetch mobile airports")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }

@@ -271,42 +271,106 @@ private fun ActionButtonsView(
     onViewOnMapClick: () -> Unit,
     onDriverEnRouteClick: () -> Unit
 ) {
-    Row(
+    val isUnpaid = booking.paymentStatus?.lowercase() == "unpaid"
+    val isPending = booking.bookingStatus.lowercase() == "pending"
+    val shouldShowEnRouteButton = shouldShowDriverEnRouteButton(booking)
+    
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        OutlinedButton(
-            onClick = onEditClick,
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color.White,
-                contentColor = Color.Black
-            )
+        // First row: Map, Edit/Change, Accept/Reject or Finalize
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Edit", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            // Map button - always visible (orange)
+            Button(
+                onClick = onViewOnMapClick,
+                colors = ButtonDefaults.buttonColors(containerColor = LimoOrange),
+                modifier = Modifier.weight(if (isUnpaid) 1f else 1f)
+            ) {
+                Text(
+                    "Map",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+            
+            // Edit/Change button - only if unpaid (black)
+            if (isUnpaid) {
+                Button(
+                    onClick = onEditClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        "Edit/Change",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+            }
+            
+            // Accept/Reject or Finalize button - only if unpaid (green)
+            if (isUnpaid) {
+                Button(
+                    onClick = onEditClick, // TODO: Replace with actual finalize action
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF008F43)), // finalizeGreen
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        if (isPending) "Accept/Reject" else "Finalize",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+            }
         }
         
-        OutlinedButton(
-            onClick = onViewOnMapClick,
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color.White,
-                contentColor = Color.Black
-            )
-        ) {
-            Text("View on Map", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        // Driver En Route button - on separate line if needed (purple)
+        if (shouldShowEnRouteButton) {
+            Button(
+                onClick = onDriverEnRouteClick,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6454AC)), // enRoutePuStatus
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "Driver En Route",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
         }
+    }
+}
+
+// Helper function to determine if Driver En Route button should be shown
+private fun shouldShowDriverEnRouteButton(booking: DriverBooking): Boolean {
+    // Show if pickup time is within the next 2 hours (matching iOS logic)
+    return try {
+        val pickupDate = booking.pickupDate
+        val pickupTime = booking.pickupTime
         
-        Button(
-            onClick = onDriverEnRouteClick,
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = LimoOrange)
-        ) {
-            Text("Driver En Route", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+        val pickupDateTime = dateFormat.parse("$pickupDate $pickupTime")
+        
+        if (pickupDateTime != null) {
+            val now = java.util.Date()
+            val twoHoursFromNow = java.util.Date(now.time + 2 * 60 * 60 * 1000)
+            pickupDateTime.after(now) && pickupDateTime.before(twoHoursFromNow)
+        } else {
+            false
         }
+    } catch (e: Exception) {
+        false
     }
 }
 

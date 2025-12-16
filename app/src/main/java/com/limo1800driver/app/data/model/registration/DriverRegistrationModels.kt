@@ -464,20 +464,48 @@ data class BankDetailsStepResponse(
 )
 
 data class BankDetailsStepPrefillData(
+    /**
+     * Backend payloads vary: some send `account_holder_name`, others send
+     * `account_holder_first_name` + `account_holder_last_name`.
+     */
     @SerializedName("account_holder_name")
-    val accountHolderName: String?,
-    
-    @SerializedName("account_number")
-    val accountNumber: String?,
-    
-    @SerializedName("routing_number")
-    val routingNumber: String?,
-    
+    val accountHolderName: String? = null,
+
+    @SerializedName("account_holder_first_name")
+    val accountHolderFirstName: String? = null,
+
+    @SerializedName("account_holder_last_name")
+    val accountHolderLastName: String? = null,
+
     @SerializedName("bank_name")
-    val bankName: String?,
-    
+    val bankName: String? = null,
+
+    @SerializedName("bank_address")
+    val bankAddress: String? = null,
+
+    @SerializedName("account_number")
+    val accountNumber: String? = null,
+
+    @SerializedName("routing_number")
+    val routingNumber: String? = null,
+
     @SerializedName("account_type")
-    val accountType: String?
+    val accountType: String? = null,
+
+    @SerializedName("currency")
+    val currency: String? = null,
+
+    @SerializedName("country")
+    val country: String? = null,
+
+    @SerializedName("social_security_number")
+    val socialSecurityNumber: String? = null,
+
+    @SerializedName("business_id")
+    val businessId: String? = null,
+
+    @SerializedName("badge_city")
+    val badgeCity: String? = null
 )
 
 // ==================== Profile Picture ====================
@@ -617,9 +645,27 @@ data class VehicleInsuranceStepPrefillData(
     
     @SerializedName("policy_expiry_date")
     val policyExpiryDate: String?,
-    
+
+    /**
+     * Backend currently returns an object like:
+     * "insurance_front_photo": { "id": "8003", "url": "https://..." }
+     */
+    @SerializedName("insurance_front_photo")
+    val insuranceFrontPhoto: UploadedDocumentPhoto? = null,
+
+    /**
+     * Legacy/alternate backends may return just the image id as string/int.
+     */
     @SerializedName("insurance_policy_front_photo")
-    val insurancePolicyFrontPhoto: String?
+    val insurancePolicyFrontPhoto: String? = null
+)
+
+data class UploadedDocumentPhoto(
+    @SerializedName("id")
+    val id: String? = null,
+
+    @SerializedName("url")
+    val url: String? = null
 )
 
 // ==================== Vehicle Details ====================
@@ -737,9 +783,16 @@ data class VehicleDetailsStepResponse(
 data class VehicleDetailsStepPrefillData(
     @SerializedName("vehicle_id")
     val vehicleId: Int?,
-    
+
+    /**
+     * Backend returns `vehicle_type` (string/int) in the step payload.
+     * Older variants may have `vehicle_type_id`.
+     */
+    @SerializedName("vehicle_type")
+    val vehicleType: String? = null,
+
     @SerializedName("vehicle_type_id")
-    val vehicleTypeId: Int?,
+    val vehicleTypeId: Int? = null,
     
     @SerializedName("make")
     val make: String?,
@@ -759,17 +812,29 @@ data class VehicleDetailsStepPrefillData(
     @SerializedName("type_of_service")
     val typeOfService: List<String>?,
     
+    // API returns numeric values; keep String? so Gson can coerce numbers/strings safely
     @SerializedName("seats")
     val seats: String?,
     
     @SerializedName("luggage")
     val luggage: String?,
+
+    @SerializedName("number_of_vehicles")
+    val numberOfVehicles: String? = null,
     
+    // API returns camelCase keys in this step response
+    @SerializedName("nonCharterCancelPolicy")
+    val nonCharterCancelPolicy: String? = null,
+
+    // Legacy snake_case
     @SerializedName("non_charter_cancel_policy")
-    val nonCharterCancelPolicy: String?,
+    val nonCharterCancelPolicyLegacy: String? = null,
     
+    @SerializedName("charterCancelPolicy")
+    val charterCancelPolicy: String? = null,
+
     @SerializedName("charter_cancel_policy")
-    val charterCancelPolicy: String?,
+    val charterCancelPolicyLegacy: String? = null,
     
     @SerializedName("vehicle_interior")
     val vehicleInterior: List<String>?,
@@ -791,15 +856,13 @@ data class VehicleDetailsStepPrefillData(
     
     @SerializedName("vehicle_image_6")
     val vehicleImage6: VehicleImageRef?,
-    
+
+    // API returns arrays of string ids in step payload
     @SerializedName("amenities")
-    val amenities: List<Int>?,
-    
+    val amenities: List<String>? = null,
+
     @SerializedName("special_amenities")
-    val specialAmenities: List<Int>?,
-    
-    @SerializedName("interior")
-    val interior: List<Int>?
+    val specialAmenities: List<String>? = null
 )
 
 data class VehicleImageRef(
@@ -954,7 +1017,7 @@ data class VehicleAmenityPayload(
     @SerializedName("label")
     val label: String? = null,
     @SerializedName("price")
-    val price: Double
+    val price: Double? = null
 )
 
 data class VehicleRateSettingsCompleteResponse(
@@ -1137,17 +1200,32 @@ data class VehicleInfoResponse(
     @SerializedName("success")
     val success: Boolean,
 
-    @SerializedName("message")
-    val message: String?,
-
     @SerializedName("data")
     val data: VehicleInfoData?,
 
-    @SerializedName("timestamp")
-    val timestamp: String?,
+    @SerializedName("message")
+    val message: String? = null,
 
-    @SerializedName("code")
-    val code: Int?
+    // Affiliate endpoint includes currency metadata in some responses
+    @SerializedName("currency")
+    val currency: VehicleCurrency? = null
+)
+
+data class VehicleCurrency(
+    @SerializedName("countryName")
+    val countryName: String? = null,
+
+    @SerializedName("currency")
+    val currency: String? = null,
+
+    @SerializedName("currencyCountry")
+    val currencyCountry: String? = null,
+
+    @SerializedName("symbol")
+    val symbol: String? = null,
+
+    @SerializedName("dateFormat")
+    val dateFormat: String? = null
 )
 
 data class VehicleInfoData(

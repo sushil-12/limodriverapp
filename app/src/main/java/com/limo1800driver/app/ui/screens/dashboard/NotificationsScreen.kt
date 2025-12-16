@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.limo1800driver.app.data.model.dashboard.DriverUpdate
+import com.limo1800driver.app.ui.components.CommonMenuHeader
 import com.limo1800driver.app.ui.components.ShimmerBox
 import com.limo1800driver.app.ui.components.ShimmerText
 import com.limo1800driver.app.ui.theme.LimoOrange
@@ -56,34 +58,14 @@ fun NotificationsScreen(
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Notifications",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            showSearchBar = !showSearchBar
-                            if (!showSearchBar) viewModel.clearSearch()
-                        }
-                    ) {
-                        Icon(
-                            imageVector = if (showSearchBar) Icons.Default.Close else Icons.Default.Search,
-                            contentDescription = if (showSearchBar) "Close Search" else "Search"
-                        )
-                    }
+            CommonMenuHeader(
+                title = "Notifications",
+                onBackClick = onBack,
+                trailingIcon = if (showSearchBar) Icons.Default.Close else Icons.Default.Search,
+                trailingContentDescription = if (showSearchBar) "Close Search" else "Search",
+                onTrailingClick = {
+                    showSearchBar = !showSearchBar
+                    if (!showSearchBar) viewModel.clearSearch()
                 }
             )
         }
@@ -199,10 +181,10 @@ private fun NotificationList(
             items(items) { notification ->
                 NotificationListItem(notification = notification)
                 if (notification.id != items.lastOrNull()?.id) {
-                    Divider(
-                        color = DividerColor,
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 72.dp),
                         thickness = 1.dp,
-                        modifier = Modifier.padding(start = 72.dp)
+                        color = DividerColor
                     )
                 }
             }

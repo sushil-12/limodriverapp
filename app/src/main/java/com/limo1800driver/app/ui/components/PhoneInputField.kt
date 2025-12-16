@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.TextStyle
 import com.limo1800driver.app.data.model.Countries
 import com.limo1800driver.app.data.model.Country
@@ -209,7 +210,7 @@ fun CountryPickerBottomSheet(
                 )
             }
 
-            Divider(color = Color(0xFFE5E7EB))
+            HorizontalDivider(Modifier, DividerDefaults.Thickness, color = Color(0xFFE5E7EB))
 
             LazyColumn(
                 modifier = Modifier.fillMaxWidth()
@@ -249,7 +250,7 @@ fun CountryPickerBottomSheet(
                             )
                         )
                     }
-                    Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                    HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E7EB))
                 }
             }
         }

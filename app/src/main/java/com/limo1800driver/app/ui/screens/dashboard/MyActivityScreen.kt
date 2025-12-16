@@ -7,9 +7,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.limo1800driver.app.data.model.dashboard.DriverBooking
+import com.limo1800driver.app.ui.components.CommonMenuHeader
 import com.limo1800driver.app.ui.components.ShimmerBox
 import com.limo1800driver.app.ui.components.ShimmerText
 import com.limo1800driver.app.ui.components.WeeklySummaryCard
@@ -41,22 +42,9 @@ fun MyActivityScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "My Activity",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            CommonMenuHeader(
+                title = "My Activity",
+                onBackClick = onBack
             )
         }
     ) { paddingValues ->
@@ -208,7 +196,7 @@ private fun ActivityDateSection(
                 fontWeight = FontWeight.SemiBold,
                 color = Color.Black
             )
-            
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -227,12 +215,12 @@ private fun ActivityDateSection(
                 )
             }
         }
-        
-        Divider(
+
+        HorizontalDivider(
             modifier = Modifier.padding(horizontal = 16.dp),
-            color = Color.Gray.copy(alpha = 0.2f)
+            thickness = DividerDefaults.Thickness, color = Color.Gray.copy(alpha = 0.2f)
         )
-        
+
         // Activity Items
         Column {
             activities.forEachIndexed { index, booking ->
@@ -240,19 +228,19 @@ private fun ActivityDateSection(
                     booking = booking,
                     currencySymbol = currencySymbol
                 )
-                
+
                 if (index < activities.size - 1) {
-                    Divider(
+                    HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp),
-                        color = Color.Gray.copy(alpha = 0.2f)
+                        thickness = DividerDefaults.Thickness, color = Color.Gray.copy(alpha = 0.2f)
                     )
                 }
             }
         }
-        
-        Divider(
+
+        HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
-            color = Color.Gray.copy(alpha = 0.2f)
+            thickness = DividerDefaults.Thickness, color = Color.Gray.copy(alpha = 0.2f)
         )
     }
 }
@@ -358,12 +346,12 @@ private fun WeeklySummaryCardShimmer() {
                     shape = CircleShape
                 )
             }
-            
-            Divider(
+
+            HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.Gray.copy(alpha = 0.2f)
+                thickness = DividerDefaults.Thickness, color = Color.Gray.copy(alpha = 0.2f)
             )
-            
+
             // Metrics shimmer
             Row(
                 modifier = Modifier

@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.registration.VehicleInsuranceRequest
+import coil.compose.AsyncImage
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
@@ -32,6 +36,7 @@ import com.limo1800driver.app.ui.viewmodel.VehicleInsuranceViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
 import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import java.util.Calendar
@@ -58,6 +63,7 @@ fun VehicleInsuranceScreen(
     
     var insuranceImage by remember { mutableStateOf<Bitmap?>(null) }
     var insuranceImageId by remember { mutableStateOf<Int?>(null) }
+    var insuranceImageUrl by remember { mutableStateOf<String?>(null) }
     var showCamera by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     
@@ -81,15 +87,29 @@ fun VehicleInsuranceScreen(
             if (policyNumber.isEmpty()) policyNumber = prefill.insurancePolicyNumber ?: ""
             if (agentPhone.isEmpty()) agentPhone = prefill.agentTelephoneNumber ?: ""
             if (agentEmail.isEmpty()) agentEmail = prefill.agentEmail ?: ""
-            if (insuranceLimit == null) insuranceLimit = prefill.insuranceLimit
+            if (insuranceLimit == null) {
+                fun normLimit(s: String?): String = s.orEmpty().replace(Regex("[^0-9]"), "")
+                val raw = prefill.insuranceLimit
+                insuranceLimit = limits.firstOrNull { normLimit(it) == normLimit(raw) } ?: raw
+            }
             // Parse expiry date if present
             prefill.policyExpiryDate?.let { dateStr ->
                 val parts = dateStr.split("-")
                 if (parts.size == 3) {
                     expiryYear = parts[0]
                     expiryMonth = parts[1]
-                    expiryDay = parts[2]
+                    expiryDay = parts[2].trim().split(" ").firstOrNull()
                 }
+            }
+
+            // Prefill insurance document (existing uploaded image)
+            if (insuranceImageId == null) {
+                insuranceImageId =
+                    prefill.insuranceFrontPhoto?.id?.toIntOrNull()
+                        ?: prefill.insurancePolicyFrontPhoto?.toIntOrNull()
+            }
+            if (insuranceImageUrl.isNullOrBlank()) {
+                insuranceImageUrl = prefill.insuranceFrontPhoto?.url
             }
         }
     }
@@ -99,6 +119,7 @@ fun VehicleInsuranceScreen(
         if (uiState.success) {
             registrationNavigationState.setNextStep(uiState.nextStep)
             onNext(uiState.nextStep)
+            viewModel.consumeSuccess()
         }
     }
     
@@ -246,32 +267,117 @@ fun VehicleInsuranceScreen(
                     Text("*", color = Color.Red, fontSize = 12.sp)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Box(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(116.dp)
-                        .border(1.dp, Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                         .clickable { showCamera = true },
-                    contentAlignment = Alignment.Center
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray.copy(alpha = 0.25f))
                 ) {
-                    when {
-                        isUploading -> {
-                            CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                        }
-                        insuranceImage != null -> {
-                            Image(
-                                bitmap = insuranceImage!!.asImageBitmap(),
-                                contentDescription = "Insurance Document",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        else -> {
-                            Text(
-                                text = "Tap to add",
-                                style = AppTextStyles.bodyMedium.copy(
-                                    color = Color.Gray
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Thumbnail / Placeholder
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 96.dp, height = 64.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color.White)
+                                    .border(1.dp, Color.Gray.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when {
+                                    insuranceImage != null -> {
+                                        Image(
+                                            bitmap = insuranceImage!!.asImageBitmap(),
+                                            contentDescription = "Insurance Document",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    !insuranceImageUrl.isNullOrBlank() -> {
+                                        AsyncImage(
+                                            model = insuranceImageUrl,
+                                            contentDescription = "Insurance Document",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    else -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Description,
+                                            contentDescription = null,
+                                            tint = Color.Gray
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Details
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Insurance document",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp,
+                                    color = Color.Black
                                 )
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                when {
+                                    isUploading -> {
+                                        Text(
+                                            text = "Uploading…",
+                                            fontSize = 12.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+                                    insuranceImageId != null || !insuranceImageUrl.isNullOrBlank() -> {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = Color(0xFF2E7D32),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Uploaded",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF2E7D32)
+                                            )
+                                        }
+                                    }
+                                    else -> {
+                                        Text(
+                                            text = "Add a photo of your insurance card (Camera or Gallery)",
+                                            fontSize = 12.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Change action
+                            TextButton(
+                                onClick = { showCamera = true },
+                                enabled = !isUploading
+                            ) {
+                                Text(
+                                    text = if (insuranceImageId != null || !insuranceImageUrl.isNullOrBlank()) "Change" else "Add",
+                                    color = AppColors.LimoOrange
+                                )
+                            }
+                        }
+
+                        if (isUploading) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = AppColors.LimoOrange
                             )
                         }
                     }

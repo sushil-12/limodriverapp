@@ -2,6 +2,7 @@ package com.limo1800driver.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.limo1800driver.app.data.notification.DriverFirebaseSubscriptionManager
 import com.limo1800driver.app.data.model.dashboard.DriverProfileData
 import com.limo1800driver.app.data.repository.DriverDashboardRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +19,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class DriverProfileViewModel @Inject constructor(
-    private val dashboardRepository: DriverDashboardRepository
+    private val dashboardRepository: DriverDashboardRepository,
+    private val firebaseSubscriptionManager: DriverFirebaseSubscriptionManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(DriverProfileUiState())
@@ -42,6 +44,14 @@ class DriverProfileViewModel @Inject constructor(
                             error = null
                         )
                         Timber.d("Driver profile loaded successfully")
+
+                        // iOS parity: subscribe to topic == userId (string)
+                        val topicUserId = response.data.userId ?: response.data.driverId
+                        if (topicUserId != null) {
+                            firebaseSubscriptionManager.subscribeToUserTopic(topicUserId.toString())
+                        } else {
+                            Timber.tag("DriverFCM").w("Cannot subscribe to topic: userId/driverId missing in profile")
+                        }
                     } else {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,

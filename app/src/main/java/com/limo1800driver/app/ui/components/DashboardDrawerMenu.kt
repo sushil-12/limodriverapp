@@ -314,8 +314,12 @@ private fun DriverProfileSectionWithClose(
                 )
                 
                 // Phone Number - 12sp matching user app
+                val displayPhone = remember(driverProfile?.driverPhone, driverProfile?.driverCellIsd, driverProfile?.driverCellNumber) {
+                    driverProfile?.driverPhone?.trim()?.takeIf { it.isNotEmpty() }
+                        ?: formatPhone(driverProfile?.driverCellIsd, driverProfile?.driverCellNumber)
+                }
                 Text(
-                    text = driverProfile?.driverPhone ?: "No phone number",
+                    text = displayPhone ?: "No phone number",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF121212).copy(alpha = 0.4f),
@@ -339,6 +343,12 @@ private fun DriverProfileSectionWithClose(
             )
         }
     }
+}
+
+private fun formatPhone(isd: String?, number: String?): String? {
+    val n = number?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val i = isd?.trim()?.takeIf { it.isNotEmpty() }
+    return if (i == null) n else "${if (i.startsWith("+")) i else "+$i"} $n"
 }
 
 /**

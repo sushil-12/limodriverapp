@@ -29,7 +29,12 @@ fun BottomActionBar(
 ) {
     val brandOrange = Color(0xFFF28B2F)
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        // Keeps the action bar (and its primary CTA) above the on-screen keyboard and system bars.
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(
+                WindowInsets.navigationBars.union(WindowInsets.ime)
+            ),
         shadowElevation = 8.dp
     ) {
         Column(

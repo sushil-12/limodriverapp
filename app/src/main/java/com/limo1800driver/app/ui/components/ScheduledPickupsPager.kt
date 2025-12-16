@@ -98,21 +98,30 @@ fun ScheduledPickupsPager(
                 state = pagerState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp)
+                    // DynamicBookingCard is fairly tall; 300dp can squeeze child layouts (buttons/text).
+                    .height(360.dp)
             ) { page ->
                 if (page < bookingsState.bookings.size) {
                     val booking = bookingsState.bookings[page]
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 18.dp)
+                            // Parent screens (e.g., Dashboard tab content) already apply horizontal padding.
+                            // Adding more here makes the card noticeably narrower (and buttons look smaller).
+                            .padding(horizontal = 0.dp)
                     ) {
-                        DriverBookingCard(
+                        DynamicBookingCard(
                             booking = booking,
+                            onClick = { onBookingSelected(booking) },
                             onEditClick = { onEditClick(booking) },
-                            onViewOnMapClick = { onViewOnMapClick(booking) },
+                            onFinalizeClick = { onFinalizeClick(booking) },
                             onDriverEnRouteClick = { onDriverEnRouteClick(booking) },
-                            modifier = Modifier.fillMaxWidth()
+                            onMapClick = { onViewOnMapClick(booking) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // Small side padding so the card doesn't feel "stuck" to the edges while swiping.
+                                .padding(horizontal = 8.dp)
+                                .padding(vertical = 8.dp)
                         )
                     }
                 }
@@ -123,19 +132,23 @@ fun ScheduledPickupsPager(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.Center,
+                        .padding(top = 8.dp), // Added slightly more top padding for separation
+                    // FIX 1: Use spacedBy to add gap between circles
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     bookingsState.bookings.indices.forEach { index ->
+                        // Extract logic for readability
+                        val isSelected = pagerState.currentPage == index
+
                         Box(
                             modifier = Modifier
-                                .size(if (pagerState.currentPage == index) 10.dp else 8.dp)
+                                // FIX 2: Remove the internal padding. The Row handles spacing now.
+                                .size(if (isSelected) 10.dp else 8.dp)
                                 .background(
-                                    color = if (pagerState.currentPage == index) Color.Black else Color.Gray.copy(alpha = 0.3f),
+                                    color = if (isSelected) Color.Black else Color.Gray.copy(alpha = 0.3f),
                                     shape = CircleShape
                                 )
-                                .padding(horizontal = 4.dp)
                         )
                     }
                 }

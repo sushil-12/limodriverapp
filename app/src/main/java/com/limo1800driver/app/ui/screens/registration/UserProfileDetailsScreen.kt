@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -111,7 +112,7 @@ fun UserProfileDetailsScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // --- Location Section ---
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -136,13 +137,13 @@ fun UserProfileDetailsScreen(
                     )
                 }
             }
-            
-            Divider(
-                modifier = Modifier.padding(vertical = 16.dp), 
-                color = Color(0xFFEEEEEE), 
-                thickness = 1.dp
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 16.dp),
+                thickness = 1.dp,
+                color = Color(0xFFEEEEEE)
             )
-            
+
             // --- Welcome Title ---
             Text(
                 text = "Welcome $userName!",
@@ -152,9 +153,9 @@ fun UserProfileDetailsScreen(
                     color = Color.Black
                 )
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // --- Progress Bars ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -177,9 +178,9 @@ fun UserProfileDetailsScreen(
                 ProgressBar(isCompleted = isBankDetailsCompleted)
                 ProgressBar(isCompleted = isProfilePictureCompleted)
             }
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             // --- Steps List ---
             Column {
                 // Driving License
@@ -189,9 +190,9 @@ fun UserProfileDetailsScreen(
                     enabled = true,
                     onClick = { onNavigateToStep(NavRoutes.DrivingLicense) }
                 )
-                
-                Divider(color = Color(0xFFF5F5F5))
-                
+
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = Color(0xFFF5F5F5))
+
                 // Bank Details
                 StepRow(
                     title = "Bank Details",
@@ -199,9 +200,9 @@ fun UserProfileDetailsScreen(
                     enabled = isDrivingLicenseCompleted,
                     onClick = { onNavigateToStep(NavRoutes.BankDetails) }
                 )
-                
-                Divider(color = Color(0xFFF5F5F5))
-                
+
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = Color(0xFFF5F5F5))
+
                 // Profile Picture
                 StepRow(
                     title = "Profile Picture",

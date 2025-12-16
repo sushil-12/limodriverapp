@@ -18,12 +18,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.limo1800driver.app.data.model.dashboard.DriverBooking
 import com.limo1800driver.app.ui.components.*
+import com.limo1800driver.app.ui.theme.LimoBlack
+import com.limo1800driver.app.ui.theme.LimoGreen
+import com.limo1800driver.app.ui.theme.LimoGrey
 import com.limo1800driver.app.ui.theme.LimoOrange
 import com.limo1800driver.app.ui.theme.LimoRed
 import com.limo1800driver.app.ui.viewmodel.PreArrangedRidesViewModel
@@ -32,6 +36,14 @@ import com.limo1800driver.app.ui.viewmodel.TimePeriod
 // -- Constants --
 private val ScreenBackgroundColor = Color.White
 private val CardBackgroundColor = Color.White
+
+// iOS Style Colors
+private val IOSBlack = LimoBlack
+private val IOSLightGray = Color(0xFFE6E6E6) // Light Gray for Summary
+private val IOSPassengerBg = Color(0xFFF2F2F2) // Lighter Gray for Passenger
+private val IOSOrange = LimoOrange
+private val IOSGreen = LimoGreen
+private val IOSTeal = Color(0xFF009688)
 
 /**
  * Pre-arranged Rides Screen
@@ -42,10 +54,24 @@ private val CardBackgroundColor = Color.White
 fun PreArrangedRidesScreen(
     onBack: () -> Unit,
     onBookingClick: (Int) -> Unit = {},
+    onNavigateToBookingPreview: (Int) -> Unit = {},
+    onNavigateToFinalizeBooking: (bookingId: Int, source: String) -> Unit = { _, _ -> },
+    onNavigateToFinalizeRates: (bookingId: Int, mode: String, source: String) -> Unit = { _, _, _ -> },
+    onNavigateToEditBooking: (bookingId: Int, source: String) -> Unit = { _, _ -> },
+    onNavigateToMap: (Int) -> Unit = {},
+    refreshRequested: Boolean = false,
+    onRefreshConsumed: () -> Unit = {},
     viewModel: PreArrangedRidesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSearchBar by remember { mutableStateOf(false) }
+
+    LaunchedEffect(refreshRequested) {
+        if (refreshRequested) {
+            viewModel.refreshBookings()
+            onRefreshConsumed()
+        }
+    }
 
     // Clear search when closing search bar
     LaunchedEffect(showSearchBar) {
@@ -56,7 +82,7 @@ fun PreArrangedRidesScreen(
     Scaffold(
         containerColor = ScreenBackgroundColor,
         topBar = {
-            // Custom Header that handles Safe Area (Status Bar) - matching user app
+            // Custom Header that handles Safe Area (Status Bar)
             LocalCommonHeaderWithSearch(
                 title = "Pre-arranged Rides",
                 onBackClick = onBack,
@@ -75,7 +101,7 @@ fun PreArrangedRidesScreen(
                 .padding(innerPadding)
         ) {
 
-            // Search Bar (Visible only when toggled) - matching user app design
+            // Search Bar (Visible only when toggled)
             if (showSearchBar) {
                 SearchBar(
                     searchText = uiState.searchText,
@@ -87,7 +113,7 @@ fun PreArrangedRidesScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp) // Gap between cards
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
 
                 // 1. Controls Section (Summary + Time Selector + Date Picker)
@@ -98,25 +124,23 @@ fun PreArrangedRidesScreen(
                             .background(CardBackgroundColor)
                             .padding(bottom = 16.dp)
                     ) {
-                        // Summary Card (matching user app design)
                         SummaryCard(
                             dateRange = viewModel.getDateRangeString(),
-                            onPreviousPeriod = { handlePreviousNavigation(viewModel, uiState.selectedTimePeriod) },
-                            onNextPeriod = { handleNextNavigation(viewModel, uiState.selectedTimePeriod) },
+                            // FIX: Call generic methods directly, removed helper functions
+                            onPreviousPeriod = { viewModel.goToPreviousPeriod() },
+                            onNextPeriod = { viewModel.goToNextPeriod() },
                             canGoPrevious = viewModel.canGoPrevious(),
                             canGoNext = viewModel.canGoNext()
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Time Period Selector (matching user app design)
                         TimePeriodSelector(
                             selectedTimePeriod = uiState.selectedTimePeriod,
                             onTimePeriodChange = viewModel::handleTimePeriodChange,
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
 
-                        // Custom Date Range Picker (Only visible if CUSTOM is selected)
                         if (uiState.selectedTimePeriod == TimePeriod.CUSTOM) {
                             Spacer(modifier = Modifier.height(12.dp))
                             CustomDateRangePicker(
@@ -134,7 +158,7 @@ fun PreArrangedRidesScreen(
                 // 2. Bookings List
                 when {
                     uiState.isLoading && uiState.bookings.isEmpty() -> {
-                        items(3) { // Show 3 shimmer cards - matching user app
+                        items(3) {
                             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                                 BookingCardShimmer()
                             }
@@ -154,14 +178,27 @@ fun PreArrangedRidesScreen(
                     else -> {
                         items(uiState.bookings) { booking ->
                             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                PreArrangedBookingCard(
+                                DynamicBookingCard(
                                     booking = booking,
-                                    onClick = { onBookingClick(booking.bookingId) }
+                                    onClick = { onBookingClick(booking.bookingId) },
+                                    onEditClick = { onNavigateToEditBooking(booking.bookingId, "prearranged") },
+                                    onFinalizeClick = {
+                                        val isPending = booking.bookingStatus.equals("pending", ignoreCase = true)
+                                        if (isPending) {
+                                            onNavigateToBookingPreview(booking.bookingId)
+                                        } else {
+                                            // Finalize should go directly to rates screen (single-step flow)
+                                            onNavigateToFinalizeRates(booking.bookingId, "finalizeOnly", "prearranged")
+                                        }
+                                    },
+                                    onDriverEnRouteClick = { /* Handle En Route Action */ },
+                                    onMapClick = { onNavigateToMap(booking.bookingId) },
+                                    modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             }
                         }
 
-                        // Load More Button - matching user app design
+                        // Load More Button
                         if (uiState.currentPage < uiState.totalPages) {
                             item {
                                 Box(
@@ -171,7 +208,6 @@ fun PreArrangedRidesScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (uiState.isLoading) {
-                                        // Shimmer button placeholder
                                         ShimmerBox(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -198,12 +234,8 @@ fun PreArrangedRidesScreen(
     }
 }
 
-// MARK: - Components
+// MARK: - Reused Components (Header, Search, etc.)
 
-/**
- * Local Header Component to ensure Safe Area (Status Bar) handling
- * Matching user app LocalCommonHeaderWithSearch
- */
 @Composable
 private fun LocalCommonHeaderWithSearch(
     title: String,
@@ -246,9 +278,6 @@ private fun LocalCommonHeaderWithSearch(
     }
 }
 
-/**
- * Search Bar Component - matching user app design exactly
- */
 @Composable
 private fun SearchBar(
     searchText: String,
@@ -288,9 +317,6 @@ private fun SearchBar(
     }
 }
 
-/**
- * Summary Card - matching user app design exactly
- */
 @Composable
 private fun SummaryCard(
     dateRange: String,
@@ -315,7 +341,6 @@ private fun SummaryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Previous Button
             IconButton(
                 onClick = onPreviousPeriod,
                 enabled = canGoPrevious,
@@ -329,7 +354,6 @@ private fun SummaryCard(
                 )
             }
 
-            // Date Text
             Text(
                 text = dateRange,
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -339,7 +363,6 @@ private fun SummaryCard(
                 )
             )
 
-            // Next Button
             IconButton(
                 onClick = onNextPeriod,
                 enabled = canGoNext,
@@ -356,9 +379,6 @@ private fun SummaryCard(
     }
 }
 
-/**
- * Time Period Selector - matching user app design exactly
- */
 @Composable
 private fun TimePeriodSelector(
     selectedTimePeriod: TimePeriod,
@@ -395,9 +415,6 @@ private fun TimePeriodSelector(
     }
 }
 
-/**
- * Booking Card Shimmer - matching user app BookingCardShimmer exactly
- */
 @Composable
 fun BookingCardShimmer() {
     Card(
@@ -409,34 +426,22 @@ fun BookingCardShimmer() {
         border = BorderStroke(1.dp, Color(0xFFE5E5E5))
     ) {
         Column {
-            // 1. Header Shimmer
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFFF9F9F9))
                     .padding(horizontal = 16.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Date Placeholder
                 Box(
-                    modifier = Modifier
-                        .height(16.dp)
-                        .width(150.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                    modifier = Modifier.height(16.dp).width(150.dp).clip(RoundedCornerShape(4.dp))
                         .shimmerEffect()
                 )
-                // Badge Placeholder
                 Box(
-                    modifier = Modifier
-                        .height(20.dp)
-                        .width(80.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                    modifier = Modifier.height(20.dp).width(80.dp).clip(RoundedCornerShape(4.dp))
                         .shimmerEffect()
                 )
             }
-
-            // 2. Summary Shimmer
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -444,25 +449,24 @@ fun BookingCardShimmer() {
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // ID
-                Box(modifier = Modifier.size(width = 50.dp, height = 14.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
-                // Status
-                Box(modifier = Modifier.size(width = 60.dp, height = 14.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
-                // Price
-                Box(modifier = Modifier.size(width = 70.dp, height = 14.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                Box(
+                    modifier = Modifier.size(width = 50.dp, height = 14.dp)
+                        .clip(RoundedCornerShape(4.dp)).shimmerEffect()
+                )
+                Box(
+                    modifier = Modifier.size(width = 60.dp, height = 14.dp)
+                        .clip(RoundedCornerShape(4.dp)).shimmerEffect()
+                )
+                Box(
+                    modifier = Modifier.size(width = 70.dp, height = 14.dp)
+                        .clip(RoundedCornerShape(4.dp)).shimmerEffect()
+                )
             }
-
-            // Divider
-            Divider(color = Color(0xFFF0F0F0), thickness = 1.dp)
-
-            // 3. Route Details Shimmer
+            HorizontalDivider(thickness = 1.dp, color = Color(0xFFF0F0F0))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Timeline Visual
                 Column(
                     modifier = Modifier.height(60.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -470,225 +474,30 @@ fun BookingCardShimmer() {
                 ) {
                     Box(modifier = Modifier.size(10.dp).clip(CircleShape).shimmerEffect())
                     Box(modifier = Modifier.width(2.dp).height(30.dp).shimmerEffect())
-                    Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).shimmerEffect())
+                    Box(
+                        modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp))
+                            .shimmerEffect()
+                    )
                 }
-
-                // Address Text
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Pickup Line
-                    Box(modifier = Modifier.fillMaxWidth(0.9f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                    Box(
+                        modifier = Modifier.fillMaxWidth(0.9f).height(14.dp)
+                            .clip(RoundedCornerShape(4.dp)).shimmerEffect()
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
-                    // Dropoff Line
-                    Box(modifier = Modifier.fillMaxWidth(0.7f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                    Box(
+                        modifier = Modifier.fillMaxWidth(0.7f).height(14.dp)
+                            .clip(RoundedCornerShape(4.dp)).shimmerEffect()
+                    )
                 }
-            }
-
-            // 4. Driver Info Shimmer (for driver app, this could be passenger info)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFFFAFAFA))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Avatar
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .shimmerEffect()
-                )
-
-                // Name & Phone lines
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Box(modifier = Modifier.fillMaxWidth(0.4f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
-                    Box(modifier = Modifier.fillMaxWidth(0.3f).height(10.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
-                }
-            }
-
-            // 5. Action Buttons Shimmer
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Button 1
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .shimmerEffect()
-                )
-                // Button 2
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .shimmerEffect()
-                )
-                // More Button
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .shimmerEffect()
-                )
             }
         }
     }
 }
 
-/**
- * Booking Card Component for PreArrangedRides
- */
-@Composable
-private fun PreArrangedBookingCard(
-    booking: DriverBooking,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(1.dp, Color(0xFFE5E5E5))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Booking ID and Status
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Booking #${booking.bookingId}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-                
-                // Status Badge
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = when (booking.bookingStatus.lowercase()) {
-                        "paid", "completed" -> Color(0xFF4CAF50)
-                        "pending" -> Color(0xFFFF9800)
-                        "cancelled" -> Color(0xFFF44336)
-                        else -> Color(0xFF9E9E9E)
-                    }.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        text = booking.bookingStatus.replaceFirstChar { it.uppercase() },
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = when (booking.bookingStatus.lowercase()) {
-                            "paid", "completed" -> Color(0xFF4CAF50)
-                            "pending" -> Color(0xFFFF9800)
-                            "cancelled" -> Color(0xFFF44336)
-                            else -> Color(0xFF9E9E9E)
-                        }
-                    )
-                }
-            }
-            
-            // Pickup and Dropoff
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.RadioButtonChecked,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = Color(0xFF4CAF50)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Pickup",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = booking.pickupAddress,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "${booking.pickupDate} ${booking.pickupTime}",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                    }
-                }
-                
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = Color(0xFFF44336)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Dropoff",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = booking.dropoffAddress,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-            
-            Divider()
-            
-            // Summary Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Service: ${booking.serviceType ?: "N/A"}",
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-                Text(
-                    text = "${booking.currencySymbol}${String.format("%.2f", booking.grandTotal ?: 0.0)}",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = LimoOrange
-                )
-            }
-        }
-    }
-}
-
-/**
- * Empty Bookings State - matching user app design
- */
 @Composable
 private fun EmptyBookingsView(hasSearchQuery: Boolean) {
     Column(
@@ -704,41 +513,27 @@ private fun EmptyBookingsView(hasSearchQuery: Boolean) {
             modifier = Modifier.size(180.dp),
             tint = Color.Gray.copy(alpha = 0.6f)
         )
-
         Spacer(modifier = Modifier.height(24.dp))
-
         Text(
-            text = if (hasSearchQuery) "No Bookings Found" else "No Bookings Found",
+            text = "No Bookings Found",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = Color.Black
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         Text(
-            text = if (hasSearchQuery) {
-                "There are no bookings matching your search. Try adjusting your search terms."
-            } else {
-                "There are no bookings for the selected date range. Try selecting a different period."
-            },
+            text = if (hasSearchQuery) "There are no bookings matching your search." else "There are no bookings for the selected date range.",
             style = MaterialTheme.typography.bodyLarge,
             color = Color.Gray,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            lineHeight = 20.sp
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }
 
-/**
- * Error View - matching user app design
- */
 @Composable
 private fun ErrorView(message: String?, onRetry: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -746,28 +541,6 @@ private fun ErrorView(message: String?, onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = message ?: "Unknown Error")
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onRetry) {
-            Text("Retry")
-        }
-    }
-}
-
-// MARK: - Helper Functions
-
-private fun handlePreviousNavigation(viewModel: PreArrangedRidesViewModel, timePeriod: TimePeriod) {
-    when (timePeriod) {
-        TimePeriod.WEEKLY -> viewModel.goToPreviousWeek()
-        TimePeriod.MONTHLY -> viewModel.goToPreviousMonth()
-        TimePeriod.YEARLY -> viewModel.goToPreviousYear()
-        else -> {}
-    }
-}
-
-private fun handleNextNavigation(viewModel: PreArrangedRidesViewModel, timePeriod: TimePeriod) {
-    when (timePeriod) {
-        TimePeriod.WEEKLY -> viewModel.goToNextWeek()
-        TimePeriod.MONTHLY -> viewModel.goToNextMonth()
-        TimePeriod.YEARLY -> viewModel.goToNextYear()
-        else -> {}
+        Button(onClick = onRetry) { Text("Retry") }
     }
 }

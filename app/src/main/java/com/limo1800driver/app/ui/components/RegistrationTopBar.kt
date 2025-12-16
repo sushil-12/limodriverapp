@@ -1,6 +1,7 @@
 package com.limo1800driver.app.ui.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +36,8 @@ fun RegistrationTopBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            // Paint behind the status bar inset so the "safe area" above the header is black
+            .background(BrandBlack)
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         TopAppBar(

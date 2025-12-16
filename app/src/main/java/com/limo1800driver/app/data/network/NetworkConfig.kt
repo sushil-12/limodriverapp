@@ -6,6 +6,7 @@ package com.limo1800driver.app.data.network
 object NetworkConfig {
     const val BASE_URL = "https://1800limoapi.infodevbox.com"
     const val GOOGLE_PLACES_BASE_URL = "https://maps.googleapis.com"
+    const val CHAT_BASE_URL = "https://limortservice.infodevbox.com/"
     
     // Timeout configurations
     const val CONNECT_TIMEOUT = 30L

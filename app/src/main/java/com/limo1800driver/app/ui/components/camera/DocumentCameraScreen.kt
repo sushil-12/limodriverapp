@@ -4,7 +4,10 @@ import android.Manifest
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.graphics.Rect
+import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.*
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -89,6 +93,19 @@ fun DocumentCameraScreen(
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted -> hasPermission = granted }
+    )
+
+    // Gallery picker (works without storage permissions via the system picker)
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri: Uri? ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val bitmap = decodeBitmapFromUri(context, uri)
+                onImageCaptured(bitmap)
+                onDismiss()
+            }
+        }
     )
 
     // --- Logic Section (Unchanged) ---
@@ -246,29 +263,53 @@ fun DocumentCameraScreen(
                         .padding(horizontal = 32.dp)
                 )
 
-                // Modern Shutter Button
-                CameraShutterButton(
-                    onClick = {
-                        // Flash effect trigger
-                        showFlash = true
-                        
-                        imageCapture?.let { capture ->
-                            scope.launch {
-                                captureImage(
-                                    imageCapture = capture,
-                                    overlayFrame = overlayFrame,
-                                    context = context,
-                                    onImageCaptured = { bitmap ->
-                                        onImageCaptured(bitmap)
-                                        // Reset flash state quickly after capture starts processing
-                                        showFlash = false 
-                                        onDismiss()
-                                    }
-                                )
+                // Actions Row: Gallery + Capture (centered)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Gallery
+                    IconButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = "Pick from gallery",
+                            tint = Color.White
+                        )
+                    }
+
+                    // Capture
+                    CameraShutterButton(
+                        onClick = {
+                            // Flash effect trigger
+                            showFlash = true
+
+                            imageCapture?.let { capture ->
+                                scope.launch {
+                                    captureImage(
+                                        imageCapture = capture,
+                                        overlayFrame = overlayFrame,
+                                        context = context,
+                                        onImageCaptured = { bitmap ->
+                                            onImageCaptured(bitmap)
+                                            // Reset flash state quickly after capture starts processing
+                                            showFlash = false
+                                            onDismiss()
+                                        }
+                                    )
+                                }
                             }
                         }
-                    }
-                )
+                    )
+
+                    // Spacer to keep capture button centered
+                    Box(modifier = Modifier.size(56.dp))
+                }
             }
         }
 
@@ -334,6 +375,34 @@ private fun CameraShutterButton(
                 .size(64.dp)
                 .background(Color.White, CircleShape)
         )
+    }
+}
+
+private fun decodeBitmapFromUri(context: Context, uri: Uri): Bitmap? {
+    return try {
+        val raw = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val source = ImageDecoder.createSource(context.contentResolver, uri)
+            ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                decoder.isMutableRequired = true
+            }
+        } else {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        } ?: return null
+
+        // Basic downscale to avoid OOM on very large images
+        val maxDim = maxOf(raw.width, raw.height)
+        val target = 2000
+        if (maxDim <= target) raw
+        else {
+            val scale = target.toFloat() / maxDim.toFloat()
+            val w = (raw.width * scale).toInt().coerceAtLeast(1)
+            val h = (raw.height * scale).toInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(raw, w, h, true)
+        }
+    } catch (e: Exception) {
+        null
     }
 }
 

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.limo1800driver.app.data.model.dashboard.WalletTransaction
+import com.limo1800driver.app.data.model.dashboard.TransferDetails
+import com.limo1800driver.app.ui.components.CommonMenuHeader
 import com.limo1800driver.app.ui.components.ShimmerText
 import com.limo1800driver.app.ui.viewmodel.WalletViewModel
 
@@ -57,22 +59,9 @@ fun WalletScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Wallet",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            CommonMenuHeader(
+                title = "Wallet",
+                onBackClick = onBack
             )
         }
     ) { paddingValues ->
@@ -145,7 +134,10 @@ fun WalletScreen(
                     } else {
                         items(
                             items = uiState.transactions,
-                            key = { it.id }
+                            key = {
+                                it.id
+                                    ?: "${it.reservationId ?: "unknown"}_${it.createdDatetime ?: "unknown"}_${it.amount ?: 0.0}"
+                            }
                         ) { transaction ->
                             TransactionRow(
                                 transaction = transaction,
@@ -154,8 +146,9 @@ fun WalletScreen(
                             )
                             
                             if (transaction.id != uiState.transactions.last().id) {
-                                Divider(
+                                HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
+                                    thickness = DividerDefaults.Thickness,
                                     color = Color.Gray.copy(alpha = 0.2f)
                                 )
                             }
@@ -201,8 +194,9 @@ fun WalletScreen(
                         if (!uiState.canLoadMore && uiState.transactions.isNotEmpty()) {
                             item {
                                 Column {
-                                    Divider(
+                                    HorizontalDivider(
                                         modifier = Modifier.padding(horizontal = 16.dp),
+                                        thickness = DividerDefaults.Thickness,
                                         color = Color.Gray.copy(alpha = 0.2f)
                                     )
                                     Text(
@@ -541,7 +535,7 @@ private fun SearchSection(
  */
 @Composable
 private fun TransactionRow(
-    transaction: WalletTransaction,
+    transaction: TransferDetails,
     currencySymbol: String,
     viewModel: WalletViewModel
 ) {
@@ -575,12 +569,12 @@ private fun TransactionRow(
             )
             
             Text(
-                text = viewModel.formatTransactionDate(transaction.createdAt),
+                text = viewModel.formatTransactionDate(transaction.createdDatetime),
                 fontSize = 12.sp,
                 color = Color.Gray
             )
             
-            transaction.bookingId?.let { bookingId ->
+            transaction.reservationId?.let { bookingId ->
                 Text(
                     text = "Reservation #$bookingId",
                     fontSize = 11.sp,
@@ -612,7 +606,7 @@ private fun TransactionRow(
                 )
             }
             
-            transaction.type?.let { type ->
+            transaction.status?.let { type ->
                 val statusColor = viewModel.getTransactionStatusColor(type)
                 Surface(
                     color = statusColor.copy(alpha = 0.12f),
@@ -724,23 +718,38 @@ private fun WalletDetailsDialog(
                     // Total Earnings
                     DetailRow(
                         label = "Total Earnings",
-                        value = "${walletDetails.currencySymbol ?: "$"}${String.format("%.2f", walletDetails.totalEarnings ?: 0.0)}"
+                        value = "${walletDetails.currencySymbol ?: "$"}${
+                            String.format(
+                                "%.2f",
+                                walletDetails.totalEarnings ?: 0.0
+                            )
+                        }"
                     )
-                    
-                    Divider()
-                    
+
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+
                     // Total Withdrawals
                     DetailRow(
                         label = "Total Withdrawals",
-                        value = "${walletDetails.currencySymbol ?: "$"}${String.format("%.2f", walletDetails.totalWithdrawals ?: 0.0)}"
+                        value = "${walletDetails.currencySymbol ?: "$"}${
+                            String.format(
+                                "%.2f",
+                                walletDetails.totalWithdrawals ?: 0.0
+                            )
+                        }"
                     )
-                    
-                    Divider()
-                    
+
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+
                     // Current Balance
                     DetailRow(
                         label = "Current Balance",
-                        value = "${walletDetails.currencySymbol ?: "$"}${String.format("%.2f", walletDetails.currentBalance ?: 0.0)}"
+                        value = "${walletDetails.currencySymbol ?: "$"}${
+                            String.format(
+                                "%.2f",
+                                walletDetails.currentBalance ?: 0.0
+                            )
+                        }"
                     )
                 }
             }

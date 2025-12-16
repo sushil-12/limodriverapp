@@ -47,6 +47,17 @@ class VehicleDetailsViewModel @Inject constructor(
         loadInitialData()
     }
 
+    private fun parseCancelPolicyHours(value: String?): Int? {
+        val v = value?.trim()?.toIntOrNull() ?: return null
+        return when (v) {
+            1 -> 24
+            2 -> 48
+            3 -> 72
+            24, 48, 72 -> v
+            else -> v
+        }
+    }
+
     private fun loadInitialData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -77,7 +88,10 @@ class VehicleDetailsViewModel @Inject constructor(
                     prefillVehicleId = data.vehicleId ?: prefillVehicleId
                     // Handle prefill IDs (assuming backend sends IDs in string fields or Int fields)
                     // If your prefill object uses String, convert to Int.
-                    selectedVehicleTypeId.value = data.vehicleTypeId ?: tokenManager.getSelectedVehicleId()?.toIntOrNull()
+                    selectedVehicleTypeId.value =
+                        data.vehicleType?.toIntOrNull()
+                            ?: data.vehicleTypeId
+                            ?: tokenManager.getSelectedVehicleId()?.toIntOrNull()
                     
                     // Safe parsing for fields that might be strings in prefill but need to be Ints
                     selectedMakeId.value = data.make?.toIntOrNull()
@@ -88,8 +102,11 @@ class VehicleDetailsViewModel @Inject constructor(
                     licensePlate.value = data.licensePlate ?: ""
                     seats.value = data.seats ?: "4"
                     luggage.value = data.luggage ?: "2"
-                    nonCharterPolicy.value = data.nonCharterCancelPolicy?.toIntOrNull() ?: 24
-                    charterPolicy.value = data.charterCancelPolicy?.toIntOrNull() ?: 48
+                    numberOfVehicles.value = data.numberOfVehicles ?: "1"
+                    nonCharterPolicy.value =
+                        parseCancelPolicyHours(data.nonCharterCancelPolicy ?: data.nonCharterCancelPolicyLegacy) ?: 24
+                    charterPolicy.value =
+                        parseCancelPolicyHours(data.charterCancelPolicy ?: data.charterCancelPolicyLegacy) ?: 48
                     selectedServiceTypes.value = data.typeOfService ?: emptyList()
 
                     // If we have a selected Make, fetch Models immediately

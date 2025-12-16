@@ -2,6 +2,7 @@ package com.limo1800driver.app.data.api
 
 import com.limo1800driver.app.data.model.BaseResponse
 import com.limo1800driver.app.data.model.dashboard.*
+import com.google.gson.JsonElement
 import retrofit2.http.*
 
 /**
@@ -18,8 +19,8 @@ interface DriverDashboardApi {
     suspend fun getDriverBookings(
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null,
-        @Query("start_date") startDate: String? = null,
-        @Query("end_date") endDate: String? = null,
+        @Query("from") startDate: String? = null,
+        @Query("to") endDate: String? = null,
         @Query("search") search: String? = null,
         @Query("status") status: String? = null
     ): BaseResponse<DriverBookingsData>
@@ -29,15 +30,16 @@ interface DriverDashboardApi {
     suspend fun getDriverAllActivity(
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null,
-        @Query("start_date") startDate: String? = null,
-        @Query("end_date") endDate: String? = null
+        @Query("from") startDate: String? = null,
+        @Query("to") endDate: String? = null,
+        @Query("search") search: String? = null
     ): BaseResponse<DriverAllActivityData>
     
     // Driver Earnings Summary
     @GET("api/mobile/v1/driver/bookings/earnings/summary")
     suspend fun getDriverEarningsSummary(
-        @Query("start_date") startDate: String? = null,
-        @Query("end_date") endDate: String? = null
+        @Query("from") startDate: String? = null,
+        @Query("to") endDate: String? = null
     ): BaseResponse<DriverEarningsSummaryData>
     
     // Driver Updates (Alerts/Warnings)
@@ -77,7 +79,7 @@ interface DriverDashboardApi {
     @GET("api/admin/reservation-rates/{bookingId}")
     suspend fun getReservationRates(
         @Path("bookingId") bookingId: Int
-    ): BaseResponse<ReservationRatesData>
+    ): BaseResponse<AdminReservationRatesData>
     
     // Booking Rates Vehicle
     @POST("api/admin/booking-rates-vehicle")
@@ -88,7 +90,7 @@ interface DriverDashboardApi {
     // Finalize Rate Edit
     @POST("api/affiliate/finalize-rate-edit")
     suspend fun finalizeRateEdit(
-        @Body request: FinalizeRateEditRequest
+        @Body request: FinalizeRatesRequest
     ): BaseResponse<FinalizeRateEditData>
     
     // Affiliate Payment Processing
@@ -96,17 +98,52 @@ interface DriverDashboardApi {
     suspend fun processPayment(
         @Body request: PaymentProcessingRequest
     ): BaseResponse<PaymentProcessingData>
+
+    // Get Credit Card Details
+    @GET("api/affiliate/get-credit-card-detail/{bookingId}")
+    suspend fun getCreditCardDetails(
+        @Path("bookingId") bookingId: Int
+    ): BaseResponse<JsonElement>
+
+    // Credit card payment (same endpoint, different payload)
+    @POST("api/affiliate/affiliate-payment-processing")
+    suspend fun processCreditCardPayment(
+        @Body request: CreditCardPaymentRequest
+    ): BaseResponse<PaymentProcessingData>
     
     // Booking Preview
     @GET("api/admin/get-booking-preview/{bookingId}")
     suspend fun getBookingPreview(
         @Path("bookingId") bookingId: Int
-    ): BaseResponse<BookingPreviewData>
+    ): BaseResponse<AdminBookingPreviewData>
     
     // Edit Reservation
     @POST("api/affiliate/edit-reservation")
     suspend fun editReservation(
         @Body request: EditReservationRequest
     ): BaseResponse<EditReservationData>
+
+    // Mobile Data (Airlines / Airports) - used by iOS edit-booking flow
+    @GET("api/mobile-data")
+    suspend fun getMobileDataAirlines(
+        @Query("only_airlines") onlyAirlines: Boolean = true
+    ): BaseResponse<MobileDataAirlinesData>
+
+    @GET("api/mobile-data")
+    suspend fun getMobileDataAirports(
+        @Query("only_airports") onlyAirports: Boolean = true
+    ): BaseResponse<MobileDataAirportsData>
+
+    // Accept Booking (iOS: /api/affiliate/change-booking-status/accepted/{bookingId})
+    @GET("api/affiliate/change-booking-status/accepted/{bookingId}")
+    suspend fun acceptBooking(
+        @Path("bookingId") bookingId: Int
+    ): BaseResponse<BookingStatusData>
+
+    // Reject/Cancel Booking (iOS: /api/affiliate/cancel-booking/{bookingId})
+    @GET("api/affiliate/cancel-booking/{bookingId}")
+    suspend fun rejectBooking(
+        @Path("bookingId") bookingId: Int
+    ): BaseResponse<BookingStatusData>
 }
 

@@ -80,13 +80,8 @@ class VehicleDetailsImageUploadViewModel @Inject constructor(
                     data.specialAmenities?.let { ids -> selectedSpecialAmenities.addAll(ids.map { it.toString() }) }
 
                     selectedInteriors.clear()
-                    // Backend may return either "vehicle_interior" or "interior"
-                    val interiorIds: List<Any>? = when {
-                        data.vehicleInterior != null -> data.vehicleInterior
-                        data.interior != null -> data.interior
-                        else -> null
-                    }
-                    interiorIds?.let { ids ->
+                    // Backend returns "vehicle_interior" in this step payload
+                    data.vehicleInterior?.let { ids ->
                         selectedInteriors.addAll(ids.map { it.toString() })
                     }
                     
@@ -194,4 +189,11 @@ class VehicleDetailsImageUploadViewModel @Inject constructor(
     }
     
     fun clearError() { _uiState.update { it.copy(error = null) } }
+
+    /**
+     * Reset one-shot navigation flags so the screen doesn't auto-navigate when revisited.
+     */
+    fun consumeSuccess() {
+        _uiState.update { it.copy(success = false, nextStep = null) }
+    }
 }

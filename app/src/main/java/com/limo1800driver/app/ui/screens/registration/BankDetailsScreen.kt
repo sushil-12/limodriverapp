@@ -49,6 +49,8 @@ fun BankDetailsScreen(
     var routingNumber by remember { mutableStateOf("") }
     var accountType by remember { mutableStateOf<String?>(null) }
     var currency by remember { mutableStateOf<String?>(null) }
+    // Needed because multiple countries share the same currency code (e.g., USD for US, AS, etc.)
+    var currencyCountryCode by remember { mutableStateOf<String?>(null) }
     var currencySheetOpen by remember { mutableStateOf(false) }
     var currencySearch by remember { mutableStateOf("") }
     val currencySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -65,12 +67,32 @@ fun BankDetailsScreen(
     // Prefill data
     LaunchedEffect(uiState.prefillData) {
         uiState.prefillData?.let { prefill ->
-            if (accHolderFirstName.isEmpty()) accHolderFirstName = prefill.accountHolderName?.split(" ")?.firstOrNull() ?: ""
-            if (accHolderLastName.isEmpty()) accHolderLastName = prefill.accountHolderName?.split(" ")?.drop(1)?.joinToString(" ") ?: ""
+            // Prefer explicit first/last names from API; fall back to combined name when needed.
+            if (accHolderFirstName.isEmpty()) {
+                accHolderFirstName = prefill.accountHolderFirstName
+                    ?: prefill.accountHolderName?.trim()?.split(" ")?.firstOrNull()
+                    ?: ""
+            }
+            if (accHolderLastName.isEmpty()) {
+                accHolderLastName = prefill.accountHolderLastName
+                    ?: prefill.accountHolderName?.trim()?.split(" ")?.drop(1)?.joinToString(" ")
+                    ?: ""
+            }
             if (bankName.isEmpty()) bankName = prefill.bankName ?: ""
+            if (bankAddress.isEmpty()) bankAddress = prefill.bankAddress ?: ""
             if (bankAccount.isEmpty()) bankAccount = prefill.accountNumber ?: ""
             if (routingNumber.isEmpty()) routingNumber = prefill.routingNumber ?: ""
             if (accountType == null) accountType = prefill.accountType
+            if (currency == null) currency = prefill.currency
+            if (currencyCountryCode == null) currencyCountryCode = prefill.country
+            if (ssn.isEmpty()) ssn = prefill.socialSecurityNumber ?: ""
+            if (badgeCity.isEmpty()) badgeCity = prefill.badgeCity ?: ""
+
+            val prefillBusinessId = prefill.businessId?.trim().orEmpty()
+            if (prefillBusinessId.isNotEmpty()) {
+                hasEIN = true
+                if (ein.isEmpty()) ein = prefillBusinessId
+            }
         }
     }
     
@@ -119,7 +141,9 @@ fun BankDetailsScreen(
             .fillMaxSize()
             .background(Color.White)
             .imePadding()
-            .systemBarsPadding()
+            // Don't apply status-bar padding here; `RegistrationTopBar` already handles it
+            // and paints the safe area black. We only need bottom insets for nav bar.
+            .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         RegistrationTopBar(onBack = onBack)
 
@@ -271,7 +295,14 @@ fun BankDetailsScreen(
                     label = "CURRENCY *",
                     placeholder = "Select",
                     // Display the friendly name (e.g. "USD - $ - US Dollar")
-                    text = currencyOptions.find { it.code.equals(currency, ignoreCase = true) }?.display ?: "",
+                    text = (
+                        currencyOptions.firstOrNull {
+                            it.code.equals(currency, ignoreCase = true) &&
+                                it.countryCode.equals(currencyCountryCode, ignoreCase = true)
+                        } ?: currencyOptions.firstOrNull {
+                            it.code.equals(currency, ignoreCase = true)
+                        }
+                    )?.display ?: "",
                     onValueChange = { }, // Read-only, handled by overlay
                     isRequired = true,
                     modifier = Modifier.fillMaxWidth()
@@ -375,7 +406,8 @@ fun BankDetailsScreen(
                     val accountNum = bankAccount.trim()
                     val routing = routingNumber.trim()
                     val acctType = accountType?.lowercase() ?: ""
-                    val currencyCode = currency?.lowercase() ?: ""
+                    // Backend expects ISO currency codes like "USD" (not "usd")
+                    val currencyCode = currency?.uppercase() ?: ""
                     val ssnValue = ssn.trim()
                     val badge = badgeCity.trim()
                     val businessId = if (hasEIN) ein.trim().ifEmpty { null } else null
@@ -490,6 +522,7 @@ fun BankDetailsScreen(
                                 .fillMaxWidth()
                                 .clickable {
                                     currency = option.code
+                                    currencyCountryCode = option.countryCode
                                     currencySheetOpen = false
                                     currencySearch = ""
                                 },

@@ -153,35 +153,52 @@ class VehicleRatesViewModel @Inject constructor(
         loadPrefill()
     }
 
+    /**
+     * Reset one-shot navigation flags so the screen doesn't auto-navigate when revisited.
+     */
+    fun consumeSuccess() {
+        _uiState.update { it.copy(success = false, nextStep = null) }
+    }
+
     private fun loadPrefill() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isPrefilling = true, error = null) }
             try {
-                // Step 1: Check cached VehicleDetailsStepResponse first (iOS pattern)
+                // Step 1: Determine vehicle_id as best as we can.
+                // - Primary: cached VehicleDetailsStepResponse (registration flow)
+                // - Secondary: selected vehicle id (from vehicle selection / edits)
+                // - Fallback: use vehicle_id returned by vehicle_rate_settings step payload
                 var cachedDetailsStep = tokenManager.getVehicleDetailsStepResponse()
                 var vehicleId: Int? = cachedDetailsStep?.data?.vehicleId
 
-                // Step 2: If vehicle_id is missing, fetch VehicleDetailsStep and cache it
-                if (vehicleId == null) {
+                val savedSelectedId = tokenManager.getSelectedVehicleId()
+                val initialVehicleIdString = vehicleId?.toString() ?: savedSelectedId
+
+                // Step 2: Fetch rate settings step first (it can return vehicle_id even when we don't pass one)
+                val rateStep = repo.getVehicleRateSettingsStep(initialVehicleIdString).getOrNull()?.data?.data
+
+                // Step 3: If still missing, fetch VehicleDetailsStep and cache it (iOS pattern)
+                if (vehicleId == null && rateStep?.vehicleId == null) {
                     val detailsStepResponse = repo.getVehicleDetailsStep().getOrNull()
                     if (detailsStepResponse?.success == true && detailsStepResponse.data != null) {
-                        // Cache the response
                         tokenManager.saveVehicleDetailsStepResponse(detailsStepResponse.data)
                         cachedDetailsStep = detailsStepResponse.data
                         vehicleId = detailsStepResponse.data.data?.vehicleId
                     }
                 }
 
-                // Step 3: Get vehicle_id string for API calls
-                val vehicleIdString = vehicleId?.toString() ?: tokenManager.getSelectedVehicleId()
-                vehicleIdString?.let { tokenManager.saveSelectedVehicleId(it) }
+                // Step 4: Resolve a final vehicle id string to use for VehicleInfo + for caching
+                val resolvedVehicleIdString = vehicleId?.toString()
+                    ?: rateStep?.vehicleId?.toString()
+                    ?: initialVehicleIdString
 
-                // Step 4: Fetch vehicle info and rate settings in parallel (iOS pattern)
-                val vehicleInfoResult = vehicleIdString?.let { id ->
-                    repo.getVehicleInfo(id).getOrNull()?.data?.data
+                resolvedVehicleIdString?.let { tokenManager.saveSelectedVehicleId(it) }
+
+                // Step 5: Fetch vehicle info (header + amenities metadata)
+                val vehicleInfoResponse = resolvedVehicleIdString?.let { id ->
+                    repo.getVehicleInfo(id).getOrNull()
                 }
-                
-                val rateStep = repo.getVehicleRateSettingsStep().getOrNull()?.data?.data
+                val vehicleInfoResult = vehicleInfoResponse?.data
 
                 // Step 5: Update UI state with vehicle info AND amenities from VehicleInfo API
                 _uiState.update { state ->
@@ -193,7 +210,7 @@ class VehicleRatesViewModel @Inject constructor(
                         VehicleAmenityPayload(
                             name = amenity.name ?: "",
                             label = amenity.label ?: amenity.id ?: "",
-                            price = amenity.price?.toDoubleOrNull() ?: 0.0
+                            price = amenity.price?.toDoubleOrNull()
                         )
                     }
                     
@@ -204,9 +221,8 @@ class VehicleRatesViewModel @Inject constructor(
                     amenityRatesMap.forEach { (id, amenity) ->
                         val label = amenity.label ?: amenity.name
                         // Use prefill price if available, otherwise use metadata price
-                        val price = prefillAmenities[label]?.price?.toString() 
-                            ?: amenity.price.toString()
-                        mergedAmenityPrices[label] = price
+                        val merged = prefillAmenities[label]?.price ?: amenity.price
+                        mergedAmenityPrices[label] = merged?.toString() ?: ""
                     }
                     
                     state.copy(
@@ -245,7 +261,7 @@ class VehicleRatesViewModel @Inject constructor(
             val prefillAmenityRates = prefill.amenitiesRates ?: emptyMap()
             prefillAmenityRates.values.forEach { amenity ->
                 val label = amenity.label ?: amenity.name
-                mergedAmenityPrices[label] = amenity.price.toString()
+                mergedAmenityPrices[label] = amenity.price?.toString() ?: ""
             }
 
             state.copy(
@@ -278,6 +294,8 @@ class VehicleRatesViewModel @Inject constructor(
                 vat = prefill.vat?.let { fmtMoney(it) } ?: "",
                 workmansComp = prefill.workmansComp?.let { fmtMoney(it) } ?: "",
                 otherTransportTax = prefill.otherTransportationTax?.let { fmtMoney(it) } ?: "",
+                airportArrivalTax = prefill.airportArrivalTaxPerUs?.let { fmtMoney(it) } ?: "",
+                airportDepTax = prefill.airportDepartureTaxPerUs?.let { fmtMoney(it) } ?: "",
                 cityTaxIsFlat = (prefill.cityTaxPercentFlat ?: "flat") == "flat",
                 stateTaxIsFlat = (prefill.stateTaxPercentFlat ?: "flat") == "flat",
                 vatIsFlat = (prefill.vatPercentFlat ?: "flat") == "flat",

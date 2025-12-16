@@ -35,5 +35,30 @@ object NavRoutes {
     const val Wallet = "wallet"
     const val Notifications = "notifications"
     const val AccountSettings = "account_settings"
+
+    // Booking flows (ported from iOS driver)
+    // NOTE: argument patterns are defined in MainActivity NavHost.
+    const val BookingPreview = "booking_preview"
+    const val FinalizeBooking = "finalize_booking"
+    const val FinalizeRates = "finalize_rates"
+    const val EditBooking = "edit_booking"
+
+    // Live ride flow
+    const val RideInProgress = "ride_in_progress"
+
+    // In-app chat (mirrors iOS ChatView)
+    const val Chat = "chat"
+
+    // Account Settings -> Vehicles (edit flows)
+    // These routes reuse the registration screens, but return back to Account Settings on success.
+    const val VehicleDetailsStepFromAccountSettings = "vehicle_details_step_from_account_settings"
+    const val VehicleInsuranceFromAccountSettings = "vehicle_insurance_from_account_settings"
+    const val VehicleRatesFromAccountSettings = "vehicle_rates_from_account_settings"
+    
+    // Account Settings -> Profile picture edit (reuse registration screen, return back on success)
+    const val ProfilePictureFromAccountSettings = "profile_picture_from_account_settings"
+
+    // Account Settings -> Vehicle Details (iOS-style coordinator: form -> amenities -> image upload)
+    const val VehicleDetailsCoordinatorFromAccountSettings = "vehicle_details_coordinator_from_account_settings"
 }
 
