@@ -34,7 +34,8 @@ fun PhoneInputField(
     onCountryChange: (Country) -> Unit,
     modifier: Modifier = Modifier,
     isRequired: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    errorMessage: String? = null
 ) {
     var showCountryPicker by remember { mutableStateOf(false) }
 
@@ -86,7 +87,7 @@ fun PhoneInputField(
                     )
                     .border(
                         width = 1.dp,
-                        color = inputBorder,
+                        color = if (errorMessage != null) Color(0xFFEF4444) else inputBorder,
                         shape = RoundedCornerShape(8.dp)
                     )
                     .clickable(enabled = enabled) { showCountryPicker = true },
@@ -155,10 +156,23 @@ fun PhoneInputField(
                     disabledContainerColor = inputBackground,
 
                     // Borders
-                    focusedBorderColor = AppColors.LimoBlack.copy(alpha = 0.5f),
-                    unfocusedBorderColor = inputBorder,
+                    focusedBorderColor = if (errorMessage != null) Color(0xFFEF4444) else AppColors.LimoBlack.copy(alpha = 0.5f),
+                    unfocusedBorderColor = if (errorMessage != null) Color(0xFFEF4444) else inputBorder,
 
                     cursorColor = AppColors.LimoOrange
+                )
+            )
+        }
+
+        // Error Message
+        errorMessage?.let {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = it,
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Normal
                 )
             )
         }

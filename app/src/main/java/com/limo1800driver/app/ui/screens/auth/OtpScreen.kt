@@ -25,12 +25,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.ui.state.OtpUiEvent
-import com.limo1800driver.app.ui.theme.AppColors
 import com.limo1800driver.app.ui.theme.GoogleSansFamily
+import com.limo1800driver.app.ui.theme.LimoGreen
 import com.limo1800driver.app.ui.viewmodel.OtpViewModel
 
 @Composable
@@ -42,16 +43,17 @@ fun OtpScreen(
     viewModel: OtpViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     val focusRequesters = remember { List(6) { FocusRequester() } }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    
+
     // Store digits locally for immediate UI updates
     val otpValues = remember { mutableStateListOf("", "", "", "", "", "") }
 
     LaunchedEffect(tempUserId, phoneNumber) {
         viewModel.setInitialData(tempUserId, phoneNumber)
+        // Delay focus slightly to ensure the keyboard pops up smoothly
         focusRequesters[0].requestFocus()
     }
 
@@ -76,14 +78,10 @@ fun OtpScreen(
         }
     }
 
-    // Function to check completeness and trigger verify
     fun checkAndSubmit() {
         if (otpValues.all { it.isNotEmpty() }) {
-            // Hide keyboard immediately for better UX
             focusManager.clearFocus()
             keyboardController?.hide()
-            
-            // Sync full OTP to VM and Trigger Verify
             viewModel.onEvent(OtpUiEvent.OtpChanged(otpValues.joinToString("")))
             viewModel.onEvent(OtpUiEvent.VerifyOtp)
         }
@@ -96,7 +94,7 @@ fun OtpScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(horizontal = 24.dp)
     ) {
-        Spacer(Modifier.height(60.dp))
+        Spacer(Modifier.height(50.dp))
 
         // --- Header ---
         Text(
@@ -109,14 +107,14 @@ fun OtpScreen(
             },
             style = TextStyle(
                 fontFamily = GoogleSansFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = AppColors.LimoBlack,
-                lineHeight = 30.sp
+                fontWeight = FontWeight.Medium,
+                fontSize = 24.sp,
+                color = Color.Black,
+                lineHeight = 32.sp
             )
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
         // --- Change Number Link ---
         Text(
@@ -125,18 +123,18 @@ fun OtpScreen(
                 fontFamily = GoogleSansFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
-                color = AppColors.LimoBlack.copy(alpha = 0.7f),
+                color = Color.Black.copy(alpha = 0.6f),
                 textDecoration = TextDecoration.Underline
             ),
             modifier = Modifier.clickable { onBack?.invoke() }
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(40.dp))
 
         // --- OTP Input Boxes ---
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             repeat(6) { index ->
                 OutlinedTextField(
@@ -147,12 +145,10 @@ fun OtpScreen(
                                 otpValues[index] = newValue
                                 if (newValue.isNotEmpty()) {
                                     moveFocus(index, forward = true)
-                                    // Check if this was the last digit needed
                                     checkAndSubmit()
                                 }
                             }
                         } else if (newValue.length == 6 && index == 0) {
-                            // Paste support
                             newValue.forEachIndexed { i, char ->
                                 if (i < 6 && char.isDigit()) otpValues[i] = char.toString()
                             }
@@ -161,7 +157,7 @@ fun OtpScreen(
                     },
                     modifier = Modifier
                         .width(48.dp)
-                        .height(56.dp)
+                        .height(48.dp) // Increased height to match screenshot
                         .focusRequester(focusRequesters[index])
                         .onKeyEvent { event ->
                             if (event.key == Key.Backspace && otpValues[index].isEmpty()) {
@@ -172,25 +168,25 @@ fun OtpScreen(
                             }
                         },
                     textStyle = TextStyle(
-                        fontSize = 20.sp,
+                        fontSize = 16.sp,
                         textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.LimoBlack
+                        fontWeight = FontWeight.Normal,
+                        color = Color.Black
                     ),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.LimoBlack,
+                        focusedBorderColor = Color.Black,
                         unfocusedBorderColor = Color(0xFFE5E7EB),
-                        focusedContainerColor = Color.White,
+                        focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color(0xFFF9FAFB)
                     )
                 )
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(32.dp))
 
         // --- Resend Code Pill ---
         val timerString = if (uiState.resendCooldown > 0) {
@@ -198,45 +194,63 @@ fun OtpScreen(
         } else {
             ""
         }
-        
+
         Surface(
-            onClick = { 
-                if (uiState.canResend) viewModel.onEvent(OtpUiEvent.ResendOtp) 
+            onClick = {
+                if (uiState.canResend) viewModel.onEvent(OtpUiEvent.ResendOtp)
             },
-            shape = RoundedCornerShape(50),
+            shape = RoundedCornerShape(12.dp), // Squared-off pill shape
             color = Color(0xFFF3F4F6),
-            enabled = uiState.canResend
+            enabled = uiState.canResend || uiState.resendCooldown > 0
         ) {
             Text(
                 text = "Resend code via SMS $timerString",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                 style = TextStyle(
-                    fontSize = 14.sp,
-                    color = if (uiState.canResend) AppColors.LimoBlack else Color.Gray,
+                    fontSize = 16.sp,
+                    color = if (uiState.canResend) Color.Black else Color.Gray,
                     fontWeight = FontWeight.Medium,
                     fontFamily = GoogleSansFamily
                 )
             )
         }
 
-        // --- Messages ---
+        // --- Error Messages ---
         uiState.error?.let {
             Spacer(modifier = Modifier.height(16.dp))
             Text(it, color = MaterialTheme.colorScheme.error, style = TextStyle(fontSize = 14.sp))
         }
-        
+
         uiState.message?.let {
             Spacer(modifier = Modifier.height(16.dp))
-            Text(it, color = Color(0xFF4CAF50), style = TextStyle(fontSize = 14.sp))
+            Text(it, color = LimoGreen, style = TextStyle(fontSize = 14.sp))
         }
-        
-        // --- Loading Indicator ---
+
+        // --- Loading ---
         if (uiState.isLoading) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             CircularProgressIndicator(
-                color = AppColors.LimoOrange,
-                modifier = Modifier.size(32.dp).align(Alignment.CenterHorizontally)
+                color = Color.Black,
+                modifier = Modifier.size(24.dp).align(Alignment.CenterHorizontally),
+                strokeWidth = 2.dp
             )
         }
+    }
+}
+
+
+@Preview(
+    name = "OTP Screen",
+    showBackground = true,
+)
+@Composable
+fun OtpScreenPreview() {
+    MaterialTheme {
+        OtpScreen(
+            tempUserId = "temp-user-123",
+            phoneNumber = "+91 98765 43210",
+            onNext = {},
+            onBack = {}
+        )
     }
 }

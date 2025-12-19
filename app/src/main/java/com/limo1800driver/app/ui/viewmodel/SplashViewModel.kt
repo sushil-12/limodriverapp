@@ -101,7 +101,15 @@ class SplashViewModel @Inject constructor(
             steps.drivingLicense?.isCompleted != true -> "driving_license"
             steps.bankDetails?.isCompleted != true -> "bank_details"
             steps.profilePicture?.isCompleted != true -> "profile_picture"
-            steps.vehicleInsurance?.isCompleted != true -> "vehicle_insurance"
+            // Check if vehicle is selected when profile_picture is completed but vehicle_insurance is not
+            steps.vehicleInsurance?.isCompleted != true -> {
+                // If profile_picture is completed but no vehicle is selected, show vehicle selection first
+                if (steps.profilePicture?.isCompleted == true && tokenManager.getSelectedVehicleId().isNullOrBlank()) {
+                    "vehicle_selection"
+                } else {
+                    "vehicle_insurance"
+                }
+            }
             steps.vehicleDetails?.isCompleted != true -> "vehicle_details"
             steps.vehicleRateSettings?.isCompleted != true -> "vehicle_rate_settings"
             else -> null // All steps completed

@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
@@ -39,17 +40,26 @@ fun PrivacyTermsScreen(
     // Checkbox State
     var agreed by remember { mutableStateOf(false) }
 
-    // Handle success navigation
+    // Error state variables
+    var agreementError by remember { mutableStateOf<String?>(null) }
+
+    // API Error state
+    var apiError by remember { mutableStateOf<String?>(null) }
+
+    // Show error dialog
+    var showErrorDialog by remember { mutableStateOf(false) }
+
+    // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
             onNext(uiState.nextStep)
         }
     }
 
-    // Show error dialog
-    var showErrorDialog by remember { mutableStateOf(false) }
+    // Handle API Errors
     LaunchedEffect(uiState.error) {
-        if (uiState.error != null) {
+        uiState.error?.let { error ->
+            apiError = error
             showErrorDialog = true
         }
     }
@@ -57,6 +67,8 @@ fun PrivacyTermsScreen(
     // Reset Logic
     fun onReset() {
         agreed = false
+        agreementError = null
+        apiError = null
     }
 
     Column(
@@ -85,6 +97,43 @@ fun PrivacyTermsScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // API Error Display
+        apiError?.let { error ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFFFF2F2)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "Error",
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = error,
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            color = Color(0xFFDC2626),
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // --- 2. Rich Text Content ---
         Column(
@@ -162,7 +211,11 @@ fun PrivacyTermsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { agreed = !agreed }
+                .clickable {
+                    agreed = !agreed
+                    agreementError = if (agreed) null else "Please accept the Terms & Privacy Policy to continue"
+                    apiError = null
+                }
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -208,10 +261,17 @@ fun PrivacyTermsScreen(
             onBack = onBack,
             onReset = { onReset() },
             onNext = {
+                // Clear previous errors
+                agreementError = null
+                apiError = null
+
                 if (!agreed) {
+                    agreementError = "Please accept the Terms & Privacy Policy to continue"
                     showErrorDialog = true
                     return@BottomActionBar
                 }
+
+                // Privacy terms always makes API call (no prefill/completion check)
                 viewModel.completePrivacyTerms(privacyAccepted = true, termsAccepted = true)
             },
             isLoading = uiState.isLoading

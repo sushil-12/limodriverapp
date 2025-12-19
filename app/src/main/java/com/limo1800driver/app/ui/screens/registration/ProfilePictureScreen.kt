@@ -12,24 +12,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.registration.ProfilePictureRequest
+import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.camera.ProfileCameraScreen
 import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.ProfilePictureViewModel
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.clip
-import com.limo1800driver.app.ui.components.BottomActionBar
-import com.limo1800driver.app.ui.components.RegistrationTopBar
 
 @Composable
 fun ProfilePictureScreen(
@@ -40,47 +38,102 @@ fun ProfilePictureScreen(
     val registrationNavigationState = remember { RegistrationNavigationState() }
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
-    
+
+    // State variables
     var profileImage by remember { mutableStateOf<Bitmap?>(null) }
     var profileImageId by remember { mutableStateOf<String?>(null) }
     var showCamera by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
-    
-    // Fetch step data on load
+    var showErrorDialog by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         viewModel.fetchProfilePictureStep()
     }
-    
-    // Handle success
+
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
             registrationNavigationState.setNextStep(uiState.nextStep)
             onNext(uiState.nextStep)
         }
     }
-    
-    // Show error dialog
-    var showErrorDialog by remember { mutableStateOf(false) }
+
     LaunchedEffect(uiState.error) {
         if (uiState.error != null) {
             showErrorDialog = true
         }
     }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        RegistrationTopBar(onBack = onBack)
 
+    Scaffold(
+        containerColor = Color.White,
+        topBar = { RegistrationTopBar(onBack = onBack) },
+        bottomBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 10.dp,
+                color = Color.White
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                        .navigationBarsPadding()
+                ) {
+                    Button(
+                        onClick = {
+                            if (profileImageId == null) {
+                                showCamera = true
+                            } else {
+                                if (uiState.isCompleted) {
+                                    registrationNavigationState.setNextStep("vehicle_details")
+                                    onNext("vehicle_details")
+                                } else {
+                                    val request = ProfilePictureRequest(profileImage = profileImageId!!)
+                                    viewModel.completeProfilePicture(request)
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE89148), // Brand Orange
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFE89148).copy(alpha = 0.5f),
+                            disabledContentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        enabled = !uiState.isLoading && !isUploading
+                    ) {
+                        if (uiState.isLoading || isUploading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.5.dp
+                            )
+                        } else {
+                            Text(
+                                text = if (profileImageId == null) "Take Photo" else "Submit",
+                                style = TextStyle(
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    ) { paddingValues ->
         Column(
             modifier = Modifier
-                .weight(1f)
+                .fillMaxSize()
+                .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
+
             Text(
                 text = "Take your profile photo",
                 style = AppTextStyles.phoneEntryHeadline.copy(
@@ -88,8 +141,9 @@ fun ProfilePictureScreen(
                     fontSize = 24.sp
                 )
             )
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Text(
                 text = "Your profile photo helps people recognize you. Please note that once you submit your profile photo it can only be changed in limited circumstances.",
                 style = AppTextStyles.bodyMedium.copy(
@@ -97,37 +151,15 @@ fun ProfilePictureScreen(
                     color = Color.Gray
                 )
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Instructions
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "1. Use a clear, front-facing photo with good lighting and no sunglasses or masks.",
-                    style = AppTextStyles.bodyMedium.copy(
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                )
-                Text(
-                    text = "2. Upload high-quality images only (JPG, PNG formats; min 300x300 px recommended).",
-                    style = AppTextStyles.bodyMedium.copy(
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                )
-                Text(
-                    text = "3. Make sure your face is centered and fills most of the frame for easy recognition.",
-                    style = AppTextStyles.bodyMedium.copy(
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Profile Image Preview
+
+            InstructionText(text = "1. Use a clear, front-facing photo with good lighting and no sunglasses or masks.")
+            InstructionText(text = "2. Upload high-quality images only (JPG, PNG formats; min 300x300 px recommended).")
+            InstructionText(text = "3. Make sure your face is centered and fills most of the frame for easy recognition.")
+
+            Spacer(modifier = Modifier.height(32.dp))
+
             Box(
                 modifier = Modifier
                     .size(200.dp)
@@ -136,7 +168,10 @@ fun ProfilePictureScreen(
             ) {
                 when {
                     isUploading -> {
-                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            color = AppColors.LimoBlack
+                        )
                     }
                     profileImage != null -> {
                         Image(
@@ -144,7 +179,8 @@ fun ProfilePictureScreen(
                             contentDescription = "Profile Picture",
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(CircleShape),
+                                .clip(CircleShape)
+                                .background(Color.Gray.copy(alpha = 0.1f)),
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -152,38 +188,21 @@ fun ProfilePictureScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Gray.copy(alpha = 0.2f), RoundedCornerShape(16.dp)),
+                                .background(Color.Gray.copy(alpha = 0.2f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "No photo",
-                                style = AppTextStyles.bodyMedium.copy(
-                                    color = Color.Gray
-                                )
+                                style = AppTextStyles.bodyMedium.copy(color = Color.Gray)
                             )
                         }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(24.dp))
         }
-        
-        // Bottom Bar
-        BottomActionBar(
-            isLoading = uiState.isLoading || isUploading,
-            onBack = null,
-            onNext = {
-                if (profileImageId == null) {
-                    showCamera = true
-                } else {
-                    val request = ProfilePictureRequest(profileImage = profileImageId!!)
-                    viewModel.completeProfilePicture(request)
-                }
-            },
-            nextButtonText = "Submit"
-        )
     }
-    
-    // Camera Screen
+
     if (showCamera) {
         ProfileCameraScreen(
             onImageCaptured = { bitmap ->
@@ -197,7 +216,7 @@ fun ProfilePictureScreen(
                                 profileImageId = imageUrl
                                 isUploading = false
                             },
-                            onFailure = { error ->
+                            onFailure = {
                                 isUploading = false
                                 profileImage = null
                             }
@@ -209,18 +228,17 @@ fun ProfilePictureScreen(
             onDismiss = { showCamera = false }
         )
     }
-    
-    // Error Dialog
+
     if (showErrorDialog && uiState.error != null) {
         AlertDialog(
-            onDismissRequest = { 
+            onDismissRequest = {
                 showErrorDialog = false
                 viewModel.clearError()
             },
             title = { Text("Error") },
             text = { Text(uiState.error ?: "Unknown error") },
             confirmButton = {
-                TextButton(onClick = { 
+                TextButton(onClick = {
                     showErrorDialog = false
                     viewModel.clearError()
                 }) {
@@ -231,3 +249,14 @@ fun ProfilePictureScreen(
     }
 }
 
+@Composable
+private fun InstructionText(text: String) {
+    Text(
+        text = text,
+        style = AppTextStyles.bodyMedium.copy(
+            fontSize = 14.sp,
+            color = Color.Gray
+        ),
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
+}

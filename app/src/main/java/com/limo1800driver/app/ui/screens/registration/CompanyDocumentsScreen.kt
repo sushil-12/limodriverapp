@@ -1,6 +1,7 @@
 package com.limo1800driver.app.ui.screens.registration
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +36,7 @@ import com.limo1800driver.app.R
 import com.limo1800driver.app.data.model.registration.CompanyDocumentsRequest
 import com.limo1800driver.app.data.model.registration.Language
 import com.limo1800driver.app.ui.components.CommonTextField
+import com.limo1800driver.app.ui.components.CustomMultiSelectDropdown
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
 import com.limo1800driver.app.ui.components.camera.DocumentSide
 import com.limo1800driver.app.ui.components.camera.DocumentType
@@ -56,15 +60,24 @@ fun CompanyDocumentsScreen(
     var selectedLanguages by remember { mutableStateOf<List<Language>>(emptyList()) }
     var selectedOrganisationTypes by remember { mutableStateOf<List<String>>(emptyList()) }
 
+    // Error state variables
+    var languagesError by remember { mutableStateOf<String?>(null) }
+    var frontImageError by remember { mutableStateOf<String?>(null) }
+
+    // Validation function
+    fun validateField(fieldName: String, value: String): String? {
+        // Transport Authority Reg No is optional, no validation needed
+        return null
+    }
+
     // Dropdown visibility toggles
     var showLanguageDropdown by remember { mutableStateOf(false) }
     var showOrganisationDropdown by remember { mutableStateOf(false) }
 
     // --- Image State ---
-    // Bitmaps (Captured)
     var frontImage by remember { mutableStateOf<Bitmap?>(null) }
     var backImage by remember { mutableStateOf<Bitmap?>(null) }
-    var permitImage by remember { mutableStateOf<Bitmap?>(null) } // Uses same placeholders
+    var permitImage by remember { mutableStateOf<Bitmap?>(null) }
 
     // IDs (Uploaded)
     var frontImageId by remember { mutableStateOf<Int?>(null) }
@@ -79,9 +92,8 @@ fun CompanyDocumentsScreen(
     var isUploadingBack by remember { mutableStateOf(false) }
     var isUploadingPermit by remember { mutableStateOf(false) }
 
-    // TODO: Fetch from actual stored user type
-    val isGigOperator = false
-    val isBlackLimoOperator = true
+    // API Error state
+    var apiError by remember { mutableStateOf<String?>(null) }
 
     // Fetch initial data
     LaunchedEffect(Unit) {
@@ -97,10 +109,28 @@ fun CompanyDocumentsScreen(
         }
     }
 
-    // Success Navigation
+    // Default English selection
+    LaunchedEffect(uiState.languages) {
+        if (uiState.languages.isNotEmpty() && selectedLanguages.isEmpty()) {
+            // Find English language and select it by default
+            val englishLanguage = uiState.languages.find { it.name.equals("English", ignoreCase = true) }
+            englishLanguage?.let {
+                selectedLanguages = listOf(it)
+            }
+        }
+    }
+
+    // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
             onNext(uiState.nextStep)
+        }
+    }
+
+    // Handle API Errors
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            apiError = error
         }
     }
 
@@ -115,6 +145,9 @@ fun CompanyDocumentsScreen(
         frontImageId = null
         backImageId = null
         permitImageId = null
+        languagesError = null
+        frontImageError = null
+        apiError = null
     }
 
     Column(
@@ -142,7 +175,38 @@ fun CompanyDocumentsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // API Error Display
+        apiError?.let { error ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F2)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "Error",
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = error,
+                        style = TextStyle(fontSize = 14.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Medium),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // --- Scrollable Form ---
         Column(
@@ -152,18 +216,7 @@ fun CompanyDocumentsScreen(
                 .padding(horizontal = 24.dp)
         ) {
 
-            // 1. Transport Reg No
-            CommonTextField(
-                label = "TRANSPORTATION AUTHORITY REG. NO.",
-                placeholder = "",
-                text = regNo,
-                onValueChange = { regNo = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // 2. Language Selection
+            // 1. Language Selection
             CustomMultiSelectDropdown(
                 label = "CHOOSE LANGUAGE(S)",
                 placeholder = "English",
@@ -173,19 +226,37 @@ fun CompanyDocumentsScreen(
                 onItemSelected = { lang ->
                     if (!selectedLanguages.any { it.id == lang.id }) {
                         selectedLanguages = selectedLanguages + lang
+                        languagesError = null
+                        apiError = null
                     }
                 },
                 onItemRemoved = { lang ->
                     selectedLanguages = selectedLanguages.filter { it.id != lang.id }
+                    languagesError = if (selectedLanguages.isEmpty()) "Please select at least one language" else null
+                    apiError = null
                 },
                 isExpanded = showLanguageDropdown,
                 onToggleExpand = { showLanguageDropdown = !showLanguageDropdown },
-                isRequired = true
+                isRequired = true,
+                errorMessage = languagesError
             )
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // 3. Organisation Types (Moved Up)
+            // 2. Transport Reg No
+            CommonTextField(
+                label = "TRANSPORTATION AUTHORITY REG. NO.",
+                placeholder = "",
+                text = regNo,
+                onValueChange = {
+                    regNo = it
+                    apiError = null
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+            // 3. Organisation Types
             CustomMultiSelectDropdown(
                 label = "BELONGS TO ANY PROFESSIONAL ORGANIZATIONS?",
                 placeholder = "Select",
@@ -196,11 +267,13 @@ fun CompanyDocumentsScreen(
                     val orgId = org.id.toString()
                     if (!selectedOrganisationTypes.contains(orgId)) {
                         selectedOrganisationTypes = selectedOrganisationTypes + orgId
+                        apiError = null
                     }
                 },
                 onItemRemoved = { org ->
                     val orgId = org.id.toString()
                     selectedOrganisationTypes = selectedOrganisationTypes.filter { it != orgId }
+                    apiError = null
                 },
                 isExpanded = showOrganisationDropdown,
                 onToggleExpand = { showOrganisationDropdown = !showOrganisationDropdown }
@@ -245,18 +318,35 @@ fun CompanyDocumentsScreen(
                         isUploading = isUploadingFront,
                         onAddClick = { showFrontCamera = true }
                     )
+
+                    // Front Image Error Message
+                    frontImageError?.let {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = it,
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                color = Color(0xFFEF4444),
+                                fontWeight = FontWeight.Normal
+                            ),
+                            modifier = Modifier.align(Alignment.Start)
+                        )
+                    }
                 }
 
                 // Back Image
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "BACK SIDE (OPTIONAL)",
-                        style = AppTextStyles.bodyMedium.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Gray
+                    // Wrapped in Row to match Front Image structure for perfect alignment
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 5.dp)) {
+                        Text(
+                            text = "BACK SIDE (OPTIONAL)",
+                            style = AppTextStyles.bodyMedium.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Gray
+                            )
                         )
-                    )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
 
                     ImageUploadCard(
@@ -270,8 +360,21 @@ fun CompanyDocumentsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 5. Permit Image (Using same placeholder logic as requested)
+            // 5. Permit Image
             Column {
+                // Header matching Business Card style
+                Text(
+                    text = "Upload Permit Image (Optional)",
+                    style = AppTextStyles.bodyLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                        color = AppColors.LimoBlack
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Sub-label
                 Text(
                     text = "PERMIT IMAGE",
                     style = AppTextStyles.bodyMedium.copy(
@@ -282,7 +385,6 @@ fun CompanyDocumentsScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Using front_image placeholder for permit as requested/fallback
                 ImageUploadCard(
                     imageBitmap = permitImage,
                     placeholderResId = R.drawable.back_image,
@@ -301,9 +403,41 @@ fun CompanyDocumentsScreen(
             onBack = onBack,
             onReset = { onReset() },
             onNext = {
+                // DEBUG: Log that onNext was called
+                android.util.Log.d("CompanyDocumentsScreen", "onNext called - isCompleted: ${uiState.isCompleted}")
+
+                // Clear previous errors
+                languagesError = null
+                frontImageError = null
+                apiError = null
+
                 // Validation Logic
-                if (selectedLanguages.isEmpty()) return@BottomActionBar
-                if (frontImageId == null) return@BottomActionBar // Front side required
+                var hasErrors = false
+
+                // Validate Languages
+                if (selectedLanguages.isEmpty()) {
+                    languagesError = "Please select at least one language"
+                    hasErrors = true
+                }
+
+                // Validate Front Image
+                if (frontImageId == null) {
+                    frontImageError = "Front side business card image is required"
+                    hasErrors = true
+                }
+
+                // DEBUG: Log validation results
+                android.util.Log.d("CompanyDocumentsScreen", "Validation - hasErrors: $hasErrors, languages: ${selectedLanguages.size}, frontImageId: $frontImageId")
+
+                // If there are errors, don't proceed
+                if (hasErrors) {
+                    android.util.Log.d("CompanyDocumentsScreen", "Validation failed, not proceeding")
+                    return@BottomActionBar
+                }
+
+                // Always make API call to save/update data, regardless of completion status
+                // This ensures data is saved even if step was previously completed
+                android.util.Log.d("CompanyDocumentsScreen", "Making API call to save company documents")
 
                 val languageIds = selectedLanguages.map { it.id.toString() }
                 val request = CompanyDocumentsRequest(
@@ -332,7 +466,11 @@ fun CompanyDocumentsScreen(
                     isUploadingFront = true
                     scope.launch {
                         viewModel.uploadImage(it).fold(
-                            onSuccess = { id -> frontImageId = id; isUploadingFront = false },
+                            onSuccess = { id ->
+                                frontImageId = id
+                                isUploadingFront = false
+                                frontImageError = null  // Clear error on successful upload
+                            },
                             onFailure = { isUploadingFront = false; frontImage = null }
                         )
                     }
@@ -366,7 +504,7 @@ fun CompanyDocumentsScreen(
 
     if (showPermitCamera) {
         DocumentCameraScreen(
-            documentType = DocumentType.VEHICLE_INSURANCE, // Using generic type
+            documentType = DocumentType.VEHICLE_INSURANCE,
             side = DocumentSide.FRONT,
             onImageCaptured = { bitmap ->
                 bitmap?.let {
@@ -386,7 +524,7 @@ fun CompanyDocumentsScreen(
     }
 }
 
-// --- Components ---
+// --- Helper Components ---
 
 @Composable
 fun ImageUploadCard(
@@ -423,7 +561,7 @@ fun ImageUploadCard(
                 Image(
                     painter = painterResource(id = placeholderResId),
                     contentDescription = "Placeholder",
-                    contentScale = ContentScale.Fit, // Fit to show full placeholder
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().padding(8.dp)
                 )
             }
@@ -455,131 +593,3 @@ fun ImageUploadCard(
     }
 }
 
-
-@Composable
-fun <T> CustomMultiSelectDropdown(
-    label: String,
-    placeholder: String,
-    items: List<T>,
-    selectedItems: List<T>,
-    itemLabel: (T) -> String,
-    onItemSelected: (T) -> Unit,
-    onItemRemoved: (T) -> Unit,
-    isExpanded: Boolean,
-    onToggleExpand: () -> Unit,
-    isRequired: Boolean = false
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Label
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = label.uppercase(),
-                style = AppTextStyles.bodyMedium.copy(
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Gray
-                )
-            )
-            if (isRequired) {
-                Text(
-                    text = " * (CHOOSE EACH)", // Matching specific text from screenshot
-                    style = AppTextStyles.bodyMedium.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Red
-                    )
-                )
-            }
-        }
-
-        // Input Field
-        Box {
-            OutlinedTextField(
-                value = if (selectedItems.isEmpty()) placeholder else "${selectedItems.size} Selected",
-                onValueChange = {},
-                readOnly = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                trailingIcon = {
-                    IconButton(onClick = onToggleExpand) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                            modifier = Modifier.rotate(if (isExpanded) 180f else 0f)
-                        )
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFFF3F4F6),
-                    unfocusedContainerColor = Color(0xFFF3F4F6),
-                    focusedBorderColor = Color(0xFFE5E7EB),
-                    unfocusedBorderColor = Color(0xFFE5E7EB)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            )
-
-            // Invisible click target
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clickable { onToggleExpand() }
-            )
-
-            // Dropdown List
-            if (isExpanded) {
-                DropdownMenu(
-                    expanded = isExpanded,
-                    onDismissRequest = onToggleExpand,
-                    modifier = Modifier.fillMaxWidth(0.9f).background(Color.White)
-                ) {
-                    items.forEach { item ->
-                        DropdownMenuItem(
-                            text = { Text(itemLabel(item), color = AppColors.LimoBlack) },
-                            onClick = {
-                                onItemSelected(item)
-                                onToggleExpand()
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Selected Chips
-        if (selectedItems.isNotEmpty()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 4.dp)
-            ) {
-                items(selectedItems) { item ->
-                    Surface(
-                        color = Color(0xFFF3F4F6),
-                        shape = RoundedCornerShape(16.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = itemLabel(item),
-                                fontSize = 14.sp,
-                                color = AppColors.LimoBlack
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Remove",
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clickable { onItemRemoved(item) },
-                                tint = Color.Gray
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}

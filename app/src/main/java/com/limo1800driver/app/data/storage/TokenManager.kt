@@ -35,6 +35,7 @@ class TokenManager @Inject constructor(
         private const val KEY_IS_PROFILE_COMPLETED = "is_profile_completed"
         private const val KEY_DRIVER_REGISTRATION_STATE = "driver_registration_state"
         private const val KEY_VEHICLE_DETAILS_STEP_RESPONSE = "vehicle_details_step_response"
+        private const val KEY_BASIC_INFO_EMAIL = "basic_info_email"
     }
     
     private val gson = Gson()
@@ -280,7 +281,23 @@ class TokenManager @Inject constructor(
             null
         }
     }
-    
+
+    /**
+     * Save basic info email for prefill in other screens
+     */
+    fun saveBasicInfoEmail(email: String) {
+        sharedPreferences.edit()
+            .putString(KEY_BASIC_INFO_EMAIL, email)
+            .apply()
+    }
+
+    /**
+     * Get basic info email
+     */
+    fun getBasicInfoEmail(): String? {
+        return sharedPreferences.getString(KEY_BASIC_INFO_EMAIL, null)
+    }
+
     /**
      * Clear all data (for logout)
      */
@@ -292,6 +309,7 @@ class TokenManager @Inject constructor(
             .remove(KEY_AFFILIATE_TYPE)
             .remove(KEY_VEHICLE_DETAILS_STEP_RESPONSE)
             .remove(KEY_IS_PROFILE_COMPLETED)
+            .remove(KEY_BASIC_INFO_EMAIL)
             .apply()
     }
 }

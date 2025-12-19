@@ -1,30 +1,39 @@
 package com.limo1800driver.app.ui.screens.registration
 
+import android.util.Patterns
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.registration.BasicInfoRequest
+// Removed CommonDropdown import for DOB to use custom logic, still used for Gender/Year
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.LocationAutocomplete
@@ -32,6 +41,10 @@ import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.BasicInfoViewModel
 import java.util.Calendar
 
+// Enum to track which step of the date selection is active
+enum class DateStep { MONTH, DAY, YEAR }
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BasicInfoScreen(
     onNext: (String?) -> Unit,
@@ -40,6 +53,17 @@ fun BasicInfoScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
+    val focusManager = LocalFocusManager.current
+
+    // Focus requesters
+    val affiliateFocusRequester = remember { FocusRequester() }
+    val firstNameFocusRequester = remember { FocusRequester() }
+    val lastNameFocusRequester = remember { FocusRequester() }
+    val genderFocusRequester = remember { FocusRequester() }
+    val emailFocusRequester = remember { FocusRequester() }
+    val dobMonthFocusRequester = remember { FocusRequester() } // Kept for error focus
+    val driverYearFocusRequester = remember { FocusRequester() }
+    val locationFocusRequester = remember { FocusRequester() }
 
     // Form fields State
     var affiliateType by remember { mutableStateOf<String?>(null) }
@@ -47,11 +71,51 @@ fun BasicInfoScreen(
     var lastName by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf<String?>(null) }
     var email by remember { mutableStateOf("") }
+
+    // DOB State
     var dobMonth by remember { mutableStateOf<String?>(null) }
     var dobDay by remember { mutableStateOf<String?>(null) }
     var dobYear by remember { mutableStateOf<String?>(null) }
+
+    // Smart Date Picker State
+    var activeDateStep by remember { mutableStateOf<DateStep?>(null) }
+
     var driverYear by remember { mutableStateOf<String?>(null) }
     var location by remember { mutableStateOf("") }
+
+    // Error state variables
+    var affiliateTypeError by remember { mutableStateOf<String?>(null) }
+    var firstNameError by remember { mutableStateOf<String?>(null) }
+    var lastNameError by remember { mutableStateOf<String?>(null) }
+    var genderError by remember { mutableStateOf<String?>(null) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var dobError by remember { mutableStateOf<String?>(null) }
+    var driverYearError by remember { mutableStateOf<String?>(null) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+    var apiError by remember { mutableStateOf<String?>(null) }
+
+    // Validation function
+    fun validateField(fieldName: String, value: String): String? {
+        return when (fieldName) {
+            "firstName" -> when {
+                value.isBlank() -> "First name is required"
+                value.length < 2 -> "First name must be at least 2 characters"
+                else -> null
+            }
+            "lastName" -> when {
+                value.isBlank() -> "Last name is required"
+                value.length < 2 -> "Last name must be at least 2 characters"
+                else -> null
+            }
+            "email" -> when {
+                value.isBlank() -> "Email is required"
+                !Patterns.EMAIL_ADDRESS.matcher(value).matches() -> "Please enter a valid email address"
+                else -> null
+            }
+            "location" -> if (value.isBlank()) "Location is required" else null
+            else -> null
+        }
+    }
 
     // Location details state
     var latitude by remember { mutableStateOf<Double?>(null) }
@@ -74,10 +138,36 @@ fun BasicInfoScreen(
     )
 
     val genderOptions = listOf("Male", "Female", "X(LGBTQ+)")
-    val monthOptions = (1..12).map { String.format("%02d", it) }
-    val dayOptions = (1..31).map { String.format("%02d", it) }
-    val yearOptions = (1950..Calendar.getInstance().get(Calendar.YEAR)).map { it.toString() }.reversed()
     val driverYearOptions = (1980..Calendar.getInstance().get(Calendar.YEAR)).map { it.toString() }.reversed()
+
+    // Function to parse address and extract location components
+    fun parseAddressForPrefill(address: String) {
+        // Expected format: "Street Address, City, State, Country" or "Street Address, City, State, ZIP, Country"
+        val parts = address.split(",").map { it.trim() }
+        when (parts.size) {
+            4 -> {
+                // Format: "Street, City, State, Country"
+                city = parts[1]
+                state = parts[2]
+                country = parts[3]
+            }
+            5 -> {
+                // Format: "Street, City, State, ZIP, Country"
+                city = parts[1]
+                state = parts[2]
+                zipCode = parts[3]
+                country = parts[4]
+            }
+            else -> {
+                // Fallback: try to extract what we can
+                if (parts.size >= 3) {
+                    city = parts.getOrNull(1)
+                    state = parts.getOrNull(2)
+                    country = parts.getOrNull(3)
+                }
+            }
+        }
+    }
 
     // Prefill Logic
     LaunchedEffect(uiState.prefillData) {
@@ -96,7 +186,13 @@ fun BasicInfoScreen(
                 }
             }
             if (email.isEmpty()) email = prefill.email ?: ""
-            if (location.isEmpty()) location = prefill.address ?: ""
+            if (location.isEmpty()) {
+                location = prefill.address ?: ""
+                // Parse the address to extract location components for API
+                if (!location.isEmpty()) {
+                    parseAddressForPrefill(location)
+                }
+            }
             if (dobMonth == null || dobDay == null || dobYear == null) {
                 prefill.dob?.let { dob ->
                     val parts = dob.split("-")
@@ -114,14 +210,32 @@ fun BasicInfoScreen(
     }
 
     // Initial Data Fetch
-    LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {  
+        // Reset success state when screen loads (important for back navigation)
+        viewModel.resetSuccessState()
         viewModel.fetchBasicInfoStep()
     }
 
-    // Success Navigation
+    // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
             onNext(uiState.nextStep)
+        }
+    }
+
+    // Handle API Errors
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            apiError = error
+            // Clear field-specific errors when we have an API error
+            affiliateTypeError = null
+            firstNameError = null
+            lastNameError = null
+            genderError = null
+            emailError = null
+            dobError = null
+            driverYearError = null
+            locationError = null
         }
     }
 
@@ -143,6 +257,16 @@ fun BasicInfoScreen(
         country = null
         state = null
         city = null
+
+        affiliateTypeError = null
+        firstNameError = null
+        lastNameError = null
+        genderError = null
+        emailError = null
+        dobError = null
+        driverYearError = null
+        locationError = null
+        apiError = null
     }
 
     Column(
@@ -179,6 +303,43 @@ fun BasicInfoScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // API Error Display
+        apiError?.let { error ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFFFF2F2)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "Error",
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = error,
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            color = Color(0xFFDC2626),
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         // --- Scrollable Form ---
         Column(
             modifier = Modifier
@@ -186,7 +347,7 @@ fun BasicInfoScreen(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
         ) {
-            // Custom Black Dropdown for Affiliate Type
+            // Affiliate Type
             Text(
                 text = "CHOOSE ONE",
                 style = AppTextStyles.bodyMedium.copy(
@@ -201,7 +362,13 @@ fun BasicInfoScreen(
                 placeholder = "Select Affiliate Type",
                 selectedValue = affiliateType,
                 options = affiliateOptions,
-                onValueSelected = { affiliateType = it }
+                onValueSelected = {
+                    affiliateType = it
+                    affiliateTypeError = if (it.isNullOrBlank()) "Please select an affiliate type" else null
+                    apiError = null
+                },
+                errorMessage = affiliateTypeError,
+                onDropdownOpened = { focusManager.clearFocus() }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -215,17 +382,29 @@ fun BasicInfoScreen(
                     label = "First name",
                     placeholder = "John",
                     text = firstName,
-                    onValueChange = { firstName = it },
+                    onValueChange = {
+                        firstName = it
+                        firstNameError = validateField("firstName", it)
+                        apiError = null
+                    },
                     modifier = Modifier.weight(1f),
-                    isRequired = true
+                    isRequired = true,
+                    errorMessage = firstNameError,
+                    focusRequester = firstNameFocusRequester
                 )
                 CommonTextField(
                     label = "Last name",
                     placeholder = "Smith",
                     text = lastName,
-                    onValueChange = { lastName = it },
+                    onValueChange = {
+                        lastName = it
+                        lastNameError = validateField("lastName", it)
+                        apiError = null
+                    },
                     modifier = Modifier.weight(1f),
-                    isRequired = true
+                    isRequired = true,
+                    errorMessage = lastNameError,
+                    focusRequester = lastNameFocusRequester
                 )
             }
 
@@ -237,8 +416,14 @@ fun BasicInfoScreen(
                 placeholder = "Select",
                 selectedValue = gender,
                 options = genderOptions,
-                onValueSelected = { gender = it },
-                isRequired = true
+                onValueSelected = {
+                    gender = it
+                    genderError = if (it.isNullOrBlank()) "Please select your gender" else null
+                    apiError = null
+                },
+                isRequired = true,
+                errorMessage = genderError,
+                onDropdownOpened = { focusManager.clearFocus() }
             )
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -248,44 +433,78 @@ fun BasicInfoScreen(
                 label = "EMAIL",
                 placeholder = "abc@gmail.com",
                 text = email,
-                onValueChange = { email = it },
+                onValueChange = {
+                    email = it
+                    emailError = validateField("email", it)
+                    apiError = null
+                },
                 isRequired = true,
-                keyboardType = KeyboardType.Email
+                keyboardType = KeyboardType.Email,
+                errorMessage = emailError,
+                focusRequester = emailFocusRequester
             )
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Date of Birth (Order: DD - MM - YYYY)
+            // --- REDESIGNED DATE OF BIRTH SECTION ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
-                CommonDropdown(
+                // Month Field
+                DateDropdownField(
                     label = "DATE OF BIRTH",
-                    placeholder = "DD",
-                    selectedValue = dobDay,
-                    options = dayOptions,
-                    onValueSelected = { dobDay = it },
-                    modifier = Modifier.weight(1f),
-                    isRequired = true
-                )
-                CommonDropdown(
-                    label = "",
+                    value = dobMonth,
                     placeholder = "MM",
-                    selectedValue = dobMonth,
-                    options = monthOptions,
-                    onValueSelected = { dobMonth = it },
                     modifier = Modifier.weight(1f),
-                    isRequired = true
+                    isError = dobError != null,
+                    isRequired = true,
+                    onClick = {
+                        focusManager.clearFocus()
+                        activeDateStep = DateStep.MONTH
+                    }
                 )
-                CommonDropdown(
+
+                // Day Field
+                DateDropdownField(
                     label = "",
-                    placeholder = "YYYY",
-                    selectedValue = dobYear,
-                    options = yearOptions,
-                    onValueSelected = { dobYear = it },
+                    value = dobDay,
+                    placeholder = "DD",
                     modifier = Modifier.weight(1f),
-                    isRequired = true
+                    isError = dobError != null,
+                    isRequired = true,
+                    onClick = {
+                        focusManager.clearFocus()
+                        activeDateStep = DateStep.DAY
+                    }
+                )
+
+                // Year Field
+                DateDropdownField(
+                    label = "",
+                    value = dobYear,
+                    placeholder = "YYYY",
+                    modifier = Modifier.weight(1f),
+                    isError = dobError != null,
+                    isRequired = true,
+                    onClick = {
+                        focusManager.clearFocus()
+                        activeDateStep = DateStep.YEAR
+                    }
+                )
+            }
+
+            // Date of Birth Error Message
+            dobError?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Normal
+                    )
                 )
             }
 
@@ -297,8 +516,14 @@ fun BasicInfoScreen(
                 placeholder = "Select",
                 selectedValue = driverYear,
                 options = driverYearOptions,
-                onValueSelected = { driverYear = it },
-                isRequired = true
+                onValueSelected = {
+                    driverYear = it
+                    driverYearError = if (it.isNullOrBlank()) "Please select the year you started driving professionally" else null
+                    apiError = null
+                },
+                isRequired = true,
+                errorMessage = driverYearError,
+                onDropdownOpened = { focusManager.clearFocus() }
             )
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -307,7 +532,11 @@ fun BasicInfoScreen(
             LocationAutocomplete(
                 label = "ENTER LOCATION",
                 value = location,
-                onValueChange = { location = it },
+                onValueChange = {
+                    location = it
+                    locationError = validateField("location", it)
+                    apiError = null
+                },
                 onLocationSelected = { _, cityValue, stateValue, zipCodeValue, displayText, lat, lng, countryValue, _ ->
                     location = displayText
                     city = cityValue
@@ -316,10 +545,12 @@ fun BasicInfoScreen(
                     country = countryValue ?: ""
                     latitude = lat
                     longitude = lng
+                    locationError = null
                 },
                 placeholder = "Enter your location",
                 isRequired = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                errorMessage = locationError
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -330,96 +561,226 @@ fun BasicInfoScreen(
             onBack = onBack,
             onReset = { onReset() },
             onNext = {
-                // Validation Logic
-                val apiAffiliateType = affiliateApiValues[affiliateType]
-                if (apiAffiliateType != null && firstName.isNotBlank() && lastName.isNotBlank() &&
-                    gender != null && email.isNotBlank() && dobMonth != null &&
-                    dobDay != null && dobYear != null && driverYear != null &&
-                    location.isNotBlank()) {
+                // Clear previous errors
+                affiliateTypeError = null
+                firstNameError = null
+                lastNameError = null
+                genderError = null
+                emailError = null
+                dobError = null
+                driverYearError = null
+                locationError = null
+                apiError = null
 
-                    val dob = "$dobYear-$dobMonth-$dobDay"
-                    val apiGender = if(gender == "X(LGBTQ+)") "other" else gender!!.lowercase()
+                var isValid = true
+                var firstInvalidField: FocusRequester? = null
 
-                    val request = BasicInfoRequest(
-                        affiliateType = apiAffiliateType,
-                        firstName = firstName.trim(),
-                        lastName = lastName.trim(),
-                        gender = apiGender,
-                        email = email.trim(),
-                        dob = dob,
-                        firstYearBusiness = driverYear ?: "",
-                        address = location.trim(),
-                        latitude = latitude,
-                        longitude = longitude,
-                        zipCode = zipCode,
-                        country = country,
-                        state = state,
-                        city = city
-                    )
-                    viewModel.completeBasicInfo(request)
+                if (affiliateType.isNullOrBlank()) {
+                    affiliateTypeError = "Please select an affiliate type"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = affiliateFocusRequester
+                }
+
+                if (firstName.isBlank()) {
+                    firstNameError = "First name is required"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = firstNameFocusRequester
+                } else if (firstName.length < 2) {
+                    firstNameError = "First name must be at least 2 characters"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = firstNameFocusRequester
+                }
+
+                if (lastName.isBlank()) {
+                    lastNameError = "Last name is required"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = lastNameFocusRequester
+                } else if (lastName.length < 2) {
+                    lastNameError = "Last name must be at least 2 characters"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = lastNameFocusRequester
+                }
+
+                if (gender.isNullOrBlank()) {
+                    genderError = "Please select your gender"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = genderFocusRequester
+                }
+
+                if (email.isBlank()) {
+                    emailError = "Email is required"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = emailFocusRequester
+                } else if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    emailError = "Please enter a valid email address"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = emailFocusRequester
+                }
+
+                if (dobMonth.isNullOrBlank() || dobDay.isNullOrBlank() || dobYear.isNullOrBlank()) {
+                    dobError = "Please select your complete date of birth"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = dobMonthFocusRequester
+                }
+
+                if (driverYear.isNullOrBlank()) {
+                    driverYearError = "Please select the year you started driving professionally"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = driverYearFocusRequester
+                }
+
+                if (location.isBlank()) {
+                    locationError = "Location is required"
+                    isValid = false
+                    if (firstInvalidField == null) firstInvalidField = locationFocusRequester
+                }
+
+                if (isValid) {
+                    // Always make API call to save/update data, regardless of completion status
+                    // This ensures data is saved even if step was previously completed
+                    android.util.Log.d("BasicInfoScreen", "Making API call to save basic info")
+
+                    // Make API call to complete/update the step
+                        val apiAffiliateType = affiliateApiValues[affiliateType]
+                        val dob = "$dobYear-$dobMonth-$dobDay"
+                        val apiGender = if(gender == "X(LGBTQ+)") "other" else gender!!.lowercase()
+
+                        val request = BasicInfoRequest(
+                            affiliateType = apiAffiliateType!!,
+                            firstName = firstName.trim(),
+                            lastName = lastName.trim(),
+                            gender = apiGender,
+                            email = email.trim(),
+                            dob = dob,
+                            firstYearBusiness = driverYear ?: "",
+                            address = location.trim(),
+                            latitude = latitude,
+                            longitude = longitude,
+                            zipCode = zipCode,
+                            country = country,
+                            state = state,
+                            city = city
+                        )
+                        viewModel.completeBasicInfo(request)
                 } else {
-                    // Trigger UI error state if needed
+                    firstInvalidField?.requestFocus()
                 }
             },
             isLoading = uiState.isLoading
         )
+
+        // --- SMART DATE PICKER BOTTOM SHEET ---
+        if (activeDateStep != null) {
+            ModalBottomSheet(
+                onDismissRequest = { activeDateStep = null },
+                containerColor = Color.White,
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ) {
+                DateSelectionContent(
+                    step = activeDateStep!!,
+                    onMonthSelected = {
+                        dobMonth = it
+                        dobError = if (dobDay != null && dobYear != null) null else "Please select your complete date of birth"
+                        activeDateStep = DateStep.DAY // Auto-move to Day
+                        apiError = null
+                    },
+                    onDaySelected = {
+                        dobDay = it
+                        dobError = if (dobMonth != null && dobYear != null) null else "Please select your complete date of birth"
+                        activeDateStep = DateStep.YEAR // Auto-move to Year
+                        apiError = null
+                    },
+                    onYearSelected = {
+                        dobYear = it
+                        dobError = if (dobMonth != null && dobDay != null) null else "Please select your complete date of birth"
+                        activeDateStep = null // Close sheet
+                        apiError = null
+                    },
+                    currentMonth = dobMonth,
+                    currentDay = dobDay,
+                    currentYear = dobYear
+                )
+            }
+        }
     }
 }
 
 /**
- * Custom Dark Dropdown Component for the "Choose One" field
+ * A specialized visual component for the Date Fields that mimics CommonDropdown
+ * but doesn't have the internal logic, allowing us to control the Click
  */
 @Composable
-fun DarkDropdown(
+fun DateDropdownField(
+    label: String,
+    value: String?,
     placeholder: String,
-    selectedValue: String?,
-    options: List<String>,
-    onValueSelected: (String) -> Unit
+    modifier: Modifier = Modifier,
+    isError: Boolean,
+    isRequired: Boolean,
+    onClick: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        if (label.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label.uppercase(),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Gray
+                    )
+                )
+                if (isRequired) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "*",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFEF4444)
+                        )
+                    )
+                }
+            }
+        }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(50.dp)
+                .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                .border(
+                    width = 1.dp,
+                    color = if (isError) Color(0xFFEF4444) else Color(0xFFE0E0E0),
+                    shape = RoundedCornerShape(8.dp)
+                )
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF121212)) // Dark Background
-                .clickable { expanded = true }
+                .clickable { onClick() }
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = selectedValue ?: placeholder,
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
+                    text = value ?: placeholder,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = if (value.isNullOrBlank()) Color(0xFF9CA3AF) else AppColors.LimoBlack,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = null,
-                    tint = Color.White
-                )
-            }
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth(0.9f).background(Color.White)
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option, color = AppColors.LimoBlack) },
-                    onClick = {
-                        onValueSelected(option)
-                        expanded = false
-                    }
+                    tint = AppColors.LimoBlack.copy(alpha = 0.6f)
                 )
             }
         }
@@ -427,9 +788,233 @@ fun DarkDropdown(
 }
 
 /**
- * Custom Bottom Navigation Row matching the screenshot design
- * [Back Icon]  [Reset Pill]  [Next Pill]
+ * The Content of the Date Picker Sheet.
+ * Displays different grids based on the DateStep (Month, Day, or Year).
  */
+@Composable
+fun DateSelectionContent(
+    step: DateStep,
+    onMonthSelected: (String) -> Unit,
+    onDaySelected: (String) -> Unit,
+    onYearSelected: (String) -> Unit,
+    currentMonth: String?,
+    currentDay: String?,
+    currentYear: String?
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 32.dp)
+    ) {
+        // Dynamic Title
+        Text(
+            text = when (step) {
+                DateStep.MONTH -> "Select Month"
+                DateStep.DAY -> "Select Day"
+                DateStep.YEAR -> "Select Year"
+            },
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = AppColors.LimoBlack,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        val heightModifier = Modifier.height(350.dp)
+
+        when (step) {
+            DateStep.MONTH -> {
+                val months = (1..12).map { String.format("%02d", it) }
+                val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = heightModifier,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(months.size) { index ->
+                        val value = months[index]
+                        val name = monthNames[index]
+                        val isSelected = value == currentMonth
+
+                        DateGridItem(
+                            text = name,
+                            subText = value,
+                            isSelected = isSelected,
+                            onClick = { onMonthSelected(value) }
+                        )
+                    }
+                }
+            }
+            DateStep.DAY -> {
+                val days = (1..31).map { String.format("%02d", it) }
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(7), // Calendar look
+                    modifier = heightModifier,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(days.size) { index ->
+                        val day = days[index]
+                        val isSelected = day == currentDay
+
+                        Box(
+                            modifier = Modifier
+                                .aspectRatio(1f)
+                                .clip(CircleShape)
+                                .background(if (isSelected) AppColors.LimoOrange else Color(0xFFF3F4F6))
+                                .clickable { onDaySelected(day) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = day.toInt().toString(), // Show 1 instead of 01 for cleaner look
+                                fontSize = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Color.White else AppColors.LimoBlack
+                            )
+                        }
+                    }
+                }
+            }
+            DateStep.YEAR -> {
+                val currentYearInt = Calendar.getInstance().get(Calendar.YEAR)
+                val years = (1950..currentYearInt).map { it.toString() }.reversed()
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = heightModifier,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(years.size) { index ->
+                        val year = years[index]
+                        val isSelected = year == currentYear
+
+                        DateGridItem(
+                            text = year,
+                            isSelected = isSelected,
+                            onClick = { onYearSelected(year) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DateGridItem(
+    text: String,
+    subText: String? = null,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .height(50.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) AppColors.LimoOrange else Color(0xFFF3F4F6))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = text,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) Color.White else AppColors.LimoBlack,
+                fontSize = 16.sp
+            )
+            if (subText != null) {
+                Text(
+                    text = subText,
+                    fontSize = 10.sp,
+                    color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DarkDropdown(
+    placeholder: String,
+    selectedValue: String?,
+    options: List<String>,
+    onValueSelected: (String) -> Unit,
+    errorMessage: String? = null,
+    onDropdownOpened: (() -> Unit)? = null
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (errorMessage != null) Color(0xFF7F1D1D) else Color(0xFF121212))
+                    .clickable {
+                        expanded = true
+                        onDropdownOpened?.invoke()
+                    }
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = selectedValue ?: placeholder,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                }
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .background(Color.White)
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option, color = Color.Black) },
+                        onClick = {
+                            onValueSelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = errorMessage,
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Normal
+                ),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
+    }
+}
+
 @Composable
 fun BottomNavigationRow(
     onBack: (() -> Unit)?,
@@ -441,11 +1026,10 @@ fun BottomNavigationRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .padding(bottom = 16.dp), // Safe area padding
+            .padding(bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // 1. Back Button (Circle Icon)
         if (onBack != null) {
             IconButton(
                 onClick = onBack,
@@ -461,14 +1045,11 @@ fun BottomNavigationRow(
                 )
             }
         } else {
-            // Spacer to keep layout balanced if back is null,
-            // though prompt implies visual match is needed.
             Spacer(modifier = Modifier.size(50.dp))
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // 2. Reset Button (Gray Pill)
         Button(
             onClick = onReset,
             colors = ButtonDefaults.buttonColors(
@@ -489,7 +1070,6 @@ fun BottomNavigationRow(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // 3. Next Button (Orange Pill with Arrow)
         Button(
             onClick = onNext,
             colors = ButtonDefaults.buttonColors(

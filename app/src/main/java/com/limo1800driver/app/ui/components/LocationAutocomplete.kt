@@ -38,7 +38,8 @@ fun LocationAutocomplete(
     modifier: Modifier = Modifier,
     placeholder: String = "Enter your location",
     isRequired: Boolean = false, // Added Required flag
-    typeFilter: com.google.android.libraries.places.api.model.TypeFilter? = null
+    typeFilter: com.google.android.libraries.places.api.model.TypeFilter? = null,
+    errorMessage: String? = null
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
@@ -149,9 +150,9 @@ fun LocationAutocomplete(
                     focusedContainerColor = Color(0xFFF3F4F6),
                     unfocusedContainerColor = Color(0xFFF3F4F6),
 
-                    // Border Colors
-                    focusedBorderColor = AppColors.LimoBlack.copy(alpha = 0.5f),
-                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    // Border Colors - red for error, black for focused, light gray otherwise
+                    focusedBorderColor = if (errorMessage != null) Color(0xFFEF4444) else AppColors.LimoBlack.copy(alpha = 0.5f),
+                    unfocusedBorderColor = if (errorMessage != null) Color(0xFFEF4444) else Color(0xFFE5E7EB),
 
                     cursorColor = AppColors.LimoOrange
                 )
@@ -213,6 +214,19 @@ fun LocationAutocomplete(
                     }
                 }
             }
+        }
+
+        // Error Message
+        errorMessage?.let {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = it,
+                style = AppTextStyles.bodyMedium.copy(
+                    fontSize = 12.sp,
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Normal
+                )
+            )
         }
     }
 }

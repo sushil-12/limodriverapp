@@ -18,7 +18,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.HorizontalDivider
 import com.limo1800driver.app.ui.theme.*
+import com.limo1800driver.app.ui.components.SelectionMode
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,18 +37,23 @@ fun CommonDropdown(
     modifier: Modifier = Modifier,
     isRequired: Boolean = false,
     enabled: Boolean = true,
-    searchable: Boolean = options.size >= 10
+    searchable: Boolean = options.size >= 10,
+    errorMessage: String? = null,
+    onDropdownOpened: (() -> Unit)? = null,
+    selectionMode: SelectionMode = SelectionMode.NORMAL,
+    selectedYear: String? = null,
+    selectedMonth: String? = null
 ) {
     var sheetOpen by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // State to track "focus" (simulated when sheet is open)
     val isFocused = sheetOpen
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        // Reduced to 4dp for a tighter, professional look
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // --- Label Section ---
         if (label.isNotBlank()) {
@@ -69,18 +80,24 @@ fun CommonDropdown(
             }
         }
 
-        // --- Custom Input Container (Matches CommonTextField) ---
+        // --- Custom Input Container ---
         val shape = RoundedCornerShape(8.dp)
-        // Highlight border orange if the dropdown sheet is currently open
-        val borderColor = if (isFocused) LimoOrange else Color(0xFFE0E0E0)
+        val borderColor = when {
+            errorMessage != null -> Color(0xFFEF4444)
+            isFocused -> LimoOrange
+            else -> Color(0xFFE0E0E0)
+        }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp) // Fixed height like single-line TextField
+                .height(50.dp)
                 .background(Color(0xFFF5F5F5), shape)
                 .border(1.dp, borderColor, shape)
-                .clickable(enabled = enabled) { sheetOpen = true }
+                .clickable(enabled = enabled) {
+                    sheetOpen = true
+                    onDropdownOpened?.invoke()
+                }
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -89,36 +106,18 @@ fun CommonDropdown(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Text Content
                 Box(modifier = Modifier.weight(1f)) {
-                    if (selectedValue.isNullOrBlank()) {
-                        Text(
-                            text = placeholder,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF9CA3AF), // Placeholder Gray
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal
-                            ),
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    } else {
-                        Text(
-                            text = selectedValue,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = AppColors.LimoBlack,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal
-                            ),
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        text = selectedValue ?: placeholder,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = if (selectedValue.isNullOrBlank()) Color(0xFF9CA3AF) else AppColors.LimoBlack,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
-
-                // Trailing Icon
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
@@ -127,9 +126,22 @@ fun CommonDropdown(
                 )
             }
         }
+
+        // --- Error Message Section ---
+        if (!errorMessage.isNullOrEmpty()) {
+            Text(
+                text = errorMessage,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 12.sp,
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Normal
+                ),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
     }
 
-    // --- Bottom Sheet Logic (Unchanged functionality) ---
+    // --- Bottom Sheet Logic ---
     if (sheetOpen) {
         val filtered = remember(options, search) {
             if (!searchable || search.isBlank()) options
@@ -142,27 +154,23 @@ fun CommonDropdown(
                 search = ""
             },
             sheetState = sheetState,
-            containerColor = Color.White,
-            dragHandle = { BottomSheetDefaults.DragHandle() }
+            containerColor = Color.White
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 24.dp), // Safe area padding
+                    .padding(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Sheet Title
                 Text(
-                    text = label.lowercase().replaceFirstChar { it.uppercase() },
+                    text = label.ifBlank { "Select Option" }.lowercase().replaceFirstChar { it.uppercase() },
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = AppColors.LimoBlack
                 )
 
-                // Search Bar (Only if list is long)
                 if (searchable) {
-                    // Using standard OutlinedTextField for search inside sheet (standard styling)
                     OutlinedTextField(
                         value = search,
                         onValueChange = { search = it },
@@ -171,77 +179,290 @@ fun CommonDropdown(
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
                             focusedBorderColor = LimoOrange,
                             unfocusedBorderColor = Color(0xFFE5E7EB)
                         )
                     )
                 }
 
-                val maxListHeight = 420.dp
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = maxListHeight)
-                ) {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 8.dp)
-                    ) {
-                        items(filtered.size) { idx ->
-                            val option = filtered[idx]
-                            val isSelected = option == selectedValue
+                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                    when (selectionMode) {
+                        SelectionMode.NORMAL -> {
+                            // Regular dropdown list
+                            LazyColumn {
+                                items(filtered.size) { idx ->
+                                    val option = filtered[idx]
+                                    val isSelected = option == selectedValue
 
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onValueSelected(option)
-                                        sheetOpen = false
-                                        search = ""
-                                    },
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFFF8F8F8),
-                                tonalElevation = 1.dp
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 12.dp, horizontal = 14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = option,
-                                        fontSize = 14.sp,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                        color = AppColors.LimoBlack,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Selected",
-                                            tint = LimoOrange
-                                        )
+                                    Column {
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth().clickable {
+                                                onValueSelected(option)
+                                                sheetOpen = false
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = if (isSelected) Color(0xFFFFF7ED) else Color.Transparent
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(14.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(text = option, color = AppColors.LimoBlack)
+                                                if (isSelected) Icon(Icons.Default.Check, null, tint = LimoOrange)
+                                            }
+                                        }
+
+                                        // Add light divider between options (except after the last item)
+                                        if (idx < filtered.size - 1) {
+                                            HorizontalDivider(
+                                                color = Color(0xFFE5E7EB),
+                                                thickness = 1.dp,
+                                                modifier = Modifier.padding(horizontal = 14.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        if (filtered.isEmpty()) {
-                            item {
+                        SelectionMode.YEAR -> {
+                            // Calendar-style year picker
+                            YearPicker(
+                                selectedYear = selectedValue,
+                                onYearSelected = { year ->
+                                    onValueSelected(year)
+                                    sheetOpen = false
+                                }
+                            )
+                        }
+
+                        SelectionMode.MONTH -> {
+                            // Calendar-style month picker for selected year
+                            MonthPicker(
+                                selectedYear = selectedYear,
+                                selectedMonth = selectedValue,
+                                onMonthSelected = { month ->
+                                    onValueSelected(month)
+                                    sheetOpen = false
+                                }
+                            )
+                        }
+
+                        SelectionMode.DAY -> {
+                            // Calendar-style day picker for selected year and month
+                            DayPicker(
+                                selectedYear = selectedYear,
+                                selectedMonth = selectedMonth,
+                                selectedDay = selectedValue,
+                                onDaySelected = { day ->
+                                    onValueSelected(day)
+                                    sheetOpen = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Calendar-style Year Picker
+@Composable
+private fun YearPicker(
+    selectedYear: String?,
+    onYearSelected: (String) -> Unit
+) {
+    val currentYear = LocalDate.now().year
+    val startYear = currentYear - 100 // Show last 100 years
+    val endYear = currentYear + 10 // Show next 10 years
+    val yearCount = endYear - startYear + 1
+
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(16.dp)
+    ) {
+        items(yearCount) { index ->
+            val year = startYear + index
+            val yearString = year.toString()
+            val isSelected = yearString == selectedYear
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { onYearSelected(yearString) },
+                shape = RoundedCornerShape(8.dp),
+                color = if (isSelected) LimoOrange.copy(alpha = 0.1f) else Color(0xFFF8F8F8)
+            ) {
+                Text(
+                    text = yearString,
+                    modifier = Modifier.padding(16.dp),
+                    fontSize = 16.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) LimoOrange else AppColors.LimoBlack
+                )
+            }
+        }
+    }
+}
+
+// Calendar-style Month Picker
+@Composable
+private fun MonthPicker(
+    selectedYear: String?,
+    selectedMonth: String?,
+    onMonthSelected: (String) -> Unit
+) {
+    val months = (1..12).map { monthNum ->
+        val month = java.time.Month.of(monthNum)
+        monthNum.toString().padStart(2, '0') to month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        // Show selected year if available
+        selectedYear?.let {
+            Text(
+                text = "Select month for $it",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+
+        // Grid layout for months (3 columns)
+        val rows = months.chunked(3)
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                row.forEach { (monthValue, monthName) ->
+                    val isSelected = monthValue == selectedMonth
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .clickable { onMonthSelected(monthValue) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) LimoOrange.copy(alpha = 0.1f) else Color(0xFFF8F8F8)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(
+                                text = monthName.take(3), // Show first 3 letters (Jan, Feb, etc.)
+                                fontSize = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) LimoOrange else AppColors.LimoBlack,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                // Fill remaining space if row has fewer than 3 items
+                repeat(3 - row.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+// Calendar-style Day Picker
+@Composable
+private fun DayPicker(
+    selectedYear: String?,
+    selectedMonth: String?,
+    selectedDay: String?,
+    onDaySelected: (String) -> Unit
+) {
+    val year = selectedYear?.toIntOrNull() ?: LocalDate.now().year
+    val month = selectedMonth?.toIntOrNull() ?: 1
+
+    val yearMonth = try {
+        YearMonth.of(year, month)
+    } catch (e: Exception) {
+        YearMonth.now()
+    }
+
+    val daysInMonth = yearMonth.lengthOfMonth()
+    val firstDayOfWeek = yearMonth.atDay(1).dayOfWeek.value % 7 // 0 = Sunday, 6 = Saturday
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        // Header with month/year
+        Text(
+            text = "${java.time.Month.of(month).getDisplayName(TextStyle.FULL, Locale.getDefault())} $year",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = AppColors.LimoBlack,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Day headers (Sun, Mon, Tue, etc.)
+        Row(modifier = Modifier.fillMaxWidth()) {
+            val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+            dayNames.forEach { dayName ->
+                Text(
+                    text = dayName,
+                    modifier = Modifier.weight(1f),
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Calendar grid
+        val totalCells = 42 // 6 weeks * 7 days
+        val days = (1..totalCells).map { cellIndex ->
+            val dayOfMonth = cellIndex - firstDayOfWeek
+            if (dayOfMonth in 1..daysInMonth) dayOfMonth else null
+        }
+
+        val rows = days.chunked(7)
+        rows.forEach { week ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                week.forEach { day ->
+                    if (day != null) {
+                        val dayString = day.toString().padStart(2, '0')
+                        val isSelected = dayString == selectedDay
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .padding(2.dp)
+                                .clickable { onDaySelected(dayString) },
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isSelected) LimoOrange.copy(alpha = 0.2f) else Color(0xFFF8F8F8)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "No results",
-                                    color = Color.Gray,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.padding(vertical = 16.dp)
+                                    text = day.toString(),
+                                    fontSize = 14.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) LimoOrange else AppColors.LimoBlack
                                 )
                             }
                         }
+                    } else {
+                        // Empty cell for days not in this month
+                        Box(modifier = Modifier.weight(1f).aspectRatio(1f).padding(2.dp))
                     }
                 }
             }

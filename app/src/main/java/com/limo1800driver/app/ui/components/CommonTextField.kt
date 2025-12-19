@@ -2,8 +2,10 @@ package com.limo1800driver.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -38,10 +40,13 @@ fun CommonTextField(
     singleLine: Boolean = true,
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
-    trailingIcon: (@Composable (() -> Unit))? = null
+    trailingIcon: (@Composable (() -> Unit))? = null,
+    errorMessage: String? = null,
+    focusRequester: FocusRequester? = null
 ) {
     // State for focus and selection logic
-    val focusRequester = remember { FocusRequester() }
+    val internalFocusRequester = remember { FocusRequester() }
+    val currentFocusRequester = focusRequester ?: internalFocusRequester
     var isFocused by remember { mutableStateOf(false) }
     var shouldSelectAll by remember { mutableStateOf(false) }
 
@@ -84,16 +89,22 @@ fun CommonTextField(
                 )
                 .border(
                     width = 1.dp,
-                    // Dynamic border: Orange when focused, Light Gray when not
-                    color = if (isFocused) LimoOrange else Color(0xFFE0E0E0),
+                    // Dynamic border: Red for error, Orange when focused, Light Gray when not
+                    color = when {
+                        errorMessage != null -> Color(0xFFEF4444)
+                        isFocused -> LimoOrange
+                        else -> Color(0xFFE0E0E0)
+                    },
                     shape = RoundedCornerShape(8.dp)
                 )
-                .padding(horizontal = 16.dp),
+                .clickable { currentFocusRequester.requestFocus() }, // Request focus when clicked - applied before padding
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp) // Moved padding to inner Row
             ) {
                 // We wrap the BasicTextField and Placeholder in a Box to stack them
                 Box(
@@ -134,7 +145,7 @@ fun CommonTextField(
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .focusRequester(focusRequester)
+                            .focusRequester(currentFocusRequester)
                             .onFocusChanged { focusState ->
                                 val wasFocused = isFocused
                                 isFocused = focusState.isFocused
@@ -153,7 +164,8 @@ fun CommonTextField(
                         maxLines = maxLines,
                         enabled = enabled,
                         readOnly = readOnly,
-                        cursorBrush = SolidColor(LimoOrange) // Custom Cursor Color
+                        cursorBrush = SolidColor(LimoOrange), // Custom Cursor Color
+                        interactionSource = remember { MutableInteractionSource() }
                     )
                 }
 
@@ -165,6 +177,19 @@ fun CommonTextField(
                     }
                 }
             }
+        }
+
+        // Error Message
+        errorMessage?.let {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = it,
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Normal
+                )
+            )
         }
     }
 }

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.rememberAsyncImagePainter
 import com.limo1800driver.app.data.model.registration.VehicleType
+import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.theme.* // Ensure you have your AppColors/AppTextStyles here
 import com.limo1800driver.app.ui.viewmodel.VehicleSelectionViewModel
 import kotlinx.coroutines.launch
@@ -68,7 +69,7 @@ fun VehicleSelectionScreen(
     Scaffold(
         topBar = {
             // Assuming this component exists in your project as per your imports
-             RegistrationTopBar(onHelpClick = { }, onBack = onBack)
+             RegistrationTopBar( onBack = onBack)
         },
         bottomBar = {
             Button(

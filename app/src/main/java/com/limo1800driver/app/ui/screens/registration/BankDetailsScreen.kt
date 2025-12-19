@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,7 +41,7 @@ fun BankDetailsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val registrationNavigationState = remember { RegistrationNavigationState() }
-    
+
     var accHolderFirstName by remember { mutableStateOf("") }
     var accHolderLastName by remember { mutableStateOf("") }
     var bankName by remember { mutableStateOf("") }
@@ -60,10 +61,10 @@ fun BankDetailsScreen(
     var hasEIN by remember { mutableStateOf(true) }
     var badgeCity by remember { mutableStateOf("") }
     val context = LocalContext.current
-    
+
     val accountTypeOptions = listOf("individual" to "Individual", "company" to "Business")
     var currencyOptions by remember { mutableStateOf<List<CurrencyOption>>(emptyList()) }
-    
+
     // Prefill data
     LaunchedEffect(uiState.prefillData) {
         uiState.prefillData?.let { prefill ->
@@ -71,12 +72,12 @@ fun BankDetailsScreen(
             if (accHolderFirstName.isEmpty()) {
                 accHolderFirstName = prefill.accountHolderFirstName
                     ?: prefill.accountHolderName?.trim()?.split(" ")?.firstOrNull()
-                    ?: ""
+                            ?: ""
             }
             if (accHolderLastName.isEmpty()) {
                 accHolderLastName = prefill.accountHolderLastName
                     ?: prefill.accountHolderName?.trim()?.split(" ")?.drop(1)?.joinToString(" ")
-                    ?: ""
+                            ?: ""
             }
             if (bankName.isEmpty()) bankName = prefill.bankName ?: ""
             if (bankAddress.isEmpty()) bankAddress = prefill.bankAddress ?: ""
@@ -95,7 +96,7 @@ fun BankDetailsScreen(
             }
         }
     }
-    
+
     // Fetch step data on load
     LaunchedEffect(Unit) {
         viewModel.fetchBankDetailsStep()
@@ -119,19 +120,76 @@ fun BankDetailsScreen(
     }
 
 
-    // Handle success
+    // Handle success - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
             registrationNavigationState.setNextStep(uiState.nextStep)
             onNext(uiState.nextStep)
         }
     }
-    
-    // Show error dialog
-    var showErrorDialog by remember { mutableStateOf(false) }
+
+    // Error handling
+
+    // Field-specific error states
+    var accHolderFirstNameError by remember { mutableStateOf<String?>(null) }
+    var accHolderLastNameError by remember { mutableStateOf<String?>(null) }
+    var bankNameError by remember { mutableStateOf<String?>(null) }
+    var bankAddressError by remember { mutableStateOf<String?>(null) }
+    var bankAccountError by remember { mutableStateOf<String?>(null) }
+    var routingNumberError by remember { mutableStateOf<String?>(null) }
+    var accountTypeError by remember { mutableStateOf<String?>(null) }
+    var currencyError by remember { mutableStateOf<String?>(null) }
+    var ssnError by remember { mutableStateOf<String?>(null) }
+    var einError by remember { mutableStateOf<String?>(null) }
+    var badgeCityError by remember { mutableStateOf<String?>(null) }
+    var apiError by remember { mutableStateOf<String?>(null) }
+
+    // Validation function
+    fun validateField(fieldName: String, value: String): String? {
+        return when (fieldName) {
+            "accHolderFirstName" -> when {
+                value.isBlank() -> "Account holder first name is required"
+                value.length < 2 -> "First name must be at least 2 characters"
+                else -> null
+            }
+            "accHolderLastName" -> when {
+                value.isBlank() -> "Account holder last name is required"
+                value.length < 2 -> "Last name must be at least 2 characters"
+                else -> null
+            }
+            "bankName" -> if (value.isBlank()) "Bank name is required" else null
+            "bankAddress" -> if (value.isBlank()) "Bank address is required" else null
+            "bankAccount" -> when {
+                value.isBlank() -> "Account number is required"
+                value.length < 8 -> "Account number must be at least 8 characters"
+                else -> null
+            }
+            "routingNumber" -> when {
+                value.isBlank() -> "Routing number is required"
+                !value.matches(Regex("^\\d{9}$")) -> "Routing number must be exactly 9 digits"
+                else -> null
+            }
+            "badgeCity" -> if (value.isBlank()) "Badge city is required" else null
+            else -> null
+        }
+    }
+
+    // Handle API Errors
     LaunchedEffect(uiState.error) {
-        if (uiState.error != null) {
-            showErrorDialog = true
+        uiState.error?.let { error ->
+            apiError = error
+            // Clear field-specific errors when we have an API error
+            accHolderFirstNameError = null
+            accHolderLastNameError = null
+            bankNameError = null
+            bankAddressError = null
+            bankAccountError = null
+            routingNumberError = null
+            accountTypeError = null
+            currencyError = null
+            ssnError = null
+            einError = null
+            badgeCityError = null
         }
     }
 
@@ -141,9 +199,9 @@ fun BankDetailsScreen(
             .fillMaxSize()
             .background(Color.White)
             .imePadding()
-            // Don't apply status-bar padding here; `RegistrationTopBar` already handles it
-            // and paints the safe area black. We only need bottom insets for nav bar.
-            .windowInsetsPadding(WindowInsets.navigationBars)
+        // REMOVED: .windowInsetsPadding(WindowInsets.navigationBars)
+        // We want the content to flow behind the bottom bar, and the bottom bar
+        // to handle its own padding to ensure the white background goes edge-to-edge.
     ) {
         RegistrationTopBar(onBack = onBack)
 
@@ -164,37 +222,86 @@ fun BankDetailsScreen(
                 )
             )
             Spacer(modifier = Modifier.height(24.dp))
-            
+
+            // API Error Display
+            apiError?.let { error ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFFF2F2)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error",
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = error,
+                            style = TextStyle(
+                                fontSize = 14.sp,
+                                color = Color(0xFFDC2626),
+                                fontWeight = FontWeight.Medium
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             // Account Holder Name
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 CommonTextField(
-                    label = "ACC. HOLDER FIRST NAME *",
+                    label = "ACC. HOLDER FIRST NAME",
                     placeholder = "John",
                     text = accHolderFirstName,
-                    onValueChange = { accHolderFirstName = it },
+                    onValueChange = {
+                        accHolderFirstName = it
+                        accHolderFirstNameError = validateField("accHolderFirstName", it)
+                        apiError = null
+                    },
                     modifier = Modifier.weight(1f),
-                    isRequired = true
+                    isRequired = true,
+                    errorMessage = accHolderFirstNameError
                 )
                 CommonTextField(
-                    label = "ACC. HOLDER LAST NAME *",
+                    label = "ACC. HOLDER LAST NAME",
                     placeholder = "Smith",
                     text = accHolderLastName,
-                    onValueChange = { accHolderLastName = it },
+                    onValueChange = {
+                        accHolderLastName = it
+                        accHolderLastNameError = validateField("accHolderLastName", it)
+                        apiError = null
+                    },
                     modifier = Modifier.weight(1f),
-                    isRequired = true
+                    isRequired = true,
+                    errorMessage = accHolderLastNameError
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Bank Name
             LocationAutocomplete(
-                label = "BANK NAME *",
+                label = "BANK NAME",
                 value = bankName,
-                onValueChange = { bankName = it },
+                onValueChange = {
+                    bankName = it
+                    bankNameError = validateField("bankName", it)
+                    apiError = null
+                },
                 onLocationSelected = { fullAddress, name, _, _, displayText, _, _, countryCode, placeLabel ->
                     // Prefer explicit place name, fall back to Google display text
                     val selectedBankName = name
@@ -217,20 +324,40 @@ fun BankDetailsScreen(
 
                     bankName = selectedBankName
                     bankAddress = resolvedAddress
+                    bankNameError = null
+                    apiError = null
                 },
                 placeholder = "",
                 isRequired = true,
                 modifier = Modifier.fillMaxWidth(),
                 typeFilter = com.google.android.libraries.places.api.model.TypeFilter.ESTABLISHMENT
             )
-            
+
+            // Bank Name Error Message
+            bankNameError?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Normal
+                    ),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Bank Address
             LocationAutocomplete(
-                label = "BANK ADDRESS *",
+                label = "BANK ADDRESS",
                 value = bankAddress,
-                onValueChange = { bankAddress = it },
+                onValueChange = {
+                    bankAddress = it
+                    bankAddressError = validateField("bankAddress", it)
+                    apiError = null
+                },
                 onLocationSelected = { fullAddress, _, _, _, displayText, _, _, countryCode, _ ->
                     // Always prefer the full formatted address so backend receives a complete value
                     val baseAddress = fullAddress.takeIf { it.isNotBlank() }
@@ -241,71 +368,101 @@ fun BankDetailsScreen(
                     } else {
                         baseAddress
                     }
+                    bankAddressError = null
+                    apiError = null
                 },
                 placeholder = "",
                 isRequired = true,
                 modifier = Modifier.fillMaxWidth(),
                 typeFilter = com.google.android.libraries.places.api.model.TypeFilter.ADDRESS
             )
-            
+
+            // Bank Address Error Message
+            bankAddressError?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Normal
+                    ),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Bank Account
             CommonTextField(
-                label = "BANK ACCOUNT/IBAN *",
+                label = "BANK ACCOUNT/IBAN",
                 placeholder = "",
                 text = bankAccount,
-                onValueChange = { bankAccount = it },
+                onValueChange = {
+                    bankAccount = it
+                    bankAccountError = validateField("bankAccount", it)
+                    apiError = null
+                },
                 isRequired = true,
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Number,
+                errorMessage = bankAccountError
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Routing Number
             CommonTextField(
-                label = "CHECKING ROUTING NUMBER *",
+                label = "CHECKING ROUTING NUMBER",
                 placeholder = "",
                 text = routingNumber,
-                onValueChange = { routingNumber = it },
+                onValueChange = {
+                    routingNumber = it
+                    routingNumberError = validateField("routingNumber", it)
+                    apiError = null
+                },
                 isRequired = true,
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Number,
+                errorMessage = routingNumberError
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Account Type
             CommonDropdown(
-                label = "ACCOUNT TYPE *",
+                label = "ACCOUNT TYPE",
                 placeholder = "Select",
                 selectedValue = accountTypeOptions.find { it.first == accountType }?.second,
                 options = accountTypeOptions.map { it.second },
                 onValueSelected = { selected ->
                     accountType = accountTypeOptions.find { it.second == selected }?.first
+                    accountTypeError = if (accountType.isNullOrBlank()) "Please select account type" else null
+                    apiError = null
                 },
-                isRequired = true
+                isRequired = true,
+                errorMessage = accountTypeError
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // --- CURRENCY FIX START ---
             // We wrapper CommonTextField in a Box to intercept clicks
             Box(modifier = Modifier.fillMaxWidth()) {
                 CommonTextField(
-                    label = "CURRENCY *",
+                    label = "CURRENCY",
                     placeholder = "Select",
                     // Display the friendly name (e.g. "USD - $ - US Dollar")
                     text = (
-                        currencyOptions.firstOrNull {
-                            it.code.equals(currency, ignoreCase = true) &&
-                                it.countryCode.equals(currencyCountryCode, ignoreCase = true)
-                        } ?: currencyOptions.firstOrNull {
-                            it.code.equals(currency, ignoreCase = true)
-                        }
-                    )?.display ?: "",
+                            currencyOptions.firstOrNull {
+                                it.code.equals(currency, ignoreCase = true) &&
+                                        it.countryCode.equals(currencyCountryCode, ignoreCase = true)
+                            } ?: currencyOptions.firstOrNull {
+                                it.code.equals(currency, ignoreCase = true)
+                            }
+                            )?.display ?: "",
                     onValueChange = { }, // Read-only, handled by overlay
                     isRequired = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    errorMessage = currencyError
                 )
 
                 // This overlay Box makes the entire text field area clickable
@@ -325,21 +482,26 @@ fun BankDetailsScreen(
                 }
             }
             // --- CURRENCY FIX END ---
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // SSN
             CommonTextField(
                 label = "SSN (or Government ID)",
                 placeholder = "",
                 text = ssn,
-                onValueChange = { ssn = it },
+                onValueChange = {
+                    ssn = it
+                    ssnError = null
+                    apiError = null
+                },
                 isRequired = true,
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Number,
+                errorMessage = ssnError
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // EIN Toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -359,109 +521,223 @@ fun BankDetailsScreen(
                     )
                 )
             }
-            
+
             if (hasEIN) {
                 Spacer(modifier = Modifier.height(18.dp))
                 CommonTextField(
                     label = "EIN / Business ID",
                     placeholder = "",
                     text = ein,
-                    onValueChange = { ein = it },
-                    isRequired = true
+                    onValueChange = {
+                        ein = it
+                        einError = null
+                        apiError = null
+                    },
+                    isRequired = true,
+                    errorMessage = einError
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Badge City
             LocationAutocomplete(
                 label = "Badge City",
                 value = badgeCity,
-                onValueChange = { badgeCity = it },
+                onValueChange = {
+                    badgeCity = it
+                    badgeCityError = validateField("badgeCity", it)
+                    apiError = null
+                },
                 onLocationSelected = { _, _, _, _, displayText, _, _, _, _ ->
                     badgeCity = displayText
+                    badgeCityError = null
+                    apiError = null
                 },
                 placeholder = "Enter badge city",
                 isRequired = true,
                 modifier = Modifier.fillMaxWidth(),
-                typeFilter = com.google.android.libraries.places.api.model.TypeFilter.CITIES
+                typeFilter = com.google.android.libraries.places.api.model.TypeFilter.CITIES,
+                errorMessage = badgeCityError
             )
-            
+
             Spacer(modifier = Modifier.height(24.dp))
         }
-        
+
         // --- CUSTOM BOTTOM BAR ---
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .padding(16.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            // High elevation for a nice drop shadow pointing UP
+            shadowElevation = 10.dp,
+            // Ensures the bar is opaque white all the way to bottom edge
+            color = Color.White
         ) {
-            Button(
-                onClick = {
-                    val first = accHolderFirstName.trim()
-                    val last = accHolderLastName.trim()
-                    val bankNm = bankName.trim()
-                    val address = bankAddress.trim()
-                    val accountNum = bankAccount.trim()
-                    val routing = routingNumber.trim()
-                    val acctType = accountType?.lowercase() ?: ""
-                    // Backend expects ISO currency codes like "USD" (not "usd")
-                    val currencyCode = currency?.uppercase() ?: ""
-                    val ssnValue = ssn.trim()
-                    val badge = badgeCity.trim()
-                    val businessId = if (hasEIN) ein.trim().ifEmpty { null } else null
-
-                    // Validation Logic
-                    if (first.isEmpty() || last.isEmpty()) return@Button
-                    if (bankNm.isEmpty()) return@Button
-                    if (address.isEmpty()) return@Button
-                    if (accountNum.isEmpty()) return@Button
-                    if (routing.isEmpty()) return@Button
-                    if (acctType.isEmpty()) return@Button
-                    if (currencyCode.isEmpty()) return@Button
-                    if (ssnValue.isEmpty()) return@Button
-                    if (badge.isEmpty()) return@Button
-
-                    val request = BankDetailsRequest(
-                        bankName = bankNm,
-                        bankAddress = address,
-                        accountHolderFirstName = first,
-                        accountHolderLastName = last,
-                        accountNumber = accountNum,
-                        routingNumber = routing,
-                        accountType = acctType,
-                        currency = currencyCode,
-                        socialSecurityNumber = ssnValue,
-                        badgeCity = badge,
-                        businessId = businessId
-                    )
-
-                    viewModel.completeBankDetails(request)
-                },
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE89148),
-                    contentColor = Color.White
-                ),
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                enabled = !uiState.isLoading
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    // Apply safe area padding here so the background extends behind the nav bar,
+                    // but the content is pushed up safely.
+                    .navigationBarsPadding()
             ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                } else {
-                    Text(
-                        text = "Submit",
-                        style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
+
+                Button(
+                    onClick = {
+                        // Clear previous errors
+                        accHolderFirstNameError = null
+                        accHolderLastNameError = null
+                        bankNameError = null
+                        bankAddressError = null
+                        bankAccountError = null
+                        routingNumberError = null
+                        accountTypeError = null
+                        currencyError = null
+                        ssnError = null
+                        einError = null
+                        badgeCityError = null
+                        apiError = null
+
+                        // Validation Logic
+                        var hasErrors = false
+
+                        // Validate Account Holder First Name
+                        if (accHolderFirstName.isBlank()) {
+                            accHolderFirstNameError = "Account holder first name is required"
+                            hasErrors = true
+                        } else if (accHolderFirstName.length < 2) {
+                            accHolderFirstNameError = "First name must be at least 2 characters"
+                            hasErrors = true
+                        }
+
+                        // Validate Account Holder Last Name
+                        if (accHolderLastName.isBlank()) {
+                            accHolderLastNameError = "Account holder last name is required"
+                            hasErrors = true
+                        } else if (accHolderLastName.length < 2) {
+                            accHolderLastNameError = "Last name must be at least 2 characters"
+                            hasErrors = true
+                        }
+
+                        // Validate Bank Name
+                        if (bankName.isBlank()) {
+                            bankNameError = "Bank name is required"
+                            hasErrors = true
+                        }
+
+                        // Validate Bank Address
+                        if (bankAddress.isBlank()) {
+                            bankAddressError = "Bank address is required"
+                            hasErrors = true
+                        }
+
+                        // Validate Bank Account
+                        if (bankAccount.isBlank()) {
+                            bankAccountError = "Account number is required"
+                            hasErrors = true
+                        } else if (bankAccount.length < 8) {
+                            bankAccountError = "Account number must be at least 8 characters"
+                            hasErrors = true
+                        }
+
+                        // Validate Routing Number
+                        if (routingNumber.isBlank()) {
+                            routingNumberError = "Routing number is required"
+                            hasErrors = true
+                        } else if (!routingNumber.matches(Regex("^\\d{9}$"))) {
+                            routingNumberError = "Routing number must be exactly 9 digits"
+                            hasErrors = true
+                        }
+
+                        // Validate Account Type
+                        if (accountType.isNullOrBlank()) {
+                            accountTypeError = "Please select account type"
+                            hasErrors = true
+                        }
+
+                        // Validate Currency
+                        if (currency.isNullOrBlank()) {
+                            currencyError = "Please select currency"
+                            hasErrors = true
+                        }
+
+                        // Validate SSN
+                        if (ssn.isBlank()) {
+                            ssnError = "SSN or Government ID is required"
+                            hasErrors = true
+                        }
+
+                        // Validate EIN if hasEIN is enabled
+                        if (hasEIN && ein.isBlank()) {
+                            einError = "EIN / Business ID is required"
+                            hasErrors = true
+                        }
+
+                        // Validate Badge City
+                        if (badgeCity.isBlank()) {
+                            badgeCityError = "Badge city is required"
+                            hasErrors = true
+                        }
+
+                        // Only make API call if all validations pass
+                        if (!hasErrors) {
+                            android.util.Log.d("BankDetailsScreen", "Making API call to save bank details")
+
+                            val first = accHolderFirstName.trim()
+                            val last = accHolderLastName.trim()
+                            val bankNm = bankName.trim()
+                            val address = bankAddress.trim()
+                            val accountNum = bankAccount.trim()
+                            val routing = routingNumber.trim()
+                            val acctType = accountType?.lowercase() ?: ""
+                            val currencyCode = currency?.uppercase() ?: ""
+                            val ssnValue = ssn.trim()
+                            val badge = badgeCity.trim()
+                            val businessId = if (hasEIN) ein.trim().ifEmpty { null } else null
+
+                            val request = BankDetailsRequest(
+                                bankName = bankNm,
+                                bankAddress = address,
+                                accountHolderFirstName = first,
+                                accountHolderLastName = last,
+                                accountNumber = accountNum,
+                                routingNumber = routing,
+                                accountType = acctType,
+                                currency = currencyCode,
+                                socialSecurityNumber = ssnValue,
+                                badgeCity = badge,
+                                businessId = businessId
+                            )
+                            viewModel.completeBankDetails(request)
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE89148),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color(0xFFE89148).copy(alpha = 0.5f),
+                        disabledContentColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    enabled = !uiState.isLoading
+                ) {
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.5.dp
                         )
-                    )
+                    } else {
+                        Text(
+                            text = "Submit",
+                            style = TextStyle(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -471,7 +747,7 @@ fun BankDetailsScreen(
         ModalBottomSheet(
             onDismissRequest = { currencySheetOpen = false },
             sheetState = currencySheetState,
-            containerColor = Color.White // Ensure sheet background is white
+            containerColor = Color.White
         ) {
             Column(
                 modifier = Modifier
@@ -487,7 +763,7 @@ fun BankDetailsScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                 )
-                
+
                 // Using OutlinedTextField for search to match app style
                 OutlinedTextField(
                     value = currencySearch,
@@ -502,13 +778,13 @@ fun BankDetailsScreen(
                         unfocusedBorderColor = Color.LightGray
                     )
                 )
-                
+
                 val filtered = currencyOptions.filter {
                     currencySearch.isBlank() ||
-                        it.display.contains(currencySearch, ignoreCase = true) ||
-                        it.code.contains(currencySearch, ignoreCase = true)
+                            it.display.contains(currencySearch, ignoreCase = true) ||
+                            it.code.contains(currencySearch, ignoreCase = true)
                 }
-                
+
                 // Scrollable list for currencies
                 Column(
                     modifier = Modifier
@@ -525,6 +801,8 @@ fun BankDetailsScreen(
                                     currencyCountryCode = option.countryCode
                                     currencySheetOpen = false
                                     currencySearch = ""
+                                    currencyError = null
+                                    apiError = null
                                 },
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFFF8F8F8),
@@ -563,23 +841,4 @@ fun BankDetailsScreen(
         }
     }
 
-    // Error Dialog (unchanged)
-    if (showErrorDialog && uiState.error != null) {
-        AlertDialog(
-            onDismissRequest = { 
-                showErrorDialog = false
-                viewModel.clearError()
-            },
-            title = { Text("Error") },
-            text = { Text(uiState.error ?: "Unknown error") },
-            confirmButton = {
-                TextButton(onClick = { 
-                    showErrorDialog = false
-                    viewModel.clearError()
-                }) {
-                    Text("OK")
-                }
-            }
-        )
-    }
 }

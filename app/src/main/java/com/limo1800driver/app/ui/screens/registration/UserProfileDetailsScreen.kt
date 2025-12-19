@@ -15,6 +15,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.R
+import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.navigation.NavRoutes
 import com.limo1800driver.app.ui.theme.* // Ensure AppColors.LimoOrange is defined or use hex
 import com.limo1800driver.app.ui.viewmodel.UserProfileDetailsViewModel
@@ -65,7 +67,7 @@ fun UserProfileDetailsScreen(
     Scaffold(
         containerColor = Color.White,
         topBar = {
-            RegistrationTopBar(onHelpClick = { /* Handle help */ })
+            RegistrationTopBar()
         },
         bottomBar = {
             // MATCHING FIGMA: Custom Bottom Button Container
@@ -216,89 +218,37 @@ fun UserProfileDetailsScreen(
 }
 
 @Composable
-fun RegistrationTopBar(
-    onHelpClick: () -> Unit,
-    onBack: (() -> Unit)? = null
-) {
-    // Surface handles the background color for the status bar area
-    Surface(
-        color = Color(0xFF121212), // Black background
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                // This is the CRITICAL fix for Safe Area:
-                .windowInsetsPadding(WindowInsets.statusBars) 
-                .fillMaxWidth()
-                .height(60.dp) // Height of the actual toolbar content
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (onBack != null) {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                }
-                Image(
-                    painter = painterResource(id = R.drawable.splashlogo), // Ensure this matches your XML filename exactly (lowercase/uppercase)
-                    contentDescription = "Limo Logo",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .height(40.dp)
-                        .wrapContentWidth(align = Alignment.Start) 
-                )
-            }
-
-            // Help Button
-            Button(
-                onClick = onHelpClick,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                shape = RoundedCornerShape(50), // Fully rounded pill shape
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                modifier = Modifier.height(34.dp)
-            ) {
-                Text(
-                    text = "Help",
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
 fun StepRow(
     title: String,
     isCompleted: Boolean,
     enabled: Boolean,
     onClick: () -> Unit
 ) {
+    // --- DESIGN LOGIC ---
+    // 1. Text Color: Black if active, Gray if disabled
+    val titleColor = if (enabled) Color.Black else Color.Gray
+
+    // 2. Status Color:
+    //    - If Completed: Green
+    //    - If Pending (Active): Darker Gray
+    //    - If Disabled (Locked): Very Light Gray
+    val statusColor = if (enabled) {
+        if (isCompleted) Color(0xFF2E7D32) else Color.Gray
+    } else {
+        Color.LightGray
+    }
+
+    // 3. Status Text
+    val statusText = if (isCompleted) "Completed" else "Pending"
+
+    // 4. Icon Tint: Fade it out significantly if disabled
+    val iconTint = if (enabled) Color.LightGray else Color.LightGray.copy(alpha = 0.4f)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 20.dp), // Spacious padding like screenshot
+            .padding(vertical = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -310,27 +260,24 @@ fun StepRow(
                 style = TextStyle(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.Black
+                    color = titleColor // Apply dynamic color
                 )
             )
-            
-            // Status Text Logic based on screenshot ("In Review" is default for pending)
-            val statusText = if (isCompleted) "Completed" else "Pending"
-            val statusColor = if (isCompleted) Color(0xFF2E7D32) else Color.Gray
-            
+
             Text(
                 text = statusText,
                 style = TextStyle(
                     fontSize = 13.sp,
-                    color = statusColor
+                    color = statusColor // Apply dynamic color
                 )
             )
         }
-        
+
+        // Visual indicator for interaction
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color.LightGray,
+            tint = iconTint, // Apply dynamic tint
             modifier = Modifier.size(24.dp)
         )
     }

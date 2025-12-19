@@ -9,6 +9,7 @@ import com.limo1800driver.app.data.model.registration.BasicInfoStepPrefillData
 import com.limo1800driver.app.data.model.registration.BasicInfoStepResponse
 import com.limo1800driver.app.data.network.error.ErrorHandler
 import com.limo1800driver.app.data.repository.DriverRegistrationRepository
+import com.limo1800driver.app.data.storage.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,8 @@ import javax.inject.Inject
 @HiltViewModel
 class BasicInfoViewModel @Inject constructor(
     private val registrationRepository: DriverRegistrationRepository,
-    private val errorHandler: ErrorHandler
+    private val errorHandler: ErrorHandler,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BasicInfoUiState())
@@ -92,6 +94,8 @@ class BasicInfoViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { response ->
                         if (response.success && response.data != null) {
+                            // Save basic info email for prefill in other screens
+                            tokenManager.saveBasicInfoEmail(request.email)
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 success = true,
@@ -124,6 +128,13 @@ class BasicInfoViewModel @Inject constructor(
                 Timber.tag("BasicInfoVM").e(e, "Unexpected error completing basic info")
             }
         }
+    }
+
+    /**
+     * Reset success state (important for back navigation)
+     */
+    fun resetSuccessState() {
+        _uiState.value = _uiState.value.copy(success = false, nextStep = null)
     }
 
     /**

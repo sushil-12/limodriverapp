@@ -1,3 +1,5 @@
+package com.limo1800driver.app.ui.screens.registration
+
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +30,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -36,7 +40,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.R
 import com.limo1800driver.app.data.model.registration.DrivingLicenseRequest
 import com.limo1800driver.app.data.model.registration.OptionalCertificationRequest
-import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
 import com.limo1800driver.app.ui.components.camera.DocumentSide
@@ -112,6 +115,24 @@ fun DriverLicenseFormScreen(
     var showErrorDialog by remember { mutableStateOf(false) }
     var localErrorMessage by remember { mutableStateOf<String?>(null) }
 
+    // Field-specific error states
+    var licenseNumberError by remember { mutableStateOf<String?>(null) }
+    var frontImageError by remember { mutableStateOf<String?>(null) }
+    var certificationError by remember { mutableStateOf<String?>(null) }
+    var apiError by remember { mutableStateOf<String?>(null) }
+
+    // Validation function
+    fun validateField(fieldName: String, value: String): String? {
+        return when (fieldName) {
+            "licenseNumber" -> when {
+                value.isBlank() -> "License number is required"
+                value.length < 5 -> "License number must be at least 5 characters"
+                else -> null
+            }
+            else -> null
+        }
+    }
+
     // Prefill: fetch on load
     LaunchedEffect(Unit) {
         viewModel.fetchDrivingLicenseStep()
@@ -142,10 +163,12 @@ fun DriverLicenseFormScreen(
                 }
             }
             prefill.optionalCertification?.let { certs ->
+                android.util.Log.d("DrivingLicenseScreen", "Prefilling certifications: $certs")
                 suspend fun setCert(cert: CertificationType, imageData: com.limo1800driver.app.data.model.registration.ImageData?) {
                     if (imageData?.id != null) {
                         selectedCertifications[cert] = true
                         certificationImageIds[cert] = imageData.id
+                        android.util.Log.d("DrivingLicenseScreen", "Prefilled ${cert.displayName} with ID: ${imageData.id}")
                         imageData.url?.let { url ->
                             loadBitmapFromUrl(url)?.let { certificationImages[cert] = it }
                         }
@@ -161,10 +184,14 @@ fun DriverLicenseFormScreen(
         }
     }
 
-    // Surface errors
+    // Handle API Errors
     LaunchedEffect(uiState.error) {
-        if (uiState.error != null) {
-            showErrorDialog = true
+        uiState.error?.let { error ->
+            apiError = error
+            // Clear field-specific errors when we have an API error
+            licenseNumberError = null
+            frontImageError = null
+            certificationError = null
         }
     }
 
@@ -205,10 +232,14 @@ fun DriverLicenseFormScreen(
                                 certificationUploading[cert] = true
                                 scope.launch {
                                     viewModel.uploadImage(it).fold(
-                                        onSuccess = { id -> certificationImageIds[cert] = id },
+                                        onSuccess = { id ->
+                                            certificationImageIds[cert] = id
+                                            android.util.Log.d("DrivingLicenseScreen", "Uploaded image for ${cert.displayName}, ID: $id")
+                                        },
                                         onFailure = { _ ->
                                             certificationImages[cert] = null
                                             certificationImageIds[cert] = null
+                                            android.util.Log.d("DrivingLicenseScreen", "Failed to upload image for ${cert.displayName}")
                                         }
                                     )
                                     certificationUploading[cert] = false
@@ -223,73 +254,63 @@ fun DriverLicenseFormScreen(
             onDismiss = { showCamera = false }
         )
     } else {
-        Scaffold(
-            containerColor = Color.White,
-            topBar = { RegistrationTopBar(onBack = onBack) },
-            bottomBar = {
-                BottomActionBar(
-                    isLoading = uiState.isLoading || isUploadingFront || isUploadingBack,
-                    onBack = null,
-                    onNext = {
-                        // Validation logic
-                        localErrorMessage = when {
-                            licenseNumber.isBlank() -> "Please enter your license number."
-                            frontImageId == null -> "Please upload the front side of your license."
-                            else -> null
-                        }
+        // --- REPLACED SCAFFOLD WITH COLUMN + WEIGHT + SURFACE ---
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .imePadding()
+            // Do not apply windowInsetsPadding(NavigationBars) here
+            // We want the white background to go behind the bottom nav bar
+        ) {
+            RegistrationTopBar(onBack = onBack)
 
-                        // Ensure selected certifications have uploads
-                        val missingCerts = selectedCertifications
-                            .filter { it.value && (certificationImageIds[it.key] == null) }
-                            .keys
-                        if (missingCerts.isNotEmpty()) {
-                            localErrorMessage = "Please upload images for: ${
-                                missingCerts.joinToString { it.displayName }
-                            }"
-                        }
-
-                        if (localErrorMessage != null) {
-                            showErrorDialog = true
-                            return@BottomActionBar
-                        }
-
-                        val expiryDate = if (!selectedDay.isNullOrBlank() && !selectedMonth.isNullOrBlank() && !selectedYear.isNullOrBlank()) {
-                            "${selectedYear}-${selectedMonth}-${selectedDay}"
-                        } else {
-                            null
-                        }
-
-                        val optionalCerts = if (selectedCertifications.values.any { it }) {
-                            OptionalCertificationRequest(
-                                veteran = certificationImageIds[CertificationType.VETERAN],
-                                dodClearance = certificationImageIds[CertificationType.DOD_CLEARANCE],
-                                foidCard = certificationImageIds[CertificationType.FOID_CARD],
-                                childSchoolBus = certificationImageIds[CertificationType.CHILD_SCHOOL_BUS],
-                                backgroundCertified = certificationImageIds[CertificationType.BACKGROUND_CERTIFIED],
-                                exPolice = certificationImageIds[CertificationType.EX_POLICE]
-                            )
-                        } else null
-
-                        val request = DrivingLicenseRequest(
-                            licenceFrontPhoto = frontImageId,
-                            licenceBackPhoto = backImageId,
-                            licenseNumber = licenseNumber.trim(),
-                            expiryDate = expiryDate,
-                            optionalCertification = optionalCerts
-                        )
-                        viewModel.completeDrivingLicense(request)
-                    }
-                )
-            }
-        ) { paddingValues ->
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
+                    .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(20.dp),
+                    .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // API Error Display
+                apiError?.let { error ->
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFF2F2)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 0.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Error,
+                                contentDescription = "Error",
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = error,
+                                style = TextStyle(
+                                    fontSize = 14.sp,
+                                    color = Color(0xFFDC2626),
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 // Screen Title
                 Text(
                     text = "Enter your license number and upload clear image",
@@ -304,7 +325,11 @@ fun DriverLicenseFormScreen(
                     LabelText(text = "LICENSE NUMBER *")
                     OutlinedTextField(
                         value = licenseNumber,
-                        onValueChange = { licenseNumber = it.uppercase() },
+                        onValueChange = {
+                            licenseNumber = it.uppercase()
+                            licenseNumberError = validateField("licenseNumber", it)
+                            apiError = null
+                        },
                         placeholder = { Text("DL 0000000000000", color = Color.Gray) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -316,14 +341,29 @@ fun DriverLicenseFormScreen(
                             disabledContainerColor = LightGrayBg,
                             cursorColor = BrandBlack,
                             focusedBorderColor = BrandOrange,
-                            unfocusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = if (licenseNumberError != null) Color(0xFFEF4444) else Color.Transparent,
+                            errorBorderColor = Color(0xFFEF4444),
                         ),
+                        isError = licenseNumberError != null,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Text,
                             capitalization = KeyboardCapitalization.Characters
                         )
                     )
+
+                    // License Number Error Message
+                    licenseNumberError?.let {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = it,
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                color = Color(0xFFEF4444),
+                                fontWeight = FontWeight.Normal
+                            )
+                        )
+                    }
                 }
 
                 // Upload Section
@@ -344,13 +384,28 @@ fun DriverLicenseFormScreen(
                             label = "FRONT SIDE *",
                             bitmap = frontImage,
                             isUploading = isUploadingFront,
+                            isError = frontImageError != null,
                             modifier = Modifier.weight(1f),
                             onAddClick = {
                                 activeDocumentType = DocumentType.DRIVING_LICENSE
                                 activeSide = DocumentSide.FRONT
                                 showCamera = true
+                                apiError = null
                             }
                         )
+
+                        // Front Image Error Message
+                        frontImageError?.let {
+                            Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = it,
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                color = Color(0xFFEF4444),
+                                fontWeight = FontWeight.Normal
+                            )
+                        )
+                        }
 
                         // Back Side
                         UploadCard(
@@ -391,10 +446,12 @@ fun DriverLicenseFormScreen(
                                 onToggle = {
                                     val current = selectedCertifications[cert] ?: false
                                     selectedCertifications[cert] = !current
+                                    android.util.Log.d("DrivingLicenseScreen", "Toggled ${cert.displayName}: $current -> ${!current}")
                                     if (current) {
                                         certificationImages.remove(cert)
                                         certificationImageIds.remove(cert)
                                         certificationUploading[cert] = false
+                                        android.util.Log.d("DrivingLicenseScreen", "Cleared data for ${cert.displayName}")
                                     }
                                 }
                             )
@@ -420,13 +477,151 @@ fun DriverLicenseFormScreen(
                             }
                         }
                     }
+
+                    // Certification Error Message
+                    certificationError?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = it,
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                color = Color(0xFFEF4444),
+                                fontWeight = FontWeight.Normal
+                            ),
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    }
                 }
-                // Extra space at bottom to ensure content doesn't sit behind bottom bar
-                Spacer(modifier = Modifier.height(20.dp))
+
+                // Add padding at the bottom of scroll content so the last item isn't flush with the button
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // --- CUSTOM BOTTOM BAR ---
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 10.dp,
+                color = Color.White
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                        .navigationBarsPadding() // Handles safe area inside the white surface
+                ) {
+
+                    Button(
+                        onClick = {
+                        // Clear previous errors
+                        licenseNumberError = null
+                        frontImageError = null
+                        certificationError = null
+                        apiError = null
+
+                        // Validation Logic
+                        var hasErrors = false
+
+                        // Validate License Number
+                        if (licenseNumber.isBlank()) {
+                            licenseNumberError = "License number is required"
+                            hasErrors = true
+                        } else if (licenseNumber.length < 5) {
+                            licenseNumberError = "License number must be at least 5 characters"
+                            hasErrors = true
+                        }
+
+                        // Validate Front Image
+                        if (frontImageId == null) {
+                            frontImageError = "Front side license image is required"
+                            hasErrors = true
+                        }
+
+                        // Validate Certifications - check if selected certs have images
+                        android.util.Log.d("DrivingLicenseScreen", "Selected certifications: $selectedCertifications")
+                        android.util.Log.d("DrivingLicenseScreen", "Certification image IDs: $certificationImageIds")
+
+                        val selectedCertsWithoutImages = selectedCertifications.filter { (type, isSelected) ->
+                            isSelected && certificationImageIds[type] == null
+                        }
+
+                        android.util.Log.d("DrivingLicenseScreen", "Selected certs without images: $selectedCertsWithoutImages")
+
+                        if (selectedCertsWithoutImages.isNotEmpty()) {
+                            val certNames = selectedCertsWithoutImages.keys.joinToString(", ") { it.displayName }
+                            certificationError = "Please upload images for selected certifications: $certNames"
+                            hasErrors = true
+                            android.util.Log.d("DrivingLicenseScreen", "Setting certification error: $certificationError")
+                        }
+
+                        // Prevent API call if there are validation errors
+                        if (hasErrors) {
+                            android.util.Log.d("DrivingLicenseScreen", "Validation failed, not making API call")
+                            return@Button
+                        }
+
+                        // Make API call to save/update data
+                        android.util.Log.d("DrivingLicenseScreen", "Validation passed, making API call")
+
+                            val expiryDate = if (!selectedDay.isNullOrBlank() && !selectedMonth.isNullOrBlank() && !selectedYear.isNullOrBlank()) {
+                                "${selectedYear}-${selectedMonth}-${selectedDay}"
+                            } else {
+                                null
+                            }
+
+                            val optionalCerts = if (selectedCertifications.values.any { it }) {
+                                OptionalCertificationRequest(
+                                    veteran = certificationImageIds[CertificationType.VETERAN],
+                                    dodClearance = certificationImageIds[CertificationType.DOD_CLEARANCE],
+                                    foidCard = certificationImageIds[CertificationType.FOID_CARD],
+                                    childSchoolBus = certificationImageIds[CertificationType.CHILD_SCHOOL_BUS],
+                                    backgroundCertified = certificationImageIds[CertificationType.BACKGROUND_CERTIFIED],
+                                    exPolice = certificationImageIds[CertificationType.EX_POLICE]
+                                )
+                            } else null
+
+                            val request = DrivingLicenseRequest(
+                                licenceFrontPhoto = frontImageId,
+                                licenceBackPhoto = backImageId,
+                                licenseNumber = licenseNumber.trim(),
+                                expiryDate = expiryDate,
+                                optionalCertification = optionalCerts
+                            )
+                            viewModel.completeDrivingLicense(request)
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE89148), // Brand Orange
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFE89148).copy(alpha = 0.5f),
+                            disabledContentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        enabled = !uiState.isLoading && !isUploadingFront && !isUploadingBack
+                    ) {
+                        if (uiState.isLoading || isUploadingFront || isUploadingBack) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.5.dp
+                            )
+                        } else {
+                            Text(
+                                text = "Submit",
+                                style = TextStyle(
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            )
+                        }
+                    }
+                }
             }
         }
     }
-    
+
     if (showErrorDialog) {
         AlertDialog(
             onDismissRequest = {
@@ -509,6 +704,7 @@ fun UploadCard(
     label: String,
     bitmap: Bitmap?,
     isUploading: Boolean = false,
+    isError: Boolean = false,
     modifier: Modifier = Modifier,
     onAddClick: () -> Unit
 ) {
@@ -533,7 +729,11 @@ fun UploadCard(
                 .aspectRatio(1.58f) // Standard ID Aspect Ratio
                 .clip(RoundedCornerShape(12.dp))
                 .background(LightGrayBg)
-                .border(1.dp, Color.LightGray.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
+                .border(
+                    width = 1.dp,
+                    color = if (isError) Color(0xFFEF4444) else Color.LightGray.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(12.dp)
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (isUploading) {
@@ -550,10 +750,7 @@ fun UploadCard(
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                // Placeholder graphic similar to screenshot
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // In a real app, use: Image(painter = painterResource(R.drawable.sample_id_bg)...)
-                    // Here we mimic the "Sample" text
                     Text(
                         text = "SAMPLE",
                         color = Color.LightGray.copy(alpha = 0.4f),
@@ -571,7 +768,7 @@ fun UploadCard(
         Button(
             onClick = onAddClick,
             colors = ButtonDefaults.buttonColors(containerColor = BrandBlack),
-            shape = CircleShape, // Fully rounded pill shape
+            shape = CircleShape,
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 0.dp),
             modifier = Modifier.height(40.dp)
         ) {

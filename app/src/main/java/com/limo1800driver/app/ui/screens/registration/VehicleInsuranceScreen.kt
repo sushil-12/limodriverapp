@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +38,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.TextStyle
 import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import java.util.Calendar
@@ -66,6 +68,16 @@ fun VehicleInsuranceScreen(
     var insuranceImageUrl by remember { mutableStateOf<String?>(null) }
     var showCamera by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
+
+    // Error states
+    var insuranceCompanyNameError by remember { mutableStateOf<String?>(null) }
+    var policyNumberError by remember { mutableStateOf<String?>(null) }
+    var agentPhoneError by remember { mutableStateOf<String?>(null) }
+    var expiryMonthError by remember { mutableStateOf<String?>(null) }
+    var expiryYearError by remember { mutableStateOf<String?>(null) }
+    var insuranceLimitError by remember { mutableStateOf<String?>(null) }
+    var insuranceImageError by remember { mutableStateOf<String?>(null) }
+    var apiError by remember { mutableStateOf<String?>(null) }
     
     val months = (1..12).map { String.format("%02d", it) }
     val days = (1..31).map { String.format("%02d", it) }
@@ -123,6 +135,43 @@ fun VehicleInsuranceScreen(
         }
     }
     
+    // Validation function
+    fun validateField(fieldName: String, value: String): String? {
+        return when (fieldName) {
+            "insuranceCompanyName" -> when {
+                value.trim().isEmpty() -> "Insurance company name is required"
+                value.trim().length < 2 -> "Insurance company name must be at least 2 characters"
+                else -> null
+            }
+            "policyNumber" -> when {
+                value.trim().isEmpty() -> "Policy number is required"
+                value.trim().length < 3 -> "Policy number must be at least 3 characters"
+                else -> null
+            }
+            "agentPhone" -> when {
+                value.trim().isEmpty() -> "Agent phone number is required"
+                !value.matches(Regex("^\\+?[0-9\\s\\-\\(\\)]{10,}$")) -> "Please enter a valid phone number"
+                else -> null
+            }
+            else -> null
+        }
+    }
+
+    // Handle API Errors
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            apiError = error
+            // Clear field-specific errors when we have an API error
+            insuranceCompanyNameError = null
+            policyNumberError = null
+            agentPhoneError = null
+            expiryMonthError = null
+            expiryYearError = null
+            insuranceLimitError = null
+            insuranceImageError = null
+        }
+    }
+
     // Show error dialog
     var showErrorDialog by remember { mutableStateOf(false) }
     LaunchedEffect(uiState.error) {
@@ -153,14 +202,54 @@ fun VehicleInsuranceScreen(
                 )
             )
             Spacer(modifier = Modifier.height(12.dp))
-            
+
+            // API Error Display
+            apiError?.let { error ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFFF2F2)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error",
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = error,
+                            style = TextStyle(
+                                fontSize = 14.sp,
+                                color = Color(0xFFDC2626),
+                                fontWeight = FontWeight.Medium
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             // Insurance Company Name
             CommonTextField(
                 label = "NAME OF THE INSURANCE COMPANY",
                 placeholder = "",
                 text = insuranceCompanyName,
-                onValueChange = { insuranceCompanyName = it },
-                isRequired = true
+                onValueChange = {
+                    insuranceCompanyName = it
+                    insuranceCompanyNameError = validateField("insuranceCompanyName", it)
+                    apiError = null
+                },
+                isRequired = true,
+                errorMessage = insuranceCompanyNameError
             )
             
             Spacer(modifier = Modifier.height(18.dp))
@@ -180,8 +269,13 @@ fun VehicleInsuranceScreen(
                 label = "POLICY NUMBER",
                 placeholder = "",
                 text = policyNumber,
-                onValueChange = { policyNumber = it },
-                isRequired = true
+                onValueChange = {
+                    policyNumber = it
+                    policyNumberError = validateField("policyNumber", it)
+                    apiError = null
+                },
+                isRequired = true,
+                errorMessage = policyNumberError
             )
             
             Spacer(modifier = Modifier.height(18.dp))
@@ -191,8 +285,13 @@ fun VehicleInsuranceScreen(
                 label = "AGENCY/INSURANCE TELEPHONE",
                 placeholder = "",
                 text = agentPhone,
-                onValueChange = { agentPhone = it },
-                isRequired = true
+                onValueChange = {
+                    agentPhone = it
+                    agentPhoneError = validateField("agentPhone", it)
+                    apiError = null
+                },
+                isRequired = true,
+                errorMessage = agentPhoneError
             )
             
             Spacer(modifier = Modifier.height(18.dp))
@@ -217,9 +316,14 @@ fun VehicleInsuranceScreen(
                     placeholder = "MM",
                     selectedValue = expiryMonth,
                     options = months,
-                    onValueSelected = { expiryMonth = it },
+                    onValueSelected = {
+                        expiryMonth = it
+                        expiryMonthError = if (it.isNullOrBlank()) "Month is required" else null
+                        apiError = null
+                    },
                     modifier = Modifier.weight(1f),
-                    isRequired = true
+                    isRequired = true,
+                    errorMessage = expiryMonthError
                 )
                 CommonDropdown(
                     label = "",
@@ -234,9 +338,14 @@ fun VehicleInsuranceScreen(
                     placeholder = "YYYY",
                     selectedValue = expiryYear,
                     options = years,
-                    onValueSelected = { expiryYear = it },
+                    onValueSelected = {
+                        expiryYear = it
+                        expiryYearError = if (it.isNullOrBlank()) "Year is required" else null
+                        apiError = null
+                    },
                     modifier = Modifier.weight(1f),
-                    isRequired = true
+                    isRequired = true,
+                    errorMessage = expiryYearError
                 )
             }
             
@@ -248,8 +357,13 @@ fun VehicleInsuranceScreen(
                 placeholder = "Select",
                 selectedValue = insuranceLimit,
                 options = limits,
-                onValueSelected = { insuranceLimit = it },
-                isRequired = true
+                onValueSelected = {
+                    insuranceLimit = it
+                    insuranceLimitError = if (it.isNullOrBlank()) "Insurance limit is required" else null
+                    apiError = null
+                },
+                isRequired = true,
+                errorMessage = insuranceLimitError
             )
             
             Spacer(modifier = Modifier.height(18.dp))
@@ -383,7 +497,21 @@ fun VehicleInsuranceScreen(
                     }
                 }
             }
-            
+
+            // Insurance Image Error Message
+            insuranceImageError?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Normal
+                    ),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
         }
         
@@ -396,30 +524,89 @@ fun VehicleInsuranceScreen(
         ) {
             Button(
                 onClick = {
-                    // Validation
-                    if (insuranceCompanyName.trim().isEmpty()) return@Button
-                    if (policyNumber.trim().isEmpty()) return@Button
-                    if (agentPhone.trim().isEmpty()) return@Button
-                    if (expiryMonth == null || expiryYear == null) return@Button
-                    if (insuranceLimit == null) return@Button
-                    if (insuranceImageId == null) return@Button
-                    
-                    val expiryDate = "$expiryYear-${expiryMonth}-${expiryDay ?: "01"} 00:00:00"
-                    
-                    val request = VehicleInsuranceRequest(
-                        nameOfInsuranceCompany = insuranceCompanyName.trim(),
-                        agencyName = agencyName.trim().takeIf { it.isNotEmpty() },
-                        insurancePolicyNumber = policyNumber.trim(),
-                        agentTelephoneNumber = agentPhone.trim(),
-                        agentTelephoneIsd = defaultAgentIsd,
-                        agentTelephoneCountry = defaultAgentCountry,
-                        agentEmail = agentEmail.trim().takeIf { it.isNotEmpty() },
-                        insuranceLimit = insuranceLimit ?: "",
-                        policyExpiryDate = expiryDate,
-                        insurancePolicyFrontPhoto = insuranceImageId ?: 0
-                    )
-                    
-                    viewModel.completeVehicleInsurance(request)
+                    // Clear previous errors
+                    insuranceCompanyNameError = null
+                    policyNumberError = null
+                    agentPhoneError = null
+                    expiryMonthError = null
+                    expiryYearError = null
+                    insuranceLimitError = null
+                    insuranceImageError = null
+                    apiError = null
+
+                    // Validation Logic
+                    var hasErrors = false
+
+                    // Validate Insurance Company Name
+                    if (insuranceCompanyName.trim().isEmpty()) {
+                        insuranceCompanyNameError = "Insurance company name is required"
+                        hasErrors = true
+                    } else if (insuranceCompanyName.trim().length < 2) {
+                        insuranceCompanyNameError = "Insurance company name must be at least 2 characters"
+                        hasErrors = true
+                    }
+
+                    // Validate Policy Number
+                    if (policyNumber.trim().isEmpty()) {
+                        policyNumberError = "Policy number is required"
+                        hasErrors = true
+                    } else if (policyNumber.trim().length < 3) {
+                        policyNumberError = "Policy number must be at least 3 characters"
+                        hasErrors = true
+                    }
+
+                    // Validate Agent Phone
+                    if (agentPhone.trim().isEmpty()) {
+                        agentPhoneError = "Agent phone number is required"
+                        hasErrors = true
+                    } else if (!agentPhone.matches(Regex("^\\+?[0-9\\s\\-\\(\\)]{10,}$"))) {
+                        agentPhoneError = "Please enter a valid phone number"
+                        hasErrors = true
+                    }
+
+                    // Validate Expiry Month
+                    if (expiryMonth.isNullOrBlank()) {
+                        expiryMonthError = "Month is required"
+                        hasErrors = true
+                    }
+
+                    // Validate Expiry Year
+                    if (expiryYear.isNullOrBlank()) {
+                        expiryYearError = "Year is required"
+                        hasErrors = true
+                    }
+
+                    // Validate Insurance Limit
+                    if (insuranceLimit.isNullOrBlank()) {
+                        insuranceLimitError = "Insurance limit is required"
+                        hasErrors = true
+                    }
+
+                    // Validate Insurance Image
+                    if (insuranceImageId == null) {
+                        insuranceImageError = "Insurance document is required"
+                        hasErrors = true
+                    }
+
+                    // Only make API call if all validations pass
+                    if (!hasErrors) {
+                        val expiryDate = "$expiryYear-${expiryMonth}-${expiryDay ?: "01"} 00:00:00"
+
+                        val request = VehicleInsuranceRequest(
+                            nameOfInsuranceCompany = insuranceCompanyName.trim(),
+                            agencyName = agencyName.trim().takeIf { it.isNotEmpty() },
+                            insurancePolicyNumber = policyNumber.trim(),
+                            agentTelephoneNumber = agentPhone.trim(),
+                            agentTelephoneIsd = defaultAgentIsd,
+                            agentTelephoneCountry = defaultAgentCountry,
+                            agentEmail = agentEmail.trim().takeIf { it.isNotEmpty() },
+                            insuranceLimit = insuranceLimit ?: "",
+                            policyExpiryDate = expiryDate,
+                            insurancePolicyFrontPhoto = insuranceImageId ?: 0
+                        )
+
+                        viewModel.completeVehicleInsurance(request)
+                    }
                 },
                 enabled = !(uiState.isLoading || isUploading),
                 shape = RoundedCornerShape(12.dp),

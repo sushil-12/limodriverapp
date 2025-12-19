@@ -9,7 +9,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,16 +53,46 @@ fun CompanyInfoScreen(
     var businessPhone by remember { mutableStateOf("") }
     var fax by remember { mutableStateOf("") }
 
+    // Validation function
+    fun validateField(fieldName: String, value: String): String? {
+        return when (fieldName) {
+            "companyName" -> if (value.isBlank()) "Company name is required" else null
+            "dispatchEmail" -> when {
+                value.isBlank() -> "Dispatch email is required"
+                !isValidEmail(value) -> "Please enter a valid email address"
+                else -> null
+            }
+            else -> null
+        }
+    }
+
     // Country selections
     var selectedCountryCellDispatch by remember { mutableStateOf(Countries.list.firstOrNull { it.code == "+1" } ?: Countries.list[0]) }
     var selectedCountryBusinessPhone by remember { mutableStateOf(Countries.list.firstOrNull { it.code == "+1" } ?: Countries.list[0]) }
     var selectedCountryFax by remember { mutableStateOf(Countries.list.firstOrNull { it.code == "+1" } ?: Countries.list[0]) }
 
+    // Error state variables
+    var companyNameError by remember { mutableStateOf<String?>(null) }
+    var dispatchEmailError by remember { mutableStateOf<String?>(null) }
+    var cellDispatchError by remember { mutableStateOf<String?>(null) }
+    var businessPhoneError by remember { mutableStateOf<String?>(null) }
+    var faxError by remember { mutableStateOf<String?>(null) }
+
+    // API Error state
+    var apiError by remember { mutableStateOf<String?>(null) }
+
     // --- Prefill Logic ---
     LaunchedEffect(uiState.prefillData) {
         uiState.prefillData?.let { prefill ->
             if (companyName.isEmpty()) companyName = prefill.companyName ?: ""
-            if (dispatchEmail.isEmpty()) dispatchEmail = prefill.dispatchEmail ?: ""
+            if (dispatchEmail.isEmpty()) {
+                // First try to get from API prefill data
+                dispatchEmail = prefill.dispatchEmail ?: ""
+                // If still empty, use basic info email as default
+                if (dispatchEmail.isEmpty()) {
+                    dispatchEmail = viewModel.getBasicInfoData().email ?: ""
+                }
+            }
             if (doingBusinessAs.isEmpty()) doingBusinessAs = prefill.doingBusinessAs ?: ""
             if (cellDispatch.isEmpty()) cellDispatch = prefill.dispatchPhoneNumber ?: ""
             if (businessPhone.isEmpty()) businessPhone = prefill.businessTelephone ?: ""
@@ -84,10 +116,17 @@ fun CompanyInfoScreen(
         viewModel.fetchCompanyInfoStep()
     }
 
-    // Handle success navigation
+    // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
             onNext(uiState.nextStep)
+        }
+    }
+
+    // Handle API Errors
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            apiError = error
         }
     }
 
@@ -105,6 +144,12 @@ fun CompanyInfoScreen(
         selectedCountryCellDispatch = defaultCountry
         selectedCountryBusinessPhone = defaultCountry
         selectedCountryFax = defaultCountry
+        companyNameError = null
+        dispatchEmailError = null
+        cellDispatchError = null
+        businessPhoneError = null
+        faxError = null
+        apiError = null
     }
 
     // --- Main Layout ---
@@ -140,7 +185,46 @@ fun CompanyInfoScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // API Error Display
+        apiError?.let { error ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFFFF2F2)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "Error",
+                        tint = Color(0xFFDC2626),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = error,
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            color = Color(0xFFDC2626),
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Scrollable Form
         Column(
@@ -156,11 +240,14 @@ fun CompanyInfoScreen(
                 text = companyName,
                 onValueChange = {
                     companyName = it
+                    companyNameError = validateField("companyName", it)
+                    apiError = null
                     if (!hasEditedDoingBusinessAs) {
                         doingBusinessAs = it
                     }
                 },
-                isRequired = true
+                isRequired = true,
+                errorMessage = companyNameError
             )
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -170,9 +257,14 @@ fun CompanyInfoScreen(
                 label = "24 HR DISPATCH EMAIL",
                 placeholder = "Eg.Toyota", // Matching the screenshot placeholder exactly
                 text = dispatchEmail,
-                onValueChange = { dispatchEmail = it },
+                onValueChange = {
+                    dispatchEmail = it
+                    dispatchEmailError = validateField("dispatchEmail", it)
+                    apiError = null
+                },
                 isRequired = true,
-                keyboardType = KeyboardType.Email
+                keyboardType = KeyboardType.Email,
+                errorMessage = dispatchEmailError
             )
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -185,6 +277,7 @@ fun CompanyInfoScreen(
                 onValueChange = {
                     doingBusinessAs = it
                     hasEditedDoingBusinessAs = true
+                    apiError = null
                 }
             )
 
@@ -194,10 +287,14 @@ fun CompanyInfoScreen(
             PhoneInputField(
                 label = "24 HR CELL DISPATCH",
                 phone = cellDispatch,
-                onPhoneChange = { cellDispatch = it },
+                onPhoneChange = {
+                    cellDispatch = it
+                    apiError = null
+                },
                 selectedCountry = selectedCountryCellDispatch,
                 onCountryChange = { selectedCountryCellDispatch = it },
-                isRequired = true
+                isRequired = true,
+                errorMessage = cellDispatchError
             )
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -206,10 +303,14 @@ fun CompanyInfoScreen(
             PhoneInputField(
                 label = "BUSINESS TELEPHONE",
                 phone = businessPhone,
-                onPhoneChange = { businessPhone = it },
+                onPhoneChange = {
+                    businessPhone = it
+                    apiError = null
+                },
                 selectedCountry = selectedCountryBusinessPhone,
                 onCountryChange = { selectedCountryBusinessPhone = it },
-                isRequired = false // Matches design
+                isRequired = false, // Matches design
+                errorMessage = businessPhoneError
             )
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -218,10 +319,14 @@ fun CompanyInfoScreen(
             PhoneInputField(
                 label = "FAX",
                 phone = fax,
-                onPhoneChange = { fax = it },
+                onPhoneChange = {
+                    fax = it
+                    apiError = null
+                },
                 selectedCountry = selectedCountryFax,
                 onCountryChange = { selectedCountryFax = it },
-                isRequired = false
+                isRequired = false,
+                errorMessage = faxError
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -233,25 +338,62 @@ fun CompanyInfoScreen(
             onBack = onBack,
             onReset = { onReset() },
             onNext = {
-                // Validation
-                if (companyName.isBlank()) return@BottomActionBar
-                if (dispatchEmail.isBlank() || !isValidEmail(dispatchEmail)) return@BottomActionBar
+                // Clear previous errors
+                companyNameError = null
+                dispatchEmailError = null
+                cellDispatchError = null
+                businessPhoneError = null
+                faxError = null
+                apiError = null
+
+                var hasErrors = false
+
+                // Validate Company Name
+                if (companyName.isBlank()) {
+                    companyNameError = "Company name is required"
+                    hasErrors = true
+                }
+
+                // Validate Dispatch Email
+                if (dispatchEmail.isBlank()) {
+                    dispatchEmailError = "Dispatch email is required"
+                    hasErrors = true
+                } else if (!isValidEmail(dispatchEmail)) {
+                    dispatchEmailError = "Please enter a valid email address"
+                    hasErrors = true
+                }
 
                 // Validate Dispatch Phone (Required)
                 val dispatchDigits = cellDispatch.filter { it.isDigit() }
-                if (dispatchDigits.length != selectedCountryCellDispatch.phoneLength) return@BottomActionBar
+                if (dispatchDigits.length != selectedCountryCellDispatch.phoneLength) {
+                    cellDispatchError = "Please enter a valid phone number"
+                    hasErrors = true
+                }
 
                 // Validate Business Phone (If entered)
                 if (businessPhone.isNotBlank()) {
                     val busDigits = businessPhone.filter { it.isDigit() }
-                    if (busDigits.length != selectedCountryBusinessPhone.phoneLength) return@BottomActionBar
+                    if (busDigits.length != selectedCountryBusinessPhone.phoneLength) {
+                        businessPhoneError = "Please enter a valid phone number"
+                        hasErrors = true
+                    }
                 }
 
                 // Validate Fax (If entered)
                 if (fax.isNotBlank()) {
                     val faxDigits = fax.filter { it.isDigit() }
-                    if (faxDigits.length != selectedCountryFax.phoneLength) return@BottomActionBar
+                    if (faxDigits.length != selectedCountryFax.phoneLength) {
+                        faxError = "Please enter a valid fax number"
+                        hasErrors = true
+                    }
                 }
+
+                // If there are errors, don't proceed
+                if (hasErrors) return@BottomActionBar
+
+                // Always make API call to save/update data, regardless of completion status
+                // This ensures data is saved even if step was previously completed
+                android.util.Log.d("CompanyInfoScreen", "Making API call to save company info")
 
                 val request = CompanyInfoRequest(
                     companyName = companyName.trim(),

@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.HorizontalDivider
+import com.limo1800driver.app.ui.components.RegistrationTopBar
 
 @Composable
 fun VehicleDetailsStepScreen(
@@ -69,7 +70,7 @@ fun VehicleDetailsStepScreen(
             .background(Color.White)
     ) {
         RegistrationTopBar(
-            onHelpClick = { /* TODO: hook help */ },
+//            onHelpClick = { /* TODO: hook help */ },
             onBack = onBack
         )
 

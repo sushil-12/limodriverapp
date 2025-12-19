@@ -9,6 +9,7 @@ import com.limo1800driver.app.data.model.registration.CompanyInfoStepPrefillData
 import com.limo1800driver.app.data.model.registration.CompanyInfoStepResponse
 import com.limo1800driver.app.data.network.error.ErrorHandler
 import com.limo1800driver.app.data.repository.DriverRegistrationRepository
+import com.limo1800driver.app.data.storage.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class CompanyInfoViewModel @Inject constructor(
     private val registrationRepository: DriverRegistrationRepository,
-    private val errorHandler: ErrorHandler
+    private val errorHandler: ErrorHandler,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CompanyInfoUiState())
@@ -117,6 +119,15 @@ class CompanyInfoViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Get basic info data for prefill
+     */
+    fun getBasicInfoData(): BasicInfoPrefillData {
+        return BasicInfoPrefillData(
+            email = tokenManager.getBasicInfoEmail()
+        )
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
@@ -130,5 +141,9 @@ data class CompanyInfoUiState(
     val nextStep: String? = null,
     val prefillData: CompanyInfoStepPrefillData? = null,
     val isCompleted: Boolean = false
+)
+
+data class BasicInfoPrefillData(
+    val email: String? = null
 )
 

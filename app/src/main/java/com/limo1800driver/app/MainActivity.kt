@@ -1,6 +1,6 @@
 package com.limo1800driver.app
 
-import DriverLicenseFormScreen
+import com.limo1800driver.app.ui.screens.registration.DriverLicenseFormScreen
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle

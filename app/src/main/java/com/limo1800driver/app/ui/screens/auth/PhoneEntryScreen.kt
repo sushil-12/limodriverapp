@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -128,21 +129,22 @@ fun PhoneEntryScreen(
                         style = TextStyle(
                             fontSize = 16.sp,
                             color = AppColors.LimoBlack,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Normal
                         )
                     )
                 },
                 placeholder = {
                     Text(
-                        text = "9876543210",
+                        text = "Enter Your phone number",
                         color = Color.Gray.copy(alpha = 0.5f)
                     )
                 },
                 singleLine = true,
                 textStyle = TextStyle(
                     fontSize = 16.sp,
+                    letterSpacing = 1.5.sp, // 2.sp is clean; try 3 or 4 for a more 'airy' look
                     color = AppColors.LimoBlack,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Normal
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -301,7 +303,7 @@ fun CountryPickerButton(
         )
         Spacer(modifier = Modifier.width(4.dp))
         Icon(
-            imageVector = Icons.Default.KeyboardArrowDown,
+            imageVector = Icons.Default.ArrowDropDown,
             contentDescription = "Select Country",
             tint = AppColors.LimoBlack,
             modifier = Modifier.size(20.dp)

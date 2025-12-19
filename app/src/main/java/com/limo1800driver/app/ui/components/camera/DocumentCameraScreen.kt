@@ -5,7 +5,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
-import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -35,17 +34,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.limo1800driver.app.ui.utils.cropToFrame
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.coroutines.resume
@@ -78,6 +79,7 @@ fun DocumentCameraScreen(
     var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
     var cameraProvider: ProcessCameraProvider? by remember { mutableStateOf(null) }
     var hasPermission by remember { mutableStateOf(false) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
 
     // Visual State for capture feedback
     var showFlash by remember { mutableStateOf(false) }
@@ -89,6 +91,8 @@ fun DocumentCameraScreen(
 
     // Used to return the overlay coordinates to the logic
     var overlayFrame by remember { mutableStateOf<android.graphics.Rect?>(null) }
+    var screenWidth by remember { mutableStateOf(0) }
+    var screenHeight by remember { mutableStateOf(0) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -108,42 +112,27 @@ fun DocumentCameraScreen(
         }
     )
 
-    // --- Logic Section (Unchanged) ---
-    suspend fun initializeCamera() {
-        cameraProvider = getCameraProvider(context)
-        cameraProvider?.let { provider ->
-            val preview = Preview.Builder().build()
-            imageCapture = ImageCapture.Builder()
-                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                .build()
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-            try {
-                provider.unbindAll()
-                provider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview,
-                    imageCapture
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
+    // --- Logic Section (Fixed) ---
     LaunchedEffect(Unit) {
         val currentGranted = checkCameraPermission(context)
         hasPermission = currentGranted
-        if (currentGranted) {
-            initializeCamera()
-        } else {
+        if (!currentGranted) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
-    LaunchedEffect(hasPermission) {
-        if (hasPermission) initializeCamera()
+    // Cleanup camera resources when composable is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                cameraProvider?.unbindAll()
+                cameraProvider = null
+                imageCapture = null
+                android.util.Log.d("DocumentCamera", "Camera resources cleaned up")
+            } catch (e: Exception) {
+                android.util.Log.e("DocumentCamera", "Error cleaning up camera", e)
+            }
+        }
     }
 
     // --- UI Section (Redesigned) ---
@@ -153,25 +142,70 @@ fun DocumentCameraScreen(
             .background(Color.Black)
     ) {
         // 1. Camera Preview Layer
-        if (hasPermission && cameraProvider != null) {
+        if (hasPermission) {
             CameraPreview(
                 modifier = Modifier.fillMaxSize(),
                 onPreviewReady = { previewView ->
-                    cameraProvider?.let { provider ->
-                        val preview = Preview.Builder().build().also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
-                        }
-                        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                    scope.launch {
                         try {
+                            // Check if PreviewView surface is ready
+                            if (previewView.surfaceProvider == null) {
+                                android.util.Log.w("DocumentCamera", "PreviewView surface provider not ready, retrying...")
+                                // Retry after a short delay
+                                kotlinx.coroutines.delay(100)
+                                if (previewView.surfaceProvider == null) {
+                                    android.util.Log.e("DocumentCamera", "PreviewView surface provider still not ready")
+                                    return@launch
+                                }
+                            }
+
+                            // Get camera provider with availability check
+                            val provider = getCameraProvider(context)
+
+                            // Build use cases
+                            val preview = Preview.Builder().build().also {
+                                it.setSurfaceProvider(previewView.surfaceProvider)
+                                android.util.Log.d("DocumentCamera", "Preview surface provider set")
+                            }
+
+                            val imageCaptureUseCase = ImageCapture.Builder()
+                                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                                .build()
+
+                            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                            // Unbind any existing use cases first
                             provider.unbindAll()
-                            provider.bindToLifecycle(
+                            android.util.Log.d("DocumentCamera", "Unbound existing camera use cases")
+
+                            // Bind to lifecycle with proper error handling
+                            val camera = provider.bindToLifecycle(
                                 lifecycleOwner,
                                 cameraSelector,
                                 preview,
-                                imageCapture
+                                imageCaptureUseCase
                             )
+
+                            // Store references for capture
+                            cameraProvider = provider
+                            imageCapture = imageCaptureUseCase
+
+                            android.util.Log.d("DocumentCamera", "Camera bound successfully to lifecycle")
+                            cameraError = null // Clear any previous errors
+
                         } catch (e: Exception) {
-                            e.printStackTrace()
+                            android.util.Log.e("DocumentCamera", "Failed to bind camera", e)
+                            // Reset state on failure
+                            cameraProvider = null
+                            imageCapture = null
+                            cameraError = when {
+                                e.message?.contains("No camera available") == true ->
+                                    "No camera found on this device"
+                                e is androidx.camera.core.CameraUnavailableException ->
+                                    "Camera is currently unavailable"
+                                else ->
+                                    "Failed to access camera. Please try again."
+                            }
                         }
                     }
                 }
@@ -181,8 +215,45 @@ fun DocumentCameraScreen(
         // 2. Scanner Overlay (The dark scrim + cutout + corner brackets)
         ScannerOverlay(
             modifier = Modifier.fillMaxSize(),
-            onFrameCalculated = { overlayFrame = it }
+            onFrameCalculated = { overlayFrame = it },
+            onScreenSizeChanged = { width, height ->
+                screenWidth = width
+                screenHeight = height
+            }
         )
+
+        // Error display overlay
+        cameraError?.let { error ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.8f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Error",
+                        tint = Color.Red,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = error,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(onClick = { cameraError = null }) {
+                        Text("Retry")
+                    }
+                }
+            }
+        }
 
         // 3. UI Controls Layer (Top and Bottom bars with Gradients for readability)
         Column(
@@ -294,6 +365,8 @@ fun DocumentCameraScreen(
                                     captureImage(
                                         imageCapture = capture,
                                         overlayFrame = overlayFrame,
+                                        screenWidth = screenWidth,
+                                        screenHeight = screenHeight,
                                         context = context,
                                         onImageCaptured = { bitmap ->
                                             onImageCaptured(bitmap)
@@ -409,24 +482,28 @@ private fun decodeBitmapFromUri(context: Context, uri: Uri): Bitmap? {
 @Composable
 private fun ScannerOverlay(
     modifier: Modifier = Modifier,
-    onFrameCalculated: (android.graphics.Rect) -> Unit
+    onFrameCalculated: (android.graphics.Rect) -> Unit,
+    onScreenSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 ) {
     Canvas(modifier = modifier) {
-        val screenWidth = size.width
-        val screenHeight = size.height
+        val currentScreenWidth = size.width
+        val currentScreenHeight = size.height
+
+        // Update state variables for use in capture
+        onScreenSizeChanged(currentScreenWidth.toInt(), currentScreenHeight.toInt())
         
         // Use the original target sizing logic
         val targetWidth = 320.dp.toPx()
         val targetHeight = 200.dp.toPx()
 
         val scale = minOf(
-            screenWidth * 0.85f / targetWidth, // Increased width usage slightly
-            screenHeight * 0.6f / targetHeight
+            currentScreenWidth * 0.85f / targetWidth, // Increased width usage slightly
+            currentScreenHeight * 0.6f / targetHeight
         )
         val overlayWidth = targetWidth * scale
         val overlayHeight = targetHeight * scale
-        val overlayX = (screenWidth - overlayWidth) / 2
-        val overlayY = (screenHeight - overlayHeight) / 2
+        val overlayX = (currentScreenWidth - overlayWidth) / 2
+        val overlayY = (currentScreenHeight - overlayHeight) / 2
 
         val overlayRect = androidx.compose.ui.geometry.Rect(
             offset = Offset(overlayX, overlayY),
@@ -515,14 +592,14 @@ private fun ScannerOverlay(
         }
 
         // Report frame
-        onFrameCalculated(
-            android.graphics.Rect(
-                overlayX.toInt(),
-                overlayY.toInt(),
-                (overlayX + overlayWidth).toInt(),
-                (overlayY + overlayHeight).toInt()
-            )
+        val frameRect = android.graphics.Rect(
+            overlayX.toInt(),
+            overlayY.toInt(),
+            (overlayX + overlayWidth).toInt(),
+            (overlayY + overlayHeight).toInt()
         )
+        android.util.Log.d("DocumentCamera", "Overlay frame calculated: ${frameRect.left},${frameRect.top} ${frameRect.width()}x${frameRect.height()}")
+        onFrameCalculated(frameRect)
     }
 }
 
@@ -535,18 +612,29 @@ private fun CameraPreview(
 ) {
     AndroidView(
         factory = { context ->
-            PreviewView(context).also { previewView ->
-                previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
-                onPreviewReady(previewView)
+            PreviewView(context).apply {
+                // Important: Set scale type for proper display
+                scaleType = PreviewView.ScaleType.FILL_CENTER
+                // Set implementation mode for better performance
+                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                // Ensure surface is ready before camera binding
+                post {
+                    onPreviewReady(this)
+                }
             }
         },
-        modifier = modifier
+        modifier = modifier,
+        update = { previewView ->
+            // Handle updates if needed
+        }
     )
 }
 
 private suspend fun captureImage(
     imageCapture: ImageCapture,
     overlayFrame: android.graphics.Rect?,
+    screenWidth: Int,
+    screenHeight: Int,
     context: Context,
     onImageCaptured: (Bitmap) -> Unit
 ) = suspendCoroutine<Unit> { continuation ->
@@ -566,9 +654,21 @@ private suspend fun captureImage(
                 val file = output.savedUri?.path?.let { File(it) } ?: photoFile
                 val bitmap = BitmapFactory.decodeFile(file.absolutePath)
 
+                // DEBUG: Log bitmap dimensions
+                android.util.Log.d("DocumentCamera", "Captured bitmap: ${bitmap?.width}x${bitmap?.height}")
+
                 val croppedBitmap = if (overlayFrame != null && bitmap != null) {
-                    cropBitmapToOverlay(bitmap, overlayFrame)
+                    // Convert android.graphics.Rect to androidx.compose.ui.geometry.Rect
+                    val composeRect = Rect(
+                        left = overlayFrame.left.toFloat(),
+                        top = overlayFrame.top.toFloat(),
+                        right = overlayFrame.right.toFloat(),
+                        bottom = overlayFrame.bottom.toFloat()
+                    )
+                    // Use the proper cropToFrame function
+                    bitmap.cropToFrame(composeRect, screenWidth, screenHeight)
                 } else {
+                    android.util.Log.d("DocumentCamera", "No cropping applied - overlayFrame: $overlayFrame, bitmap: ${bitmap != null}")
                     bitmap
                 }
 
@@ -583,37 +683,32 @@ private suspend fun captureImage(
     )
 }
 
-private fun cropBitmapToOverlay(
-    bitmap: Bitmap,
-    overlayFrame: android.graphics.Rect
-): Bitmap? {
-    // Note: This logic assumes the preview fills the screen center. 
-    // In a real production app, coordinate mapping between PreviewView and Bitmap is more complex.
-    // Keeping logic as per original request.
-    
-    val overlayWidth = overlayFrame.width().coerceAtLeast(1)
-    val overlayHeight = overlayFrame.height().coerceAtLeast(1)
-
-    val scaleX = bitmap.width.toFloat() / overlayWidth
-    val scaleY = bitmap.height.toFloat() / overlayHeight
-    
-    val cropX = (overlayFrame.left * scaleX).toInt().coerceIn(0, bitmap.width)
-    val cropY = (overlayFrame.top * scaleY).toInt().coerceIn(0, bitmap.height)
-    val cropWidth = (overlayWidth * scaleX).toInt().coerceIn(0, bitmap.width - cropX)
-    val cropHeight = (overlayHeight * scaleY).toInt().coerceIn(0, bitmap.height - cropY)
-
-    if (cropWidth <= 0 || cropHeight <= 0) return bitmap
-    
-    return Bitmap.createBitmap(bitmap, cropX, cropY, cropWidth, cropHeight)
-}
-
 private suspend fun getCameraProvider(context: Context): ProcessCameraProvider =
     suspendCoroutine { continuation ->
-        ProcessCameraProvider.getInstance(context).also { future ->
-            future.addListener(
-                { continuation.resume(future.get()) },
-                ContextCompat.getMainExecutor(context)
-            )
+        try {
+            // Check if camera is available
+            val packageManager = context.packageManager
+            val hasCamera = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY)
+
+            if (!hasCamera) {
+                android.util.Log.e("DocumentCamera", "No camera available on this device")
+                throw Exception("No camera available")
+            }
+
+            val future = ProcessCameraProvider.getInstance(context)
+            future.addListener({
+                try {
+                    val provider = future.get()
+                    android.util.Log.d("DocumentCamera", "Camera provider obtained successfully")
+                    continuation.resume(provider)
+                } catch (e: Exception) {
+                    android.util.Log.e("DocumentCamera", "Failed to get camera provider", e)
+                    continuation.resumeWith(kotlin.Result.failure(e))
+                }
+            }, ContextCompat.getMainExecutor(context))
+        } catch (e: Exception) {
+            android.util.Log.e("DocumentCamera", "Error getting camera provider", e)
+            continuation.resumeWith(kotlin.Result.failure(e))
         }
     }
 

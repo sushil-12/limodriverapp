@@ -46,6 +46,7 @@ class RegistrationNavigationState @Inject constructor() {
             "driving_license" -> NavRoutes.DrivingLicense
             "bank_details" -> NavRoutes.BankDetails
             "profile_picture" -> NavRoutes.ProfilePicture
+            "vehicle_selection" -> NavRoutes.VehicleSelection
             // All vehicle-related steps land on the step hub
             "vehicle_insurance" -> NavRoutes.VehicleDetailsStep
             "vehicle_details" -> NavRoutes.VehicleDetailsStep

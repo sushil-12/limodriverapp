@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -41,6 +43,60 @@ fun VehicleRatesScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val scroll = rememberScrollState()
+
+    // Error states for Base Rates step
+    var currencyError by remember { mutableStateOf<String?>(null) }
+    var perMileError by remember { mutableStateOf<String?>(null) }
+    var upToMilesError by remember { mutableStateOf<String?>(null) }
+    var additionalPerMileError by remember { mutableStateOf<String?>(null) }
+    var minCityIntercityError by remember { mutableStateOf<String?>(null) }
+
+    // Error states for Amenity/Tax step
+    var airportArrivalTaxError by remember { mutableStateOf<String?>(null) }
+    var airportDepTaxError by remember { mutableStateOf<String?>(null) }
+    var seaPortTaxError by remember { mutableStateOf<String?>(null) }
+    var cityCongestionTaxError by remember { mutableStateOf<String?>(null) }
+    var cityTaxError by remember { mutableStateOf<String?>(null) }
+    var stateTaxError by remember { mutableStateOf<String?>(null) }
+    var vatError by remember { mutableStateOf<String?>(null) }
+    var workmansCompError by remember { mutableStateOf<String?>(null) }
+    var otherTransportTaxError by remember { mutableStateOf<String?>(null) }
+
+    var apiError by remember { mutableStateOf<String?>(null) }
+
+    // Validation function
+    fun validateField(fieldName: String, value: String): String? {
+        return when (fieldName) {
+            "currency" -> if (value.isBlank()) "Currency is required" else null
+            "perMile" -> if (value.isBlank()) "Per mile rate is required" else null
+            "upToMiles" -> if (value.isBlank()) "Up to miles is required" else null
+            "additionalPerMile" -> if (value.isBlank()) "Additional per mile rate is required" else null
+            "minCityIntercity" -> if (value.isBlank()) "Minimum city to intercity rate is required" else null
+            else -> null
+        }
+    }
+
+    // Handle API Errors
+    LaunchedEffect(state.error) {
+        state.error?.let { error ->
+            apiError = error
+            // Clear field-specific errors when we have an API error
+            currencyError = null
+            perMileError = null
+            upToMilesError = null
+            additionalPerMileError = null
+            minCityIntercityError = null
+            airportArrivalTaxError = null
+            airportDepTaxError = null
+            seaPortTaxError = null
+            cityCongestionTaxError = null
+            cityTaxError = null
+            stateTaxError = null
+            vatError = null
+            workmansCompError = null
+            otherTransportTaxError = null
+        }
+    }
 
     LaunchedEffect(state.success) {
         if (state.success) {
@@ -66,10 +122,61 @@ fun VehicleRatesScreen(
                 isLoading = state.isLoading,
                 onBack = null,
                 onNext = {
+                    // Clear previous errors
+                    currencyError = null
+                    perMileError = null
+                    upToMilesError = null
+                    additionalPerMileError = null
+                    minCityIntercityError = null
+                    airportArrivalTaxError = null
+                    airportDepTaxError = null
+                    seaPortTaxError = null
+                    cityCongestionTaxError = null
+                    cityTaxError = null
+                    stateTaxError = null
+                    vatError = null
+                    workmansCompError = null
+                    otherTransportTaxError = null
+                    apiError = null
+
+                    // Validation Logic
+                    var hasErrors = false
+
                     if (state.currentStep == RateStep.BASE_RATES) {
-                        viewModel.onEvent(RateEvent.OnNextClick)
-                    } else {
-                        viewModel.onEvent(RateEvent.OnSubmitClick)
+                        // Validate Base Rates fields
+                        if (state.selectedCurrency.isNullOrBlank()) {
+                            currencyError = "Currency is required"
+                            hasErrors = true
+                        }
+
+                        if (state.perMile.isNullOrBlank()) {
+                            perMileError = "Per mile rate is required"
+                            hasErrors = true
+                        }
+
+                        if (state.upToMiles.isNullOrBlank()) {
+                            upToMilesError = "Up to miles is required"
+                            hasErrors = true
+                        }
+
+                        if (state.additionalPerMile.isNullOrBlank()) {
+                            additionalPerMileError = "Additional per mile rate is required"
+                            hasErrors = true
+                        }
+
+                        if (state.minCityIntercity.isBlank()) {
+                            minCityIntercityError = "Minimum city to intercity rate is required"
+                            hasErrors = true
+                        }
+                    }
+
+                    // Only make API call if all validations pass
+                    if (!hasErrors) {
+                        if (state.currentStep == RateStep.BASE_RATES) {
+                            viewModel.onEvent(RateEvent.OnNextClick)
+                        } else {
+                            viewModel.onEvent(RateEvent.OnSubmitClick)
+                        }
                     }
                 },
                 nextButtonText = if (state.currentStep == RateStep.BASE_RATES) "Next" else "Submit"
@@ -88,6 +195,41 @@ fun VehicleRatesScreen(
         ) {
             HeaderCard(state)
             Spacer(modifier = Modifier.height(16.dp))
+
+            // API Error Display
+            apiError?.let { error ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFFF2F2)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error",
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = error,
+                            style = TextStyle(
+                                fontSize = 14.sp,
+                                color = Color(0xFFDC2626),
+                                fontWeight = FontWeight.Medium
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             if (state.currentStep == RateStep.BASE_RATES) {
                 BaseRatesStep(state, viewModel)
             } else {
@@ -197,8 +339,13 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
         placeholder = "Select Currency",
         selectedValue = state.selectedCurrency,
         options = state.currencyOptions,
-        onValueSelected = { vm.onEvent(RateEvent.SelectCurrency(it)) },
-        isRequired = true
+        onValueSelected = {
+            vm.onEvent(RateEvent.SelectCurrency(it))
+            currencyError = validateField("currency", it)
+            apiError = null
+        },
+        isRequired = true,
+        errorMessage = currencyError
     )
 
     Spacer(modifier = Modifier.height(10.dp))
@@ -222,9 +369,14 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
             placeholder = "Select",
             selectedValue = state.perMile,
             options = state.perMileOptions,
-            onValueSelected = { vm.onEvent(RateEvent.SetPerMile(it)) },
+            onValueSelected = {
+                vm.onEvent(RateEvent.SetPerMile(it))
+                perMileError = validateField("perMile", it)
+                apiError = null
+            },
             modifier = Modifier.weight(1f),
-            isRequired = true
+            isRequired = true,
+            errorMessage = perMileError
         )
 
         CommonDropdown(
@@ -232,9 +384,14 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
             placeholder = "Select",
             selectedValue = state.upToMiles,
             options = state.uptoMilesOptions,
-            onValueSelected = { vm.onEvent(RateEvent.SetUpToMiles(it)) },
+            onValueSelected = {
+                vm.onEvent(RateEvent.SetUpToMiles(it))
+                upToMilesError = validateField("upToMiles", it)
+                apiError = null
+            },
             modifier = Modifier.weight(1f),
-            isRequired = true
+            isRequired = true,
+            errorMessage = upToMilesError
         )
     }
     Spacer(modifier = Modifier.height(10.dp))
@@ -243,15 +400,24 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
         placeholder = "Select",
         selectedValue = state.additionalPerMile,
         options = state.perMileOptions,
-        onValueSelected = { vm.onEvent(RateEvent.SetAdditionalPerMile(it)) },
-        isRequired = true
+        onValueSelected = {
+            vm.onEvent(RateEvent.SetAdditionalPerMile(it))
+            additionalPerMileError = validateField("additionalPerMile", it)
+            apiError = null
+        },
+        isRequired = true,
+        errorMessage = additionalPerMileError
     )
 
     Spacer(modifier = Modifier.height(16.dp))
 
     MoneyRow("MIN AIRPORT RATE - DEP", state.minAirportDep) { vm.onEvent(RateEvent.SetField("minAirportDep", it)) }
     MoneyRow("MIN AIRPORT RATE - ARR", state.minAirportArr) { vm.onEvent(RateEvent.SetField("minAirportArr", it)) }
-    MoneyRow("MINIMUM CITY TO INTERCITY RATE", state.minCityIntercity, true) { vm.onEvent(RateEvent.SetField("minCityIntercity", it)) }
+    MoneyRow("MINIMUM CITY TO INTERCITY RATE", state.minCityIntercity, true, minCityIntercityError) {
+        vm.onEvent(RateEvent.SetField("minCityIntercity", it))
+        minCityIntercityError = validateField("minCityIntercity", it)
+        apiError = null
+    }
     MoneyRow("MIN CRUISE PORT RATE - ARR", state.minCruiseArr) { vm.onEvent(RateEvent.SetField("minCruiseArr", it)) }
     MoneyRow("MIN CRUISE PORT RATE - DEP", state.minCruiseDep) { vm.onEvent(RateEvent.SetField("minCruiseDep", it)) }
     MoneyRow("HOURLY RATE", state.hourlyRate) { vm.onEvent(RateEvent.SetField("hourlyRate", it)) }
@@ -442,7 +608,7 @@ private fun AmenityTaxStep(state: VehicleRatesState, vm: VehicleRatesViewModel) 
 }
 
 @Composable
-private fun MoneyRow(label: String, value: String, required: Boolean = false, onChange: (String) -> Unit) {
+private fun MoneyRow(label: String, value: String, required: Boolean = false, errorMessage: String? = null, onChange: (String) -> Unit) {
     CommonTextField(
         label = label,
         placeholder = "0.00",
@@ -450,6 +616,7 @@ private fun MoneyRow(label: String, value: String, required: Boolean = false, on
         onValueChange = onChange,
         keyboardType = KeyboardType.Decimal,
         isRequired = required,
+        errorMessage = errorMessage,
         modifier = Modifier.fillMaxWidth()
     )
     Spacer(modifier = Modifier.height(8.dp))
