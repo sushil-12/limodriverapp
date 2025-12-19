@@ -473,6 +473,9 @@ data class DriverProfileData(
     
     @SerializedName("affiliate_type")
     val affiliateType: String?,
+
+    @SerializedName("driver_rating")
+    val driverRating: String?,
     
     @SerializedName("company_name")
     val companyName: String?
@@ -510,6 +513,9 @@ data class DriverVehicleSummary(
 
     @SerializedName("vehicle_color")
     val vehicleColor: String? = null,
+
+    @SerializedName("vehicle_color_name")
+    val vehicleColorName: String? = null,
 
     @SerializedName("vehicle_image")
     val vehicleImage: String? = null

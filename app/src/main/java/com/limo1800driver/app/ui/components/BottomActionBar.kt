@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.limo1800driver.app.ui.components.ShimmerCircle
 
 /**
  * A reusable bottom action bar with Back and Next buttons.
@@ -53,11 +54,7 @@ fun BottomActionBar(
                 colors = ButtonDefaults.buttonColors(containerColor = brandOrange)
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
+                    ShimmerCircle(size = 20.dp)
                 } else {
                     Text(text = nextButtonText, color = Color.White)
                 }

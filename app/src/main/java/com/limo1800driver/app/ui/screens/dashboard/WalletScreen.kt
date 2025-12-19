@@ -27,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.limo1800driver.app.data.model.dashboard.TransferDetails
 import com.limo1800driver.app.ui.components.CommonMenuHeader
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.ShimmerText
 import com.limo1800driver.app.ui.viewmodel.WalletViewModel
 
@@ -75,7 +76,7 @@ fun WalletScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        CircularProgressIndicator()
+                        ShimmerCircle(size = 32.dp)
                         Text(
                             text = "Loading wallet data...",
                             fontSize = 16.sp,
@@ -167,9 +168,7 @@ fun WalletScreen(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                        ShimmerCircle(size = 24.dp)
                                         Text(
                                             text = "Loading more transfers...",
                                             fontSize = 12.sp,
@@ -512,9 +511,9 @@ private fun SearchSection(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (isSearching) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White
+                            ShimmerCircle(
+                                size = 16.dp,
+                                strokeWidth = 2.dp
                             )
                         } else {
                             Text(
@@ -712,7 +711,7 @@ private fun WalletDetailsDialog(
                             .height(200.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        ShimmerCircle(size = 32.dp)
                     }
                 } else {
                     // Total Earnings

@@ -15,7 +15,8 @@ import androidx.compose.runtime.setValue
  */
 @Composable
 fun VehicleDetailsCoordinatorFromAccountSettings(
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onProfileUpdated: (() -> Unit)? = null
 ) {
     var step by remember { mutableStateOf(VehicleDetailsCoordinatorStep.Form) }
 
@@ -36,7 +37,11 @@ fun VehicleDetailsCoordinatorFromAccountSettings(
 
         VehicleDetailsCoordinatorStep.ImageUpload -> {
             VehicleDetailsImageUploadScreen(
-                onNext = { _ -> onClose() },
+                onNext = { _ ->
+                    // Profile/vehicle details have been updated, refresh the cache
+                    onProfileUpdated?.invoke()
+                    onClose()
+                },
                 onBack = { step = VehicleDetailsCoordinatorStep.Amenities }
             )
         }

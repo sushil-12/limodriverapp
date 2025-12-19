@@ -29,6 +29,7 @@ import com.limo1800driver.app.data.model.Country
 import com.limo1800driver.app.data.model.registration.CompanyInfoRequest
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.PhoneInputField
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.CompanyInfoViewModel
 import java.util.regex.Pattern
@@ -37,6 +38,8 @@ import java.util.regex.Pattern
 fun CompanyInfoScreen(
     onNext: (String?) -> Unit,
     onBack: (() -> Unit)? = null,
+    isEditMode: Boolean = false,
+    onUpdateComplete: (() -> Unit)? = null,
     viewModel: CompanyInfoViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -334,10 +337,16 @@ fun CompanyInfoScreen(
 
         // --- Bottom Action Bar ---
         BottomActionBar(
-            showBackButton = true, // Flag to hide/show back button
+            showBackButton = !isEditMode, // Hide back button in edit mode
             onBack = onBack,
             onReset = { onReset() },
             onNext = {
+                if (isEditMode) {
+                    // In edit mode, just call onUpdateComplete and return to AccountSettings
+                    onUpdateComplete?.invoke()
+                    return@BottomActionBar
+                }
+
                 // Clear previous errors
                 companyNameError = null
                 dispatchEmailError = null
@@ -412,7 +421,8 @@ fun CompanyInfoScreen(
 
                 viewModel.completeCompanyInfo(request)
             },
-            isLoading = uiState.isLoading
+            isLoading = uiState.isLoading,
+            isEditMode = isEditMode
         )
     }
 }
@@ -428,7 +438,8 @@ fun BottomActionBar(
     onBack: (() -> Unit)?,
     onReset: () -> Unit,
     onNext: () -> Unit,
-    isLoading: Boolean
+    isLoading: Boolean,
+    isEditMode: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -491,22 +502,31 @@ fun BottomActionBar(
             enabled = !isLoading
         ) {
             if (isLoading) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                ShimmerCircle(size = 24.dp)
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isEditMode) {
                     Text(
-                        text = "Next",
+                        text = "Update",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
                         color = Color.White
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Next",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

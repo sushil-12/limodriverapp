@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.limo1800driver.app.data.socket.DriverChatMessage
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.viewmodel.ChatViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -165,9 +166,9 @@ fun ChatScreen(
             }
 
             if (uiState.isLoading && uiState.messages.isEmpty()) {
-                CircularProgressIndicator(
+                ShimmerCircle(
                     modifier = Modifier.align(Alignment.Center),
-                    color = Color(0xFFFF9800)
+                    size = 32.dp,
                 )
             }
         }

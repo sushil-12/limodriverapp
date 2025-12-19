@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.limo1800driver.app.data.model.dashboard.DriverBooking
 import com.limo1800driver.app.ui.components.CommonMenuHeader
 import com.limo1800driver.app.ui.components.ShimmerBox
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.ShimmerText
 import com.limo1800driver.app.ui.components.WeeklySummaryCard
 import com.limo1800driver.app.ui.viewmodel.MyActivityViewModel
@@ -89,7 +90,7 @@ fun MyActivityScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            CircularProgressIndicator()
+                            ShimmerCircle(size = 32.dp)
                             Text(
                                 text = "Loading activities...",
                                 fontSize = 16.sp,

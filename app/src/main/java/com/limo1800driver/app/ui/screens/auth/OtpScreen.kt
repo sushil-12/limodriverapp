@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.state.OtpUiEvent
 import com.limo1800driver.app.ui.theme.GoogleSansFamily
 import com.limo1800driver.app.ui.theme.LimoGreen
@@ -229,8 +230,8 @@ fun OtpScreen(
         // --- Loading ---
         if (uiState.isLoading) {
             Spacer(modifier = Modifier.height(32.dp))
-            CircularProgressIndicator(
-                color = Color.Black,
+            ShimmerCircle(
+                size = 32.dp,
                 modifier = Modifier.size(24.dp).align(Alignment.CenterHorizontally),
                 strokeWidth = 2.dp
             )

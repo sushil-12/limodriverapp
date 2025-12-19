@@ -29,11 +29,9 @@ class DriverDashboardRepository @Inject constructor(
     suspend fun getDashboardStats(): Result<BaseResponse<DriverDashboardStatsData>> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.tag(TAG).d("Fetching dashboard stats")
                 val response = dashboardApi.getDashboardStats()
                 Result.success(response)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch dashboard stats")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }
@@ -51,11 +49,9 @@ class DriverDashboardRepository @Inject constructor(
     ): Result<BaseResponse<DriverBookingsData>> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.tag(TAG).d("Fetching driver bookings - page: $page, startDate: $startDate, endDate: $endDate")
                 val response = dashboardApi.getDriverBookings(page, perPage, startDate, endDate, search, status)
                 Result.success(response)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch driver bookings")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }
@@ -71,11 +67,9 @@ class DriverDashboardRepository @Inject constructor(
     ): Result<BaseResponse<DriverAllActivityData>> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.tag(TAG).d("Fetching driver all activity")
                 val response = dashboardApi.getDriverAllActivity(page, perPage, startDate, endDate)
                 Result.success(response)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch driver all activity")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }
@@ -89,11 +83,9 @@ class DriverDashboardRepository @Inject constructor(
     ): Result<BaseResponse<DriverEarningsSummaryData>> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.tag(TAG).d("Fetching driver earnings summary")
                 val response = dashboardApi.getDriverEarningsSummary(startDate, endDate)
                 Result.success(response)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch driver earnings summary")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }
@@ -104,11 +96,9 @@ class DriverDashboardRepository @Inject constructor(
     suspend fun getDriverUpdates(): Result<BaseResponse<DriverUpdatesData>> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.tag(TAG).d("Fetching driver updates")
                 val response = dashboardApi.getDriverUpdates()
                 Result.success(response)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch driver updates")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }
@@ -119,11 +109,9 @@ class DriverDashboardRepository @Inject constructor(
     suspend fun getDriverProfile(): Result<BaseResponse<DriverProfileData>> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.tag(TAG).d("Fetching driver profile")
                 val response = dashboardApi.getDriverProfile()
                 Result.success(response)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch driver profile")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }
@@ -137,11 +125,9 @@ class DriverDashboardRepository @Inject constructor(
     ): Result<BaseResponse<DriverWalletData>> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.tag(TAG).d("Fetching driver wallet")
                 val response = dashboardApi.getDriverWallet(page, perPage)
                 Result.success(response)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch driver wallet")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }
@@ -150,11 +136,9 @@ class DriverDashboardRepository @Inject constructor(
     suspend fun getDriverWalletDetails(): Result<BaseResponse<DriverWalletDetailsData>> {
         return withContext(Dispatchers.IO) {
             try {
-                Timber.tag(TAG).d("Fetching driver wallet details")
                 val response = dashboardApi.getDriverWalletDetails()
                 Result.success(response)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch driver wallet details")
                 Result.failure(Exception(errorHandler.handleApiError(e)))
             }
         }

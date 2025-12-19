@@ -43,6 +43,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.limo1800driver.app.data.model.dashboard.DriverBooking
 import com.limo1800driver.app.ui.components.*
 import com.limo1800driver.app.ui.viewmodel.*
@@ -54,6 +56,7 @@ import com.limo1800driver.app.ui.viewmodel.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    navBackStackEntry: androidx.navigation.NavBackStackEntry,
     openDrawerRequest: Boolean = false,
     onDrawerRequestConsumed: () -> Unit = {},
     onNavigateToBooking: (Int) -> Unit = {},
@@ -110,7 +113,16 @@ fun DashboardScreen(
     val density = LocalDensity.current
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
 
-    var showDrawerMenu by remember { mutableStateOf(false) }
+    // Check savedStateHandle directly for initial drawer state
+    val initialDrawerState = remember(navBackStackEntry) {
+        val shouldOpen = navBackStackEntry.savedStateHandle.get<Boolean>("openDrawer") ?: false
+        if (shouldOpen) {
+            // Consume the request immediately
+            navBackStackEntry.savedStateHandle.set("openDrawer", false)
+        }
+        shouldOpen
+    }
+    var showDrawerMenu by remember { mutableStateOf(initialDrawerState) }
     var selectedTab: DashboardTab by remember { mutableStateOf(DashboardTab.DRIVE) }
     var selectedBooking by remember { mutableStateOf<DriverBooking?>(null) }
     var showRoute by remember { mutableStateOf(false) }
@@ -122,6 +134,7 @@ fun DashboardScreen(
     val maxHeight = 0.88f
 
     LaunchedEffect(Unit) {
+        // Load profile from cache first, then API if needed
         profileViewModel.fetchDriverProfile()
         statsViewModel.fetchDashboardStats()
         updatesViewModel.fetchDriverUpdates()
@@ -169,8 +182,9 @@ fun DashboardScreen(
     }
 
     // When returning from a menu screen, open the drawer menu automatically.
+    // This handles cases where the drawer request comes in after initial composition
     LaunchedEffect(openDrawerRequest) {
-        if (openDrawerRequest) {
+        if (openDrawerRequest && !showDrawerMenu) {
             showDrawerMenu = true
             onDrawerRequestConsumed()
         }
@@ -305,14 +319,14 @@ fun DashboardScreen(
         }
 
         // 3. Map Controls (Top Right)
-        MapControls(
-            isSatelliteView = isSatelliteView,
-            onSatelliteToggle = { isSatelliteView = !isSatelliteView },
-            modifier = Modifier
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .align(Alignment.TopEnd)
-                .padding(end = 16.dp, top = 16.dp)
-        )
+//        MapControls(
+//            isSatelliteView = isSatelliteView,
+//            onSatelliteToggle = { isSatelliteView = !isSatelliteView },
+//            modifier = Modifier
+//                .windowInsetsPadding(WindowInsets.statusBars)
+//                .align(Alignment.TopEnd)
+//                .padding(end = 16.dp, top = 16.dp)
+//        )
 
         // 4. Draggable Bottom Sheet
         val sheetHeightDp = with(density) { (screenHeightPx * sheetHeight).toDp() }
@@ -440,15 +454,10 @@ fun DashboardScreen(
             driverProfile = profileState.profile,
             isLoading = profileState.isLoading,
             vehicleName = profileState.profile?.vehicle?.vehicleCatName,
-            vehicleMakeModel = profileState.profile?.vehicle?.let { v ->
-                listOfNotNull(v.vehicleMakeName, v.vehicleModelName)
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .joinToString(" ")
-                    .ifBlank { null }
-            },
+            vehicleMake = profileState.profile?.vehicle?.vehicleMakeName?.trim()?.takeIf { it.isNotEmpty() },
+            vehicleModel = profileState.profile?.vehicle?.vehicleModelName?.trim()?.takeIf { it.isNotEmpty() },
             vehicleYear = profileState.profile?.vehicle?.vehicleYearName?.trim()?.takeIf { it.isNotEmpty() },
-            vehicleColor = profileState.profile?.vehicle?.vehicleColor?.trim()?.takeIf { it.isNotEmpty() },
+            vehicleColor = profileState.profile?.vehicle?.vehicleColorName?.trim()?.takeIf { it.isNotEmpty() },
             vehicleImageUrl = profileState.profile?.vehicle?.vehicleImage,
             notificationBadge = null,
             onClose = { showDrawerMenu = false },

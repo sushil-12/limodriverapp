@@ -58,6 +58,18 @@ object NavRoutes {
     // Account Settings -> Profile picture edit (reuse registration screen, return back on success)
     const val ProfilePictureFromAccountSettings = "profile_picture_from_account_settings"
 
+    // Account Settings -> Company Info edit (reuse registration screen, return back on success)
+    const val CompanyInfoFromAccountSettings = "company_info_from_account_settings"
+
+    // Account Settings -> Company Documents edit (reuse registration screen, return back on success)
+    const val CompanyDocumentsFromAccountSettings = "company_documents_from_account_settings"
+
+    // Account Settings -> Basic Info edit (reuse registration screen, return back on success)
+    const val BasicInfoFromAccountSettings = "basic_info_from_account_settings"
+
+    // Account Settings -> Profile View (view-only profile information)
+    const val ProfileView = "profile_view"
+
     // Account Settings -> Vehicle Details (iOS-style coordinator: form -> amenities -> image upload)
     const val VehicleDetailsCoordinatorFromAccountSettings = "vehicle_details_coordinator_from_account_settings"
 }

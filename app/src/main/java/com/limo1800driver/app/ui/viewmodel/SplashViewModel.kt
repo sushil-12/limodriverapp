@@ -34,53 +34,58 @@ class SplashViewModel @Inject constructor(
     fun syncRegistrationState(onComplete: (String?) -> Unit) {
         viewModelScope.launch {
             try {
-                // If we have a token but no stored registration state, fetch it
-                if (tokenManager.isAuthenticated() && tokenManager.getDriverRegistrationState() == null) {
-                    Timber.tag("SplashVM").d("Token found but no registration state, fetching current state")
-                    _uiState.value = _uiState.value.copy(isLoading = true)
-                    
-                    val result = registrationRepository.getAllSteps()
-                    result.fold(
-                        onSuccess = { response ->
-                            if (response.success && response.data != null) {
-                                // Determine next step from completion status
-                                val nextStep = determineNextStepFromAllSteps(response.data)
-                                
-                                // Create a minimal registration state
-                                val state = DriverRegistrationState(
-                                    currentStep = nextStep ?: "dashboard",
-                                    progressPercentage = calculateProgress(response.data),
-                                    isCompleted = nextStep == null,
-                                    nextStep = nextStep,
-                                    steps = null,
-                                    completedSteps = null,
-                                    totalSteps = null,
-                                    completedCount = null
-                                )
-                                
-                                tokenManager.saveDriverRegistrationState(state)
-                                Timber.tag("SplashVM").d("Registration state synced: next_step=$nextStep")
-                                
-                                _uiState.value = _uiState.value.copy(isLoading = false)
-                                onComplete(nextStep)
-                            } else {
-                                _uiState.value = _uiState.value.copy(isLoading = false)
-                                onComplete(null)
+                // Always sync with API when authenticated to ensure we have latest state
+                Timber.tag("SplashVM").d("Token found, syncing with API for latest registration state")
+                _uiState.value = _uiState.value.copy(isLoading = true)
+
+                val result = registrationRepository.getAllSteps()
+                result.fold(
+                    onSuccess = { response ->
+                        if (response.success && response.data != null) {
+                            // Determine next step from completion status
+                            val nextStep = determineNextStepFromAllSteps(response.data)
+
+                            // Check if all steps are completed
+                            val allStepsCompleted = nextStep == null
+
+                            // If all steps are completed, mark profile as completed
+                            if (allStepsCompleted) {
+                                tokenManager.saveProfileCompleted(true)
+                                Timber.tag("SplashVM").d("All registration steps completed - marking profile as completed")
                             }
-                        },
-                        onFailure = { error ->
-                            Timber.tag("SplashVM").e(error, "Failed to fetch registration state")
+
+                            // Create a minimal registration state
+                            val state = DriverRegistrationState(
+                                currentStep = if (allStepsCompleted) "dashboard" else nextStep ?: "dashboard",
+                                progressPercentage = calculateProgress(response.data),
+                                isCompleted = allStepsCompleted,
+                                nextStep = if (allStepsCompleted) null else nextStep,
+                                steps = null,
+                                completedSteps = null,
+                                totalSteps = null,
+                                completedCount = null
+                            )
+
+                            tokenManager.saveDriverRegistrationState(state)
+                            Timber.tag("SplashVM").d("Registration state synced: next_step=$nextStep, all_completed=$allStepsCompleted")
+
+                            _uiState.value = _uiState.value.copy(isLoading = false)
+                            onComplete(nextStep)
+                        } else {
                             _uiState.value = _uiState.value.copy(isLoading = false)
                             onComplete(null)
                         }
-                    )
-                } else {
-                    // Use stored state or proceed normally
-                    val storedState = tokenManager.getDriverRegistrationState()
-                    val nextStep = storedState?.nextStep ?: tokenManager.getNextStep()
-                    Timber.tag("SplashVM").d("Using stored state: next_step=$nextStep")
-                    onComplete(nextStep)
-                }
+                    },
+                    onFailure = { error ->
+                        Timber.tag("SplashVM").e(error, "Failed to fetch registration state, falling back to stored state")
+                        // Fallback to stored state if API fails
+                        val storedState = tokenManager.getDriverRegistrationState()
+                        val nextStep = storedState?.nextStep ?: tokenManager.getNextStep()
+                        Timber.tag("SplashVM").d("Using stored state: next_step=$nextStep")
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        onComplete(nextStep)
+                    }
+                )
             } catch (e: Exception) {
                 Timber.tag("SplashVM").e(e, "Error syncing registration state")
                 _uiState.value = _uiState.value.copy(isLoading = false)
@@ -107,7 +112,7 @@ class SplashViewModel @Inject constructor(
                 if (steps.profilePicture?.isCompleted == true && tokenManager.getSelectedVehicleId().isNullOrBlank()) {
                     "vehicle_selection"
                 } else {
-                    "vehicle_insurance"
+                    "vehicle_details_step" // Go directly to step management screen after vehicle selection
                 }
             }
             steps.vehicleDetails?.isCompleted != true -> "vehicle_details"

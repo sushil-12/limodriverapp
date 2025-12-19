@@ -1,13 +1,14 @@
 package com.limo1800driver.app.ui.components
 
+import android.R.attr.strokeWidth
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.shape.CircleShape
@@ -31,8 +32,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.limo1800driver.app.R
 import com.limo1800driver.app.data.model.dashboard.DriverProfileData
-import com.limo1800driver.app.ui.components.ShimmerBox
-import com.limo1800driver.app.ui.components.ShimmerText
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.LimoRed
 import com.limo1800driver.app.ui.theme.LimoOrange
 
@@ -57,7 +57,7 @@ private fun SafeIcon(
             false
         }
     }
-    
+
     if (resourceExists) {
         Icon(
             painter = painterResource(id = painterResourceId),
@@ -85,7 +85,8 @@ fun DashboardDrawerMenu(
     driverProfile: DriverProfileData?,
     isLoading: Boolean,
     vehicleName: String? = null,
-    vehicleMakeModel: String? = null,
+    vehicleMake: String? = null,
+    vehicleModel: String? = null,
     vehicleYear: String? = null,
     vehicleColor: String? = null,
     vehicleImageUrl: String? = null,
@@ -100,6 +101,9 @@ fun DashboardDrawerMenu(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Interaction source for overlay click (to close drawer)
+    val overlayInteractionSource = remember { MutableInteractionSource() }
+
     AnimatedVisibility(
         visible = isPresented,
         enter = slideInHorizontally(
@@ -115,7 +119,11 @@ fun DashboardDrawerMenu(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.5f))
-                .clickable { onClose() }
+                // NO RIPPLE on overlay click
+                .clickable(
+                    interactionSource = overlayInteractionSource,
+                    indication = null
+                ) { onClose() }
         ) {
             // Drawer content - full screen from left (matching user app)
             Box(
@@ -140,21 +148,22 @@ fun DashboardDrawerMenu(
                             onNavigateToProfile()
                         }
                     )
-                    
+
                     Spacer(modifier = Modifier.height(20.dp))
-                    
+
                     // Vehicle Details Card
                     VehicleDetailsCard(
                         vehicleName = vehicleName,
-                        vehicleMakeModel = vehicleMakeModel,
+                        vehicleMake = vehicleMake,
+                        vehicleModel = vehicleModel,
                         vehicleYear = vehicleYear,
                         vehicleColor = vehicleColor,
                         vehicleImageUrl = vehicleImageUrl,
                         isLoading = isLoading
                     )
-                    
+
                     Spacer(modifier = Modifier.height(20.dp))
-                    
+
                     // Menu Items
                     Column(
                         verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -166,7 +175,7 @@ fun DashboardDrawerMenu(
                                 onNavigateToPreArrangedRides()
                             }
                         )
-                        
+
                         DriverMenuOption(
                             title = "My Activity",
                             onClick = {
@@ -174,7 +183,7 @@ fun DashboardDrawerMenu(
                                 onNavigateToMyActivity()
                             }
                         )
-                        
+
                         DriverMenuOption(
                             title = "Wallet",
                             onClick = {
@@ -182,7 +191,7 @@ fun DashboardDrawerMenu(
                                 onNavigateToWallet()
                             }
                         )
-                        
+
                         DriverMenuOption(
                             title = "Notifications",
                             badge = notificationBadge,
@@ -191,7 +200,7 @@ fun DashboardDrawerMenu(
                                 onNavigateToNotifications()
                             }
                         )
-                        
+
                         DriverMenuOption(
                             title = "Account Settings",
                             onClick = {
@@ -199,9 +208,9 @@ fun DashboardDrawerMenu(
                                 onNavigateToAccountSettings()
                             }
                         )
-                        
+
                         Spacer(modifier = Modifier.weight(1f))
-                        
+
                         // Logout option
                         DriverLogoutOption(
                             onClick = {
@@ -210,7 +219,7 @@ fun DashboardDrawerMenu(
                             }
                         )
                     }
-                    
+
                     // App Version
                     Text(
                         text = "Version 1.0.0",
@@ -237,11 +246,17 @@ private fun DriverProfileSectionWithClose(
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 16.dp)
-            .clickable { onProfileClick() },
+            // NO RIPPLE
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onProfileClick() },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(11.dp)
     ) {
@@ -254,8 +269,8 @@ private fun DriverProfileSectionWithClose(
             contentAlignment = Alignment.Center
         ) {
             if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
+                ShimmerCircle(
+                    size = 24.dp,
                     strokeWidth = 2.dp
                 )
             } else if (!driverProfile?.driverImage.isNullOrEmpty()) {
@@ -279,7 +294,7 @@ private fun DriverProfileSectionWithClose(
                 )
             }
         }
-        
+
         // Driver Info Column
         Column(
             modifier = Modifier.weight(1f),
@@ -312,7 +327,7 @@ private fun DriverProfileSectionWithClose(
                     color = Color(0xFF121212),
                     lineHeight = 24.sp // 150% of 18sp = 24sp
                 )
-                
+
                 // Phone Number - 12sp matching user app
                 val displayPhone = remember(driverProfile?.driverPhone, driverProfile?.driverCellIsd, driverProfile?.driverCellNumber) {
                     driverProfile?.driverPhone?.trim()?.takeIf { it.isNotEmpty() }
@@ -327,13 +342,18 @@ private fun DriverProfileSectionWithClose(
                 )
             }
         }
-        
+
         // Close button - Red circle matching user app
-        IconButton(
-            onClick = onClose,
+        // IconButton has internal ripple, so we use Box + clickable(indication=null)
+        Box(
             modifier = Modifier
                 .size(48.dp)
                 .background(LimoRed, CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { onClose() },
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
@@ -357,7 +377,8 @@ private fun formatPhone(isd: String?, number: String?): String? {
 @Composable
 private fun VehicleDetailsCard(
     vehicleName: String?,
-    vehicleMakeModel: String?,
+    vehicleMake: String?,
+    vehicleModel: String?,
     vehicleYear: String?,
     vehicleColor: String?,
     vehicleImageUrl: String?,
@@ -392,21 +413,15 @@ private fun VehicleDetailsCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ShimmerBox(
-                            modifier = Modifier
-                                .width(60.dp)
-                                .height(24.dp),
+                            modifier = Modifier.width(60.dp).height(24.dp),
                             shape = RoundedCornerShape(6.dp)
                         )
                         ShimmerBox(
-                            modifier = Modifier
-                                .width(50.dp)
-                                .height(24.dp),
+                            modifier = Modifier.width(50.dp).height(24.dp),
                             shape = RoundedCornerShape(6.dp)
                         )
                         ShimmerBox(
-                            modifier = Modifier
-                                .width(80.dp)
-                                .height(24.dp),
+                            modifier = Modifier.width(80.dp).height(24.dp),
                             shape = RoundedCornerShape(6.dp)
                         )
                     }
@@ -418,30 +433,31 @@ private fun VehicleDetailsCard(
                         fontWeight = FontWeight.SemiBold,
                         color = LimoOrange
                     )
-                    
+
                     // Vehicle Tags
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    // Using FlowRow is safer here to prevent clipping if tags are long
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        vehicleMakeModel?.let {
-                            VehicleTag(text = it)
-                        }
-                        vehicleYear?.let {
-                            VehicleTag(text = it)
-                        }
-                        vehicleColor?.let {
-                            VehicleTag(text = it)
-                        }
+                        vehicleColor?.let { VehicleTag(text = it) }
+                        vehicleYear?.let { VehicleTag(text = it) }
+                        vehicleMake?.let { VehicleTag(text = it) }
+                        vehicleModel?.let { VehicleTag(text = it) }
                     }
                 }
             }
-            
-            // Vehicle Image
+
+            // Add spacing between text and image
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Vehicle Image - INCREASED SIZE
             if (isLoading) {
                 ShimmerBox(
                     modifier = Modifier
-                        .width(60.dp)
-                        .height(36.dp),
+                        .width(110.dp) // Increased from 60.dp
+                        .height(70.dp), // Increased from 60.dp
                     shape = RoundedCornerShape(8.dp)
                 )
             } else if (!vehicleImageUrl.isNullOrEmpty()) {
@@ -452,10 +468,10 @@ private fun VehicleDetailsCard(
                         .build(),
                     contentDescription = "Vehicle Image",
                     modifier = Modifier
-                        .width(60.dp)
-                        .height(60.dp)
+                        .width(110.dp) // Increased from 60.dp
+                        .height(70.dp) // Increased from 60.dp
                         .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Fit
+                    contentScale = ContentScale.Fit // Ensures the whole car is visible within the larger box
                 )
             }
         }
@@ -470,20 +486,21 @@ private fun VehicleTag(
     text: String,
     modifier: Modifier = Modifier
 ) {
-    Text(
-        text = text,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color.Black,
+    // Using Surface for better background color rendering than Modifier.background on Text
+    Surface(
+        color = Color(0xFFFAF2E3), // Light cream/orange background
+        shape = RoundedCornerShape(6.dp),
         modifier = modifier
-            .height(24.dp)
-            .background(
-                Color(0xFFFAF2E3), // Light cream/orange background
-                RoundedCornerShape(6.dp)
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        maxLines = 1
-    )
+    ) {
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            maxLines = 1
+        )
+    }
 }
 
 /**
@@ -496,10 +513,16 @@ private fun DriverMenuOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            // NO RIPPLE
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onClick() }
             .height(54.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -519,7 +542,7 @@ private fun DriverMenuOption(
                 lineHeight = 30.sp, // 150% of 20sp = 30sp
                 modifier = Modifier.weight(1f)
             )
-            
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -536,7 +559,7 @@ private fun DriverMenuOption(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
-                
+
                 // Arrow icon - use custom icon with fallback to chevron
                 SafeIcon(
                     painterResourceId = R.drawable.icon_left_menu_icon,
@@ -558,10 +581,16 @@ private fun DriverLogoutOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            // NO RIPPLE
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onClick() }
             .padding(vertical = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -574,14 +603,14 @@ private fun DriverLogoutOption(
             modifier = Modifier.size(18.dp),
             tint = Color(0xFFCE0000) // Red matching user app
         )
-        
+
         Text(
             text = "Logout",
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFCE0000)
         )
-        
+
         Spacer(modifier = Modifier.weight(1f))
     }
 }

@@ -3,6 +3,7 @@ package com.limo1800driver.app.ui.screens.registration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,43 +28,42 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.R
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.navigation.NavRoutes
-import com.limo1800driver.app.ui.theme.* // Ensure AppColors.LimoOrange is defined or use hex
-import com.limo1800driver.app.ui.viewmodel.UserProfileDetailsViewModel
+import com.limo1800driver.app.ui.theme.* import com.limo1800driver.app.ui.viewmodel.UserProfileDetailsViewModel
 
 @Composable
 fun UserProfileDetailsScreen(
     onNavigateToStep: (String) -> Unit,
     onContinue: () -> Unit,
     onBack: (() -> Unit)? = null,
+    isEditMode: Boolean = false,
+    onUpdateComplete: (() -> Unit)? = null,
     viewModel: UserProfileDetailsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     var userName by remember { mutableStateOf("") }
     var userLocation by remember { mutableStateOf("") }
-    
+
     // Fetch data
     LaunchedEffect(Unit) {
         viewModel.fetchAllSteps()
         viewModel.ensureUserNameAndLocation()
     }
-    
+
     LaunchedEffect(uiState.userName) {
         if (uiState.userName.isNotEmpty()) userName = uiState.userName
     }
-    
+
     LaunchedEffect(uiState.userLocation) {
         if (uiState.userLocation.isNotEmpty()) userLocation = uiState.userLocation
     }
-    
+
     val isDrivingLicenseCompleted = uiState.allSteps?.drivingLicense?.isCompleted ?: false
     val isBankDetailsCompleted = uiState.allSteps?.bankDetails?.isCompleted ?: false
     val isProfilePictureCompleted = uiState.allSteps?.profilePicture?.isCompleted ?: false
-    
-    // Logic: Can continue if all steps are done (or whatever your logic requires)
+
     val canContinue = isDrivingLicenseCompleted && isBankDetailsCompleted && isProfilePictureCompleted
 
-    // Use Scaffold to handle Safe Area (Status bar & Navigation bar) automatically
     Scaffold(
         containerColor = Color.White,
         topBar = {
@@ -76,24 +76,21 @@ fun UserProfileDetailsScreen(
                     .fillMaxWidth()
                     .background(Color.White)
                     .padding(horizontal = 16.dp)
-                    // Add padding for bottom navigation bar (home indicator)
-                    .windowInsetsPadding(WindowInsets.navigationBars) 
+                    .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(bottom = 16.dp, top = 16.dp)
             ) {
                 Button(
                     onClick = onContinue,
-                    // If logic requires validation to enable:
-                     enabled = canContinue,
-                    shape = RoundedCornerShape(12.dp), // Matches Figma rounded corners
+                    enabled = canContinue,
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        // Use exact Orange color from screenshot or AppColors.LimoOrange
-                        containerColor = Color(0xFFE89148), 
+                        containerColor = Color(0xFFE89148),
                         contentColor = Color.White,
                         disabledContainerColor = Color(0xFFE89148).copy(alpha = 0.5f)
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp) // Standard height matching screenshot
+                        .height(50.dp)
                 ) {
                     Text(
                         text = "Continue",
@@ -106,11 +103,10 @@ fun UserProfileDetailsScreen(
             }
         }
     ) { innerPadding ->
-        // Content Area
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding) // This prevents content from going under header/footer
+                .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(24.dp))
@@ -131,7 +127,7 @@ fun UserProfileDetailsScreen(
                     Text(
                         text = userLocation.ifEmpty { "Select location" },
                         style = TextStyle(
-                            fontSize = 15.sp, // Slightly smaller to fit long addresses
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color.Black
                         ),
@@ -170,7 +166,6 @@ fun UserProfileDetailsScreen(
                             .weight(1f)
                             .height(6.dp)
                             .background(
-                                // Green if done, light gray if not
                                 color = if (isCompleted) Color(0xFF2E7D32) else Color(0xFFE0E0E0),
                                 shape = RoundedCornerShape(100.dp)
                             )
@@ -214,6 +209,30 @@ fun UserProfileDetailsScreen(
                 )
             }
         }
+
+        // Bottom Action Bar (only in edit mode)
+        if (isEditMode) {
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+
+            androidx.compose.material3.Button(
+                onClick = { onUpdateComplete?.invoke() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = LimoOrange)
+            ) {
+                Text(
+                    text = "Update",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
 
@@ -224,30 +243,30 @@ fun StepRow(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+
     // --- DESIGN LOGIC ---
-    // 1. Text Color: Black if active, Gray if disabled
     val titleColor = if (enabled) Color.Black else Color.Gray
 
-    // 2. Status Color:
-    //    - If Completed: Green
-    //    - If Pending (Active): Darker Gray
-    //    - If Disabled (Locked): Very Light Gray
     val statusColor = if (enabled) {
         if (isCompleted) Color(0xFF2E7D32) else Color.Gray
     } else {
         Color.LightGray
     }
 
-    // 3. Status Text
     val statusText = if (isCompleted) "Completed" else "Pending"
-
-    // 4. Icon Tint: Fade it out significantly if disabled
     val iconTint = if (enabled) Color.LightGray else Color.LightGray.copy(alpha = 0.4f)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
+            // NO RIPPLE
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = enabled,
+                onClick = onClick
+            )
             .padding(vertical = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -260,7 +279,7 @@ fun StepRow(
                 style = TextStyle(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = titleColor // Apply dynamic color
+                    color = titleColor
                 )
             )
 
@@ -268,16 +287,15 @@ fun StepRow(
                 text = statusText,
                 style = TextStyle(
                     fontSize = 13.sp,
-                    color = statusColor // Apply dynamic color
+                    color = statusColor
                 )
             )
         }
 
-        // Visual indicator for interaction
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = iconTint, // Apply dynamic tint
+            tint = iconTint,
             modifier = Modifier.size(24.dp)
         )
     }

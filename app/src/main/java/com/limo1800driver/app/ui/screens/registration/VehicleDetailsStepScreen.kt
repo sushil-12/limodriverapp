@@ -1,11 +1,15 @@
 package com.limo1800driver.app.ui.screens.registration
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.limo1800driver.app.data.storage.TokenManager
 import com.limo1800driver.app.ui.navigation.NavRoutes
 import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.ui.theme.*
@@ -35,42 +38,41 @@ fun VehicleDetailsStepScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val registrationNavigationState = remember { RegistrationNavigationState() }
-    
+
     var userName by remember { mutableStateOf("") }
     var userLocation by remember { mutableStateOf("") }
-    
+
     // Fetch all steps on load
     LaunchedEffect(Unit) {
         viewModel.fetchAllSteps()
         viewModel.ensureUserNameAndLocation()
     }
-    
+
     // Update local state from ViewModel
     LaunchedEffect(uiState.userName) {
         if (uiState.userName.isNotEmpty()) {
             userName = uiState.userName
         }
     }
-    
+
     LaunchedEffect(uiState.userLocation) {
         if (uiState.userLocation.isNotEmpty()) {
             userLocation = uiState.userLocation
         }
     }
-    
+
     val isVehicleInsuranceCompleted = uiState.allSteps?.vehicleInsurance?.isCompleted ?: false
     val isVehicleDetailsCompleted = uiState.allSteps?.vehicleDetails?.isCompleted ?: false
     val isVehicleRatesCompleted = uiState.allSteps?.vehicleRateSettings?.isCompleted ?: false
-    
+
     val canContinue = isVehicleInsuranceCompleted && isVehicleDetailsCompleted && isVehicleRatesCompleted
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
         RegistrationTopBar(
-//            onHelpClick = { /* TODO: hook help */ },
             onBack = onBack
         )
 
@@ -137,9 +139,7 @@ fun VehicleDetailsStepScreen(
                         .weight(1f)
                         .height(8.dp)
                         .background(
-                            if (isVehicleInsuranceCompleted) AppColors.LimoOrange else Color(
-                                0xFFE5E5E5
-                            ),
+                            if (isVehicleInsuranceCompleted) LimoGreen else Color(0xFFE5E5E5),
                             RoundedCornerShape(2.dp)
                         )
                 )
@@ -148,9 +148,7 @@ fun VehicleDetailsStepScreen(
                         .weight(1f)
                         .height(8.dp)
                         .background(
-                            if (isVehicleDetailsCompleted) AppColors.LimoOrange else Color(
-                                0xFFE5E5E5
-                            ),
+                            if (isVehicleDetailsCompleted) LimoGreen else Color(0xFFE5E5E5),
                             RoundedCornerShape(2.dp)
                         )
                 )
@@ -159,7 +157,7 @@ fun VehicleDetailsStepScreen(
                         .weight(1f)
                         .height(8.dp)
                         .background(
-                            if (isVehicleRatesCompleted) AppColors.LimoOrange else Color(0xFFE5E5E5),
+                            if (isVehicleRatesCompleted) LimoGreen else Color(0xFFE5E5E5),
                             RoundedCornerShape(2.dp)
                         )
                 )
@@ -171,7 +169,7 @@ fun VehicleDetailsStepScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
             ) {
                 Column {
                     // Vehicle Insurance
@@ -187,8 +185,6 @@ fun VehicleDetailsStepScreen(
                         color = Color(0xFF121212).copy(alpha = 0.05f)
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
                     // Vehicle Details
                     StepRow(
                         title = "Vehicle Details",
@@ -202,8 +198,6 @@ fun VehicleDetailsStepScreen(
                         color = Color(0xFF121212).copy(alpha = 0.05f)
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
                     // Vehicle Rate Settings
                     StepRow(
                         title = "Vehicle Rate Settings",
@@ -214,8 +208,8 @@ fun VehicleDetailsStepScreen(
                 }
             }
         }
-        
-        // Bottom Button (match UserProfileDetails)
+
+        // Bottom Button
         Column(
             modifier = Modifier
                 .fillMaxWidth()

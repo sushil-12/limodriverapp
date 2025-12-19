@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -186,7 +186,7 @@ fun EditBookingDetailsAndRatesScreen(
             when {
                 state.isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = LimoOrange)
+                        ShimmerCircle(size = 32.dp)
                     }
                 }
 
@@ -428,9 +428,9 @@ fun EditBookingDetailsAndRatesScreen(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     if (state.isSaving) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(20.dp)
+                        ShimmerCircle(
+                            size = 20.dp,
+                            strokeWidth = 2.dp
                         )
                     } else {
                         Text(

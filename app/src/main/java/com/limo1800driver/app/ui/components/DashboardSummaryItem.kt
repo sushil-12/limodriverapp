@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.limo1800driver.app.ui.components.ShimmerCircle
 
 /**
  * Dashboard Summary Item Component
@@ -43,9 +44,8 @@ fun DashboardSummaryItem(
         )
         
         if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = color,
+            ShimmerCircle(
+                size = 20.dp,
                 strokeWidth = 2.dp
             )
         } else if (isEarnings) {

@@ -25,8 +25,8 @@ import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -142,7 +142,7 @@ fun RideInProgressScreen(
 
     if (uiState.activeRide == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            ShimmerCircle(size = 32.dp)
         }
     } else {
         val ride = uiState.activeRide!!

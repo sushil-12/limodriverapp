@@ -41,6 +41,8 @@ import com.limo1800driver.app.R
 import com.limo1800driver.app.data.model.registration.DrivingLicenseRequest
 import com.limo1800driver.app.data.model.registration.OptionalCertificationRequest
 import com.limo1800driver.app.ui.components.RegistrationTopBar
+import com.limo1800driver.app.ui.components.ShimmerBox
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
 import com.limo1800driver.app.ui.components.camera.DocumentSide
 import com.limo1800driver.app.ui.components.camera.DocumentType
@@ -601,9 +603,8 @@ fun DriverLicenseFormScreen(
                         enabled = !uiState.isLoading && !isUploadingFront && !isUploadingBack
                     ) {
                         if (uiState.isLoading || isUploadingFront || isUploadingBack) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
+                            ShimmerCircle(
+                                size = 24.dp,
                                 strokeWidth = 2.5.dp
                             )
                         } else {
@@ -737,9 +738,8 @@ fun UploadCard(
             contentAlignment = Alignment.Center
         ) {
             if (isUploading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(32.dp),
-                    color = BrandBlack,
+                ShimmerCircle(
+                    size = 32.dp,
                     strokeWidth = 3.dp
                 )
             } else if (bitmap != null) {

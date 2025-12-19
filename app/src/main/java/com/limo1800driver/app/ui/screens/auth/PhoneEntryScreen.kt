@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.Countries
 import com.limo1800driver.app.data.model.Country
 import com.limo1800driver.app.domain.validation.CountryCode
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.state.PhoneEntryUiEvent
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.PhoneEntryViewModel
@@ -199,9 +200,8 @@ fun PhoneEntryScreen(
                 .height(50.dp)
         ) {
             if (uiState.isLoading == true) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.White,
+                ShimmerCircle(
+                    size = 20.dp,
                     strokeWidth = 2.dp
                 )
             } else {

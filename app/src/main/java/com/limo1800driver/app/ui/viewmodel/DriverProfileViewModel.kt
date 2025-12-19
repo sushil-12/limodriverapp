@@ -20,30 +20,60 @@ import javax.inject.Inject
 @HiltViewModel
 class DriverProfileViewModel @Inject constructor(
     private val dashboardRepository: DriverDashboardRepository,
-    private val firebaseSubscriptionManager: DriverFirebaseSubscriptionManager
+    private val firebaseSubscriptionManager: DriverFirebaseSubscriptionManager,
+    private val tokenManager: com.limo1800driver.app.data.storage.TokenManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(DriverProfileUiState())
     val uiState: StateFlow<DriverProfileUiState> = _uiState.asStateFlow()
     
     /**
-     * Fetch driver profile from API
+     * Fetch driver profile with caching strategy
+     * 1. Check cache first (if valid and not force refresh)
+     * 2. Use cached data if available
+     * 3. Fetch from API only if cache is expired or missing
      */
-    fun fetchDriverProfile() {
+    fun fetchDriverProfile(forceRefresh: Boolean = false) {
         if (_uiState.value.isLoading) return
-        
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
+
+            // Check cache first (unless force refresh is requested)
+            if (!forceRefresh) {
+                val cachedProfile = tokenManager.getCachedDriverProfileData()
+                if (cachedProfile != null) {
+                    Timber.d("Driver profile loaded from cache")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        profile = cachedProfile,
+                        error = null
+                    )
+
+                    // Still setup Firebase subscription from cached data
+                    val topicUserId = cachedProfile.userId ?: cachedProfile.driverId
+                    if (topicUserId != null) {
+                        firebaseSubscriptionManager.subscribeToUserTopic(topicUserId.toString())
+                    }
+
+                    return@launch
+                }
+            }
+
+            // Cache miss or force refresh - fetch from API
+            Timber.d("Fetching driver profile from API")
             dashboardRepository.getDriverProfile()
                 .onSuccess { response ->
                     if (response.success && response.data != null) {
+                        // Save to cache
+                        tokenManager.saveDriverProfileData(response.data)
+
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             profile = response.data,
                             error = null
                         )
-                        Timber.d("Driver profile loaded successfully")
+                        Timber.d("Driver profile loaded from API and cached")
 
                         // iOS parity: subscribe to topic == userId (string)
                         val topicUserId = response.data.userId ?: response.data.driverId
@@ -68,6 +98,16 @@ class DriverProfileViewModel @Inject constructor(
                     Timber.e(exception, "Failed to fetch driver profile")
                 }
         }
+    }
+
+    /**
+     * Force refresh driver profile (clears cache and fetches from API)
+     * Call this when profile/vehicle details are updated from account settings
+     */
+    fun refreshDriverProfile() {
+        Timber.d("Force refreshing driver profile - clearing cache")
+        tokenManager.clearDriverProfileCache()
+        fetchDriverProfile(forceRefresh = true)
     }
     
     /**

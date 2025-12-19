@@ -37,6 +37,7 @@ import com.limo1800driver.app.data.model.registration.CompanyDocumentsRequest
 import com.limo1800driver.app.data.model.registration.Language
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.CustomMultiSelectDropdown
+import com.limo1800driver.app.ui.components.ShimmerBox
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
 import com.limo1800driver.app.ui.components.camera.DocumentSide
 import com.limo1800driver.app.ui.components.camera.DocumentType
@@ -48,6 +49,8 @@ import kotlinx.coroutines.launch
 fun CompanyDocumentsScreen(
     onNext: (String?) -> Unit,
     onBack: (() -> Unit)? = null,
+    isEditMode: Boolean = false,
+    onUpdateComplete: (() -> Unit)? = null,
     viewModel: CompanyDocumentsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -399,10 +402,16 @@ fun CompanyDocumentsScreen(
 
         // --- Bottom Bar ---
         BottomActionBar(
-            showBackButton = true,
+            showBackButton = !isEditMode, // Hide back button in edit mode
             onBack = onBack,
             onReset = { onReset() },
             onNext = {
+                if (isEditMode) {
+                    // In edit mode, just call onUpdateComplete and return to AccountSettings
+                    onUpdateComplete?.invoke()
+                    return@BottomActionBar
+                }
+
                 // DEBUG: Log that onNext was called
                 android.util.Log.d("CompanyDocumentsScreen", "onNext called - isCompleted: ${uiState.isCompleted}")
 
@@ -451,7 +460,8 @@ fun CompanyDocumentsScreen(
 
                 viewModel.completeCompanyDocuments(request)
             },
-            isLoading = uiState.isLoading || isUploadingFront || isUploadingBack || isUploadingPermit
+            isLoading = uiState.isLoading || isUploadingFront || isUploadingBack || isUploadingPermit,
+            isEditMode = isEditMode
         )
     }
 
@@ -549,7 +559,10 @@ fun ImageUploadCard(
             contentAlignment = Alignment.Center
         ) {
             if (isUploading) {
-                CircularProgressIndicator(modifier = Modifier.size(32.dp), color = AppColors.LimoBlack)
+                ShimmerBox(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(8.dp)
+                )
             } else if (imageBitmap != null) {
                 Image(
                     bitmap = imageBitmap.asImageBitmap(),

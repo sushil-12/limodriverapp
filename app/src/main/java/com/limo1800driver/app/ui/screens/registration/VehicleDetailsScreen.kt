@@ -1,11 +1,13 @@
 package com.limo1800driver.app.ui.screens.registration
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,43 +20,50 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.RegistrationTopBar
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.AppColors
 import com.limo1800driver.app.ui.theme.AppTextStyles
+import com.limo1800driver.app.ui.util.noRippleClickable
 import com.limo1800driver.app.ui.viewmodel.VehicleDetailsViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehicleDetailsScreen(
     onNext: () -> Unit,
     onBack: (() -> Unit)? = null,
+    onNavigateToVehicleSelection: () -> Unit = {},
     viewModel: VehicleDetailsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
+    // Bottom sheet state for vehicle selection
+    var showVehicleSelectionSheet by remember { mutableStateOf(false) }
+
     // Collect specific fields
     val selectedVehicleTypeId by viewModel.selectedVehicleTypeId.collectAsState()
     val selectedMakeId by viewModel.selectedMakeId.collectAsState()
     val selectedModelId by viewModel.selectedModelId.collectAsState()
     val selectedYearId by viewModel.selectedYearId.collectAsState()
     val selectedColorId by viewModel.selectedColorId.collectAsState()
-    
+
     val licensePlate by viewModel.licensePlate.collectAsState()
     val seats by viewModel.seats.collectAsState()
     val luggage by viewModel.luggage.collectAsState()
     val numVehicles by viewModel.numberOfVehicles.collectAsState()
-    
+
     // Service Types
     val selectedServices by viewModel.selectedServiceTypes.collectAsState()
-    
-    // Policies (Assuming simple dropdowns for 24/48/72 hrs)
+
+    // Policies
     val policyOptions = listOf("24", "48", "72")
     val nonCharterPolicy by viewModel.nonCharterPolicy.collectAsState()
     val charterPolicy by viewModel.charterPolicy.collectAsState()
 
     // Error states
+    var selectedVehicleTypeError by remember { mutableStateOf<String?>(null) }
     var selectedMakeError by remember { mutableStateOf<String?>(null) }
     var selectedModelError by remember { mutableStateOf<String?>(null) }
     var numVehiclesError by remember { mutableStateOf<String?>(null) }
@@ -74,26 +83,10 @@ fun VehicleDetailsScreen(
     // Validation function
     fun validateField(fieldName: String, value: String): String? {
         return when (fieldName) {
-            "numVehicles" -> when {
-                value.isEmpty() -> "Number of vehicles is required"
-                value.toIntOrNull() == null || value.toInt() <= 0 -> "Please enter a valid number greater than 0"
-                else -> null
-            }
-            "seats" -> when {
-                value.isEmpty() -> "Number of seats is required"
-                value.toIntOrNull() == null || value.toInt() <= 0 -> "Please enter a valid number greater than 0"
-                else -> null
-            }
-            "luggage" -> when {
-                value.isEmpty() -> "Number of luggage is required"
-                value.toIntOrNull() == null || value.toInt() < 0 -> "Please enter a valid number"
-                else -> null
-            }
-            "licensePlate" -> when {
-                value.trim().isEmpty() -> "License plate is required"
-                value.trim().length < 2 -> "License plate must be at least 2 characters"
-                else -> null
-            }
+            "numVehicles" -> if (value.isEmpty() || value.toIntOrNull() == null || value.toInt() <= 0) "Invalid number" else null
+            "seats" -> if (value.isEmpty() || value.toIntOrNull() == null || value.toInt() <= 0) "Invalid seats" else null
+            "luggage" -> if (value.isEmpty() || value.toIntOrNull() == null || value.toInt() < 0) "Invalid luggage" else null
+            "licensePlate" -> if (value.trim().length < 2) "Min 2 chars required" else null
             else -> null
         }
     }
@@ -102,7 +95,7 @@ fun VehicleDetailsScreen(
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             apiError = error
-            // Clear field-specific errors when we have an API error
+            selectedVehicleTypeError = null
             selectedMakeError = null
             selectedModelError = null
             numVehiclesError = null
@@ -117,120 +110,76 @@ fun VehicleDetailsScreen(
     }
 
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding(), // <--- CRITICAL: Resizes the entire screen (pushing bottomBar up) when keyboard opens
         topBar = { RegistrationTopBar(onBack = onBack) },
         bottomBar = {
-            BottomActionBar(
-                isLoading = uiState.isLoading,
-                onBack = onBack,
-                onNext = {
-                    // Clear previous errors
-                    selectedMakeError = null
-                    selectedModelError = null
-                    numVehiclesError = null
-                    selectedYearError = null
-                    selectedColorError = null
-                    seatsError = null
-                    luggageError = null
-                    nonCharterPolicyError = null
-                    charterPolicyError = null
-                    licensePlateError = null
-                    apiError = null
+            // --- CUSTOM BOTTOM BAR (Docked at bottom) ---
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 10.dp,
+                color = Color.White
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            // Validation Logic
+                            var hasErrors = false
+                            apiError = null
 
-                    // Validation Logic
-                    var hasErrors = false
+                            if (selectedVehicleTypeId == null) { selectedVehicleTypeError = "Required"; hasErrors = true }
+                            if (selectedMakeId == null) { selectedMakeError = "Required"; hasErrors = true }
+                            if (selectedModelId == null) { selectedModelError = "Required"; hasErrors = true }
+                            if (numVehicles.isEmpty()) { numVehiclesError = "Required"; hasErrors = true }
+                            if (selectedYearId == null) { selectedYearError = "Required"; hasErrors = true }
+                            if (selectedColorId == null) { selectedColorError = "Required"; hasErrors = true }
+                            if (seats.isEmpty()) { seatsError = "Required"; hasErrors = true }
+                            if (luggage.isEmpty()) { luggageError = "Required"; hasErrors = true }
+                            if (nonCharterPolicy == null) { nonCharterPolicyError = "Required"; hasErrors = true }
+                            if (charterPolicy == null) { charterPolicyError = "Required"; hasErrors = true }
+                            if (licensePlate.trim().isEmpty()) { licensePlateError = "Required"; hasErrors = true }
 
-                    // Validate Make
-                    if (selectedMakeId == null) {
-                        selectedMakeError = "Make is required"
-                        hasErrors = true
+                            if (!hasErrors) {
+                                viewModel.saveStep1AndNavigate { onNext() }
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE89148),
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFE89148).copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        enabled = !uiState.isLoading,
+                    ) {
+                        if (uiState.isLoading) {
+                            ShimmerCircle(size = 24.dp)
+                        } else {
+                            Text(text = "Next", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold))
+                        }
                     }
-
-                    // Validate Model
-                    if (selectedModelId == null) {
-                        selectedModelError = "Model is required"
-                        hasErrors = true
-                    }
-
-                    // Validate Number of Vehicles
-                    if (numVehicles.isEmpty()) {
-                        numVehiclesError = "Number of vehicles is required"
-                        hasErrors = true
-                    } else if (numVehicles.toIntOrNull() == null || numVehicles.toInt() <= 0) {
-                        numVehiclesError = "Please enter a valid number greater than 0"
-                        hasErrors = true
-                    }
-
-                    // Validate Year
-                    if (selectedYearId == null) {
-                        selectedYearError = "Year is required"
-                        hasErrors = true
-                    }
-
-                    // Validate Color
-                    if (selectedColorId == null) {
-                        selectedColorError = "Color is required"
-                        hasErrors = true
-                    }
-
-                    // Validate Seats
-                    if (seats.isEmpty()) {
-                        seatsError = "Number of seats is required"
-                        hasErrors = true
-                    } else if (seats.toIntOrNull() == null || seats.toInt() <= 0) {
-                        seatsError = "Please enter a valid number greater than 0"
-                        hasErrors = true
-                    }
-
-                    // Validate Luggage
-                    if (luggage.isEmpty()) {
-                        luggageError = "Number of luggage is required"
-                        hasErrors = true
-                    } else if (luggage.toIntOrNull() == null || luggage.toInt() < 0) {
-                        luggageError = "Please enter a valid number"
-                        hasErrors = true
-                    }
-
-                    // Validate Non-charter Policy
-                    if (nonCharterPolicy == null) {
-                        nonCharterPolicyError = "Cancel policy is required"
-                        hasErrors = true
-                    }
-
-                    // Validate Charter Policy
-                    if (charterPolicy == null) {
-                        charterPolicyError = "Charter cancel policy is required"
-                        hasErrors = true
-                    }
-
-                    // Validate License Plate
-                    if (licensePlate.trim().isEmpty()) {
-                        licensePlateError = "License plate is required"
-                        hasErrors = true
-                    } else if (licensePlate.trim().length < 2) {
-                        licensePlateError = "License plate must be at least 2 characters"
-                        hasErrors = true
-                    }
-
-                    // Only make API call if all validations pass
-                    if (!hasErrors) {
-                        viewModel.saveStep1AndNavigate { onNext() }
-                    }
-                },
-                nextButtonText = "Next"
-            )
+                }
+            }
         },
         containerColor = Color.White
-    ) { paddingValues ->
+    ) { innerPadding ->
+        // --- SCROLLABLE FORM CONTENT ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(innerPadding) // Respects the Scaffold's top and bottom bars
                 .verticalScroll(rememberScrollState())
-                .imePadding()
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Text(
                 text = "Enter your vehicle details",
                 style = AppTextStyles.phoneEntryHeadline.copy(color = Color.Black, fontSize = 24.sp)
@@ -240,52 +189,25 @@ fun VehicleDetailsScreen(
 
             // API Error Display
             apiError?.let { error ->
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFF2F2)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = "Error",
-                            tint = Color(0xFFDC2626),
-                            modifier = Modifier.size(20.dp)
-                        )
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F2))) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Error, null, tint = Color(0xFFDC2626))
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = error,
-                            style = TextStyle(
-                                fontSize = 14.sp,
-                                color = Color(0xFFDC2626),
-                                fontWeight = FontWeight.Medium
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
+                        Text(text = error, color = Color(0xFFDC2626))
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
             // --- Service Types ---
-            Text(text = "CHOOSE ALL THAT APPLY", style = AppTextStyles.bodyMedium.copy(color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp))
+            Text("CHOOSE ALL THAT APPLY", style = TextStyle(color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp))
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Backend values are snake_case (e.g. "over_the_road"), UI shows friendly labels.
-                val serviceOptions = listOf(
+                listOf(
                     "Local Service Only" to "local_service_only",
                     "Over The Road" to "over_the_road",
                     "Shuttle Service" to "shuttle_service"
-                )
-                serviceOptions.forEach { (label, apiValue) ->
+                ).forEach { (label, apiValue) ->
                     val isSelected = selectedServices.contains(apiValue)
                     FilterChip(
                         selected = isSelected,
@@ -293,7 +215,7 @@ fun VehicleDetailsScreen(
                             val newList = if (isSelected) selectedServices - apiValue else selectedServices + apiValue
                             viewModel.selectedServiceTypes.value = newList
                         },
-                        label = { Text(label) },
+                        label = { Text(label, fontSize = 13.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color.Black,
                             selectedLabelColor = Color.White
@@ -301,22 +223,31 @@ fun VehicleDetailsScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // --- Vehicle Type ---
-            CommonDropdown(
-                label = "VEHICLE TYPE",
-                placeholder = "Select",
-                selectedValue = getVehicleTypeName(selectedVehicleTypeId),
-                options = uiState.vehicleTypes.map { it.vehicleName ?: "" },
-                onValueSelected = { name ->
-                    val type = uiState.vehicleTypes.find { it.vehicleName == name }
-                    viewModel.selectedVehicleTypeId.value = type?.idInt ?: type?.id?.toIntOrNull()
-                },
-                isRequired = false
-            )
-            
+            Text(text = "VEHICLE TYPE *", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray))
+            Spacer(modifier = Modifier.height(4.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth().noRippleClickable { showVehicleSelectionSheet = true },
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (selectedVehicleTypeError != null) Color.Red else Color(0xFFE0E0E0))
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = getVehicleTypeName(selectedVehicleTypeId).ifEmpty { "Select Vehicle Type" },
+                        color = if (selectedVehicleTypeId != null) AppColors.LimoBlack else Color.Gray
+                    )
+                    Icon(Icons.Default.ArrowDropDown, null, tint = Color.Gray)
+                }
+            }
+            selectedVehicleTypeError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // --- Make ---
@@ -325,11 +256,7 @@ fun VehicleDetailsScreen(
                 placeholder = "Select Make",
                 selectedValue = getOptionName(selectedMakeId, uiState.makes),
                 options = uiState.makes.map { it.name },
-                onValueSelected = { name ->
-                    uiState.makes.find { it.name == name }?.let { viewModel.onMakeSelected(it.id) }
-                    selectedMakeError = if (name.isBlank()) "Make is required" else null
-                    apiError = null
-                },
+                onValueSelected = { name -> uiState.makes.find { it.name == name }?.let { viewModel.onMakeSelected(it.id) } },
                 isRequired = true,
                 errorMessage = selectedMakeError
             )
@@ -337,54 +264,39 @@ fun VehicleDetailsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // --- Model ---
-            // Only enabled if Make is selected
-            CommonDropdown(
-                label = "MODEL",
-                placeholder = if (uiState.isLoadingModels) "Loading..." else "Select Model",
-                selectedValue = getOptionName(selectedModelId, uiState.models),
-                options = uiState.models.map { it.name },
-                onValueSelected = { name ->
-                    uiState.models.find { it.name == name }?.let { viewModel.selectedModelId.value = it.id }
-                    selectedModelError = if (name.isBlank()) "Model is required" else null
-                    apiError = null
-                },
-                enabled = selectedMakeId != null && !uiState.isLoadingModels,
-                isRequired = true,
-                errorMessage = selectedModelError
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            if (selectedMakeId != null) {
+                CommonDropdown(
+                    label = "MODEL",
+                    placeholder = if (uiState.isLoadingModels) "Loading..." else "Select Model",
+                    selectedValue = getOptionName(selectedModelId, uiState.models),
+                    options = uiState.models.map { it.name },
+                    onValueSelected = { name -> uiState.models.find { it.name == name }?.let { viewModel.selectedModelId.value = it.id } },
+                    enabled = !uiState.isLoadingModels,
+                    isRequired = true,
+                    errorMessage = selectedModelError
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // --- Number of Vehicles ---
                 Box(modifier = Modifier.weight(1f)) {
                     CommonTextField(
                         label = "NUMBER OF VEHICLES",
                         placeholder = "1",
                         text = numVehicles,
-                        onValueChange = {
-                            viewModel.numberOfVehicles.value = it
-                            numVehiclesError = validateField("numVehicles", it)
-                            apiError = null
-                        },
+                        onValueChange = { viewModel.numberOfVehicles.value = it },
                         keyboardType = KeyboardType.Number,
                         isRequired = true,
                         errorMessage = numVehiclesError
                     )
                 }
-                
-                // --- Year ---
                 Box(modifier = Modifier.weight(1f)) {
                     CommonDropdown(
                         label = "YEAR",
                         placeholder = "Select",
                         selectedValue = getOptionName(selectedYearId, uiState.years),
                         options = uiState.years.map { it.name },
-                        onValueSelected = { name ->
-                            uiState.years.find { it.name == name }?.let { viewModel.selectedYearId.value = it.id }
-                            selectedYearError = if (name.isBlank()) "Year is required" else null
-                            apiError = null
-                        },
+                        onValueSelected = { name -> uiState.years.find { it.name == name }?.let { viewModel.selectedYearId.value = it.id } },
                         isRequired = true,
                         errorMessage = selectedYearError
                     )
@@ -399,11 +311,7 @@ fun VehicleDetailsScreen(
                 placeholder = "Select Color",
                 selectedValue = getOptionName(selectedColorId, uiState.colors),
                 options = uiState.colors.map { it.name },
-                onValueSelected = { name ->
-                    uiState.colors.find { it.name == name }?.let { viewModel.selectedColorId.value = it.id }
-                    selectedColorError = if (name.isBlank()) "Color is required" else null
-                    apiError = null
-                },
+                onValueSelected = { name -> uiState.colors.find { it.name == name }?.let { viewModel.selectedColorId.value = it.id } },
                 isRequired = true,
                 errorMessage = selectedColorError
             )
@@ -412,30 +320,22 @@ fun VehicleDetailsScreen(
 
             // --- Seats & Luggage ---
             CommonTextField(
-                label = "NO. OF PAX SEATS/ SEAT BELTS",
+                label = "NO. OF PAX SEATS",
                 placeholder = "4",
                 text = seats,
-                onValueChange = {
-                    viewModel.seats.value = it
-                    seatsError = validateField("seats", it)
-                    apiError = null
-                },
+                onValueChange = { viewModel.seats.value = it },
                 keyboardType = KeyboardType.Number,
                 isRequired = true,
                 errorMessage = seatsError
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             CommonTextField(
                 label = "NO. OF LARGE LUGGAGE",
                 placeholder = "2",
                 text = luggage,
-                onValueChange = {
-                    viewModel.luggage.value = it
-                    luggageError = validateField("luggage", it)
-                    apiError = null
-                },
+                onValueChange = { viewModel.luggage.value = it },
                 keyboardType = KeyboardType.Number,
                 isRequired = true,
                 errorMessage = luggageError
@@ -443,54 +343,57 @@ fun VehicleDetailsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Cancellation Policies ---
+            // --- Policies ---
             CommonDropdown(
-                label = "AIRPORT / CITY / CRUISE PORT CANCEL POLICY",
+                label = "AIRPORT / CITY CANCEL POLICY",
                 placeholder = "Select Hours",
                 selectedValue = nonCharterPolicy?.toString(),
                 options = policyOptions,
-                onValueSelected = {
-                    viewModel.nonCharterPolicy.value = it.toIntOrNull()
-                    nonCharterPolicyError = if (it.isBlank()) "Cancel policy is required" else null
-                    apiError = null
-                },
+                onValueSelected = { viewModel.nonCharterPolicy.value = it.toIntOrNull() },
                 isRequired = true,
                 errorMessage = nonCharterPolicyError
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             CommonDropdown(
                 label = "CHARTER CANCEL POLICY",
                 placeholder = "Select Hours",
                 selectedValue = charterPolicy?.toString(),
                 options = policyOptions,
-                onValueSelected = {
-                    viewModel.charterPolicy.value = it.toIntOrNull()
-                    charterPolicyError = if (it.isBlank()) "Charter cancel policy is required" else null
-                    apiError = null
-                },
+                onValueSelected = { viewModel.charterPolicy.value = it.toIntOrNull() },
                 isRequired = true,
                 errorMessage = charterPolicyError
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- License Plate ---
+            // --- License Plate (Last Item) ---
             CommonTextField(
-                label = "LICENSE PLATE OR OTHER VEHICLE IDENTITY",
+                label = "LICENSE PLATE",
                 placeholder = "ABC 123",
                 text = licensePlate,
-                onValueChange = {
-                    viewModel.licensePlate.value = it.uppercase()
-                    licensePlateError = validateField("licensePlate", it)
-                    apiError = null
-                },
+                onValueChange = { viewModel.licensePlate.value = it.uppercase() },
                 isRequired = true,
                 errorMessage = licensePlateError
             )
-            
-            Spacer(modifier = Modifier.height(32.dp))
+
+            // Small spacer just to give a little breathing room at end of list
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+    if (showVehicleSelectionSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showVehicleSelectionSheet = false },
+            containerColor = Color.White
+        ) {
+            VehicleSelectionScreen(
+                onNext = {}, onBack = null, viewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+                isBottomSheetMode = true,
+                onVehicleSelected = { viewModel.selectedVehicleTypeId.value = it.idInt ?: it.id?.toIntOrNull(); showVehicleSelectionSheet = false },
+                onDismiss = { showVehicleSelectionSheet = false }
+            )
         }
     }
 }

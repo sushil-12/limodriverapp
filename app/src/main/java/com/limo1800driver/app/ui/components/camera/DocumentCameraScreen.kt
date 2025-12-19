@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.limo1800driver.app.ui.utils.cropToFrame
+import cropToFrame
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.coroutines.resume

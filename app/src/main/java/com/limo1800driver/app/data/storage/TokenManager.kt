@@ -7,6 +7,7 @@ import androidx.security.crypto.MasterKey
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.limo1800driver.app.data.model.auth.DriverRegistrationState
+import com.limo1800driver.app.data.model.dashboard.DriverProfileData
 import com.limo1800driver.app.data.model.registration.VehicleDetailsStepResponse
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -36,6 +37,11 @@ class TokenManager @Inject constructor(
         private const val KEY_DRIVER_REGISTRATION_STATE = "driver_registration_state"
         private const val KEY_VEHICLE_DETAILS_STEP_RESPONSE = "vehicle_details_step_response"
         private const val KEY_BASIC_INFO_EMAIL = "basic_info_email"
+        private const val KEY_DRIVER_PROFILE_DATA = "driver_profile_data"
+        private const val KEY_DRIVER_PROFILE_CACHE_TIME = "driver_profile_cache_time"
+
+        // Cache driver profile for 30 minutes (30 * 60 * 1000ms)
+        private const val DRIVER_PROFILE_CACHE_DURATION_MS = 30 * 60 * 1000L
     }
     
     private val gson = Gson()
@@ -299,6 +305,66 @@ class TokenManager @Inject constructor(
     }
 
     /**
+     * Save driver profile data with cache timestamp
+     */
+    fun saveDriverProfileData(profileData: DriverProfileData) {
+        val json = gson.toJson(profileData)
+        val currentTime = System.currentTimeMillis()
+
+        sharedPreferences.edit()
+            .putString(KEY_DRIVER_PROFILE_DATA, json)
+            .putLong(KEY_DRIVER_PROFILE_CACHE_TIME, currentTime)
+            .apply()
+    }
+
+    /**
+     * Get cached driver profile data if not expired
+     */
+    fun getCachedDriverProfileData(): DriverProfileData? {
+        val cacheTime = sharedPreferences.getLong(KEY_DRIVER_PROFILE_CACHE_TIME, 0L)
+        val currentTime = System.currentTimeMillis()
+
+        // Check if cache is still valid (not expired)
+        if (currentTime - cacheTime > DRIVER_PROFILE_CACHE_DURATION_MS) {
+            // Cache expired, clear it
+            clearDriverProfileCache()
+            return null
+        }
+
+        val json = sharedPreferences.getString(KEY_DRIVER_PROFILE_DATA, null)
+        return if (json != null) {
+            try {
+                gson.fromJson(json, DriverProfileData::class.java)
+            } catch (e: Exception) {
+                // If deserialization fails, clear cache
+                clearDriverProfileCache()
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Check if driver profile cache is valid (not expired)
+     */
+    fun isDriverProfileCacheValid(): Boolean {
+        val cacheTime = sharedPreferences.getLong(KEY_DRIVER_PROFILE_CACHE_TIME, 0L)
+        val currentTime = System.currentTimeMillis()
+        return currentTime - cacheTime <= DRIVER_PROFILE_CACHE_DURATION_MS
+    }
+
+    /**
+     * Clear driver profile cache
+     */
+    fun clearDriverProfileCache() {
+        sharedPreferences.edit()
+            .remove(KEY_DRIVER_PROFILE_DATA)
+            .remove(KEY_DRIVER_PROFILE_CACHE_TIME)
+            .apply()
+    }
+
+    /**
      * Clear all data (for logout)
      */
     fun clearAll() {
@@ -310,6 +376,8 @@ class TokenManager @Inject constructor(
             .remove(KEY_VEHICLE_DETAILS_STEP_RESPONSE)
             .remove(KEY_IS_PROFILE_COMPLETED)
             .remove(KEY_BASIC_INFO_EMAIL)
+            .remove(KEY_DRIVER_PROFILE_DATA)
+            .remove(KEY_DRIVER_PROFILE_CACHE_TIME)
             .apply()
     }
 }

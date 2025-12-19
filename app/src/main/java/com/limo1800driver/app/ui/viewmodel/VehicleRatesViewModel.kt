@@ -204,7 +204,7 @@ class VehicleRatesViewModel @Inject constructor(
                 _uiState.update { state ->
                     // Get amenities from VehicleInfo (metadata)
                     val amenityMetadata = vehicleInfoResult?.amenities ?: emptyMap()
-                    
+
                     // Convert VehicleAmenity to VehicleAmenityPayload for state
                     val amenityRatesMap = amenityMetadata.mapValues { (_, amenity) ->
                         VehicleAmenityPayload(
@@ -213,29 +213,33 @@ class VehicleRatesViewModel @Inject constructor(
                             price = amenity.price?.toDoubleOrNull()
                         )
                     }
-                    
+
                     // Merge with prefill prices if available
                     val prefillAmenities = rateStep?.amenitiesRates ?: emptyMap()
                     val mergedAmenityPrices = mutableMapOf<String, String>()
-                    
+
                     amenityRatesMap.forEach { (id, amenity) ->
                         val label = amenity.label ?: amenity.name
                         // Use prefill price if available, otherwise use metadata price
                         val merged = prefillAmenities[label]?.price ?: amenity.price
                         mergedAmenityPrices[label] = merged?.toString() ?: ""
                     }
-                    
+
+                    // Prioritize VehicleInfo API data, fallback to cached data if API fails completely
+                    val finalVehicleName = vehicleInfoResult?.vehicleType ?: cachedDetailsStep?.data?.vehicleType ?: state.vehicleName
+                    val finalVehicleTags = listOfNotNull(
+                        vehicleInfoResult?.vehicleColor ?: cachedDetailsStep?.data?.color,
+                        vehicleInfoResult?.vehicleYear ?: cachedDetailsStep?.data?.year,
+                        vehicleInfoResult?.vehicleMake ?: cachedDetailsStep?.data?.make,
+                        vehicleInfoResult?.vehicleModel ?: cachedDetailsStep?.data?.model
+                    )
+
                     state.copy(
                         isLoading = false,
                         isPrefilling = true,
                         vehicleId = vehicleId ?: rateStep?.vehicleId ?: state.vehicleId,
-                        vehicleName = vehicleInfoResult?.vehicleType ?: state.vehicleName,
-                        vehicleTags = listOfNotNull(
-                            vehicleInfoResult?.vehicleColor,
-                            vehicleInfoResult?.vehicleYear,
-                            vehicleInfoResult?.vehicleMake,
-                            vehicleInfoResult?.vehicleModel
-                        ),
+                        vehicleName = finalVehicleName,
+                        vehicleTags = finalVehicleTags,
                         vehicleImageUrl = vehicleInfoResult?.vehicleImage ?: state.vehicleImageUrl,
                         amenityRates = amenityRatesMap, // Use metadata from VehicleInfo
                         amenityPrices = mergedAmenityPrices // Use merged prices

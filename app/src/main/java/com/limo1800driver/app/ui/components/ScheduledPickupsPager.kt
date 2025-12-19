@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.limo1800driver.app.data.model.dashboard.DriverBooking
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.viewmodel.DriverBookingsViewModel
 
 /**
@@ -52,8 +53,9 @@ fun ScheduledPickupsPager(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp)
+                    ShimmerCircle(
+                        size = 24.dp,
+                        strokeWidth = 2.dp
                     )
                     Text(
                         text = "Loading scheduled pickups...",

@@ -29,6 +29,7 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
 import com.limo1800driver.app.data.model.dashboard.AdminBookingPreviewData
 import com.limo1800driver.app.data.model.dashboard.AdminBookingPreviewExtraStop
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.LimoGreen
 import com.limo1800driver.app.ui.theme.LimoOrange
 import com.limo1800driver.app.ui.theme.LimoRed
@@ -104,7 +105,7 @@ fun BookingPreviewScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator(color = LimoOrange)
+                    ShimmerCircle(size = 32.dp)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Loading details...", color = LabelGray)
                 }
@@ -245,9 +246,8 @@ private fun PreviewBottomBar(
                             .height(50.dp)
                     ) {
                         if (isRejecting) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                strokeWidth = 2.dp,
+                            ShimmerCircle(
+                                size = 24.dp,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -268,9 +268,8 @@ private fun PreviewBottomBar(
                             .height(50.dp)
                     ) {
                         if (isAccepting) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                strokeWidth = 2.dp,
+                            ShimmerCircle(
+                                size = 24.dp,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -291,11 +290,7 @@ private fun PreviewBottomBar(
                         .height(50.dp)
                 ) {
                     if (isFinalizing) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        ShimmerCircle(size = 20.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     Text(text = if (isFinalizing) "Finalizing..." else "Finalize")

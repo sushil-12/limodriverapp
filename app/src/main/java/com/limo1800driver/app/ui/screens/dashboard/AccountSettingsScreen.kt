@@ -3,6 +3,7 @@ package com.limo1800driver.app.ui.screens.dashboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +43,7 @@ fun AccountSettingsScreen(
     onNavigateToProfile: () -> Unit = {},
     onNavigateToProfilePicture: () -> Unit = {},
     onNavigateToCompanyInfo: () -> Unit = {},
+    onNavigateToCompanyDocuments: () -> Unit = {},
     onNavigateToDrivingLicense: () -> Unit = {},
     onNavigateToBankDetails: () -> Unit = {},
     onNavigateToVehicleInsurance: () -> Unit = {},
@@ -51,7 +53,10 @@ fun AccountSettingsScreen(
     viewModel: AccountSettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+
+    // Interaction source for Logout button
+    val logoutInteractionSource = remember { MutableInteractionSource() }
+
     Scaffold(
         topBar = {
             CommonMenuHeader(
@@ -77,7 +82,7 @@ fun AccountSettingsScreen(
                     onEditProfilePicture = onNavigateToProfilePicture
                 )
             }
-            
+
             // Company Information & Documents Section
             item {
                 Column {
@@ -86,7 +91,7 @@ fun AccountSettingsScreen(
                         icon = Icons.Default.Description,
                         title = "Company Information & Documents"
                     )
-                    
+
                     // Documents List
                     Column {
                         // Company Details (only if NOT gig_operator)
@@ -95,6 +100,18 @@ fun AccountSettingsScreen(
                                 title = "Company Details",
                                 isVerified = true,
                                 onEdit = onNavigateToCompanyInfo
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                thickness = DividerDefaults.Thickness,
+                                color = DividerDefaults.color
+                            )
+
+                            // Company Documents
+                            DocumentSection(
+                                title = "Company Documents",
+                                isVerified = true,
+                                onEdit = onNavigateToCompanyDocuments
                             )
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -124,7 +141,7 @@ fun AccountSettingsScreen(
                     }
                 }
             }
-            
+
             // Vehicles Section
             item {
                 Column {
@@ -133,7 +150,7 @@ fun AccountSettingsScreen(
                         icon = Icons.Default.DirectionsCar,
                         title = "Vehicles"
                     )
-                    
+
                     // Vehicles List
                     Column {
                         // Vehicle Insurance (moved here to match iOS)
@@ -168,7 +185,7 @@ fun AccountSettingsScreen(
                     }
                 }
             }
-            
+
             // Logout Section
             item {
                 Column {
@@ -182,7 +199,11 @@ fun AccountSettingsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onLogout() }
+                            // NO RIPPLE
+                            .clickable(
+                                interactionSource = logoutInteractionSource,
+                                indication = null
+                            ) { onLogout() }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -202,7 +223,7 @@ fun AccountSettingsScreen(
                     }
                 }
             }
-            
+
             // Error State
             uiState.error?.let { error ->
                 item {
@@ -237,6 +258,10 @@ private fun ProfileSection(
     onViewProfile: () -> Unit,
     onEditProfilePicture: () -> Unit
 ) {
+    // Interaction sources for ripple-free clicks
+    val profileInteractionSource = remember { MutableInteractionSource() }
+    val editInteractionSource = remember { MutableInteractionSource() }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -245,10 +270,9 @@ private fun ProfileSection(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
 
-    ) {
+        ) {
         Column(
             modifier = Modifier.weight(1f),
-
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (isLoading) {
@@ -269,11 +293,14 @@ private fun ProfileSection(
                     color = LimoOrange,
                     lineHeight = 38.sp
                 )
-                
+
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onViewProfile() }
+                    modifier = Modifier.clickable(
+                        interactionSource = profileInteractionSource,
+                        indication = null
+                    ) { onViewProfile() }
                 ) {
                     Text(
                         text = "VIEW PROFILE",
@@ -291,7 +318,7 @@ private fun ProfileSection(
                 }
             }
         }
-        
+
         // Profile Image (+ edit pencil)
         if (isLoading) {
             ShimmerBox(
@@ -302,7 +329,10 @@ private fun ProfileSection(
             Box(
                 modifier = Modifier
                     .size(80.dp)
-                    .clickable { onViewProfile() },
+                    .clickable(
+                        interactionSource = profileInteractionSource,
+                        indication = null
+                    ) { onViewProfile() },
                 contentAlignment = Alignment.Center
             ) {
                 if (!driverImageURL.isNullOrEmpty()) {
@@ -342,7 +372,10 @@ private fun ProfileSection(
                         .clip(CircleShape)
                         .background(LimoOrange, CircleShape)
                         .border(2.dp, Color.White, CircleShape)
-                        .clickable { onEditProfilePicture() },
+                        .clickable(
+                            interactionSource = editInteractionSource,
+                            indication = null
+                        ) { onEditProfilePicture() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -397,10 +430,15 @@ private fun DocumentSection(
     isVerified: Boolean,
     onEdit: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onEdit() }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onEdit() }
             .padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -414,7 +452,7 @@ private fun DocumentSection(
                 fontWeight = FontWeight.Medium,
                 color = Color.Black
             )
-            
+
             if (isVerified) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -435,7 +473,7 @@ private fun DocumentSection(
                 }
             }
         }
-        
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -465,10 +503,15 @@ private fun VehicleSection(
     vehicleCount: Int?,
     onEdit: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onEdit() }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onEdit() }
             .padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -482,16 +525,8 @@ private fun VehicleSection(
                 fontWeight = FontWeight.Medium,
                 color = Color.Black
             )
-            
-//            vehicleCount?.let { count ->
-//                Text(
-//                    text = "$count vehicle${if (count != 1) "s" else ""}",
-//                    fontSize = 12.sp,
-//                    color = Color.Gray
-//                )
-//            }
         }
-        
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically

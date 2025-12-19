@@ -1,6 +1,13 @@
 package com.limo1800driver.app.ui.screens.registration
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,16 +24,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.RegistrationTopBar
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
 import com.limo1800driver.app.ui.components.camera.DocumentSide
 import com.limo1800driver.app.ui.components.camera.DocumentType
@@ -63,7 +74,7 @@ fun VehicleDetailsImageUploadScreen(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+    Box(modifier = Modifier.fillMaxSize().background(LimoWhite)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -78,39 +89,38 @@ fun VehicleDetailsImageUploadScreen(
                     .padding(horizontal = 16.dp)
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Text(
                     text = "Enter your vehicle details",
-                    style = AppTextStyles.phoneEntryHeadline.copy(color = Color.Black, fontSize = 24.sp)
+                    style = AppTextStyles.phoneEntryHeadline.copy(color = LimoBlack, fontSize = 24.sp)
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // --- 1. Special Amenities ---
-                SectionHeader(title = "CHOOSE SPECIAL AMENITIES", isRequired = true)
+                ImageUploadSectionHeader(title = "CHOOSE SPECIAL AMENITIES", isRequired = true)
                 Text(
                     text = "(Choose Each Special Amenity You Supply Or Provide)",
-                    style = AppTextStyles.bodyMedium.copy(color = Color.Gray, fontSize = 12.sp)
+                    style = AppTextStyles.bodyMedium.copy(color = ComposeColor.Gray, fontSize = 12.sp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                BorderedGrid {
-                    if (uiState.specialAmenitiesOptions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                ImageUploadBorderedGrid {
+                    if (uiState.specialAmenitiesOptions.isEmpty() && uiState.isLoading) {
+                        ImageUploadShimmerGrid()
+                    } else if (uiState.specialAmenitiesOptions.isNotEmpty()) {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             uiState.specialAmenitiesOptions.forEach { item ->
                                 val identifier = item.getIdentifier()
                                 val isSelected = viewModel.selectedSpecialAmenities.contains(identifier)
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { viewModel.toggleSpecialAmenity(identifier) },
-                                    label = { Text(item.name) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AppColors.LimoOrange.copy(alpha = 0.2f),
-                                        selectedLabelColor = AppColors.LimoOrange
-                                    )
+
+                                CustomChipItem(
+                                    text = item.name,
+                                    isSelected = isSelected,
+                                    onClick = { viewModel.toggleSpecialAmenity(identifier) }
                                 )
                             }
                         }
@@ -120,30 +130,29 @@ fun VehicleDetailsImageUploadScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // --- 2. Interiors ---
-                SectionHeader(title = "CHOOSE INTERIORS", isRequired = true)
+                ImageUploadSectionHeader(title = "CHOOSE INTERIORS", isRequired = true)
                 Text(
                     text = "(Choose Each Interior Option For This Vehicle)",
-                    style = AppTextStyles.bodyMedium.copy(color = Color.Gray, fontSize = 12.sp)
+                    style = AppTextStyles.bodyMedium.copy(color = ComposeColor.Gray, fontSize = 12.sp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                BorderedGrid {
-                    if (uiState.interiorOptions.isNotEmpty()) {
+                ImageUploadBorderedGrid {
+                    if (uiState.interiorOptions.isEmpty() && uiState.isLoading) {
+                        ImageUploadShimmerGrid()
+                    } else if (uiState.interiorOptions.isNotEmpty()) {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             uiState.interiorOptions.forEach { item ->
                                 val identifier = item.getIdentifier()
                                 val isSelected = viewModel.selectedInteriors.contains(identifier)
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { viewModel.toggleInterior(identifier) },
-                                    label = { Text(item.name) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AppColors.LimoOrange.copy(alpha = 0.2f),
-                                        selectedLabelColor = AppColors.LimoOrange
-                                    )
+
+                                CustomChipItem(
+                                    text = item.name,
+                                    isSelected = isSelected,
+                                    onClick = { viewModel.toggleInterior(identifier) }
                                 )
                             }
                         }
@@ -155,13 +164,13 @@ fun VehicleDetailsImageUploadScreen(
                 // --- 3. Image Upload Grid ---
                 Text(
                     text = "Exterior and Interior",
-                    style = AppTextStyles.headlineMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    style = AppTextStyles.headlineMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LimoBlack)
                 )
                 Text(
                     text = "Upload the pictures of Interior and Exterior of the vehicle",
                     style = AppTextStyles.bodyMedium.copy(color = AppColors.LimoOrange, fontSize = 12.sp)
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -180,7 +189,7 @@ fun VehicleDetailsImageUploadScreen(
                                     showCamera = true
                                 }
                             )
-                            
+
                             // Right Column
                             val idx2 = row * 2 + 1
                             VehicleImageItem(
@@ -197,19 +206,58 @@ fun VehicleDetailsImageUploadScreen(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
 
-        // Bottom Bar
-        BottomActionBar(
-            isLoading = uiState.isLoading,
-            onBack = onBack,
-            onNext = { viewModel.submitFinalDetails() },
-            nextButtonText = "Submit",
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+        // --- CUSTOM BOTTOM BAR ---
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter),
+            shadowElevation = 10.dp,
+            color = LimoWhite
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+
+                Button(
+                    onClick = { viewModel.submitFinalDetails() },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE89148),
+                        contentColor = LimoWhite,
+                        disabledContainerColor = Color(0xFFE89148).copy(alpha = 0.5f),
+                        disabledContentColor = LimoWhite
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    enabled = !uiState.isLoading
+                ) {
+                    if (uiState.isLoading) {
+                        ShimmerCircle(
+                            size = 24.dp,
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
+                        Text(
+                            text = "Submit",
+                            style = TextStyle(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
 
     if (showCamera) {
@@ -225,8 +273,120 @@ fun VehicleDetailsImageUploadScreen(
     }
 }
 
+// --- Components (Private to avoid conflicts) ---
+
 @Composable
-fun VehicleImageItem(
+private fun CustomChipItem(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.clickable { onClick() },
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) AppColors.LimoOrange.copy(alpha = 0.08f) else Color.White,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isSelected) AppColors.LimoOrange else Color(0xFFE5E7EB)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = AppColors.LimoOrange,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+
+            Text(
+                text = text,
+                style = AppTextStyles.bodyMedium.copy(
+                    fontSize = 13.sp,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                ),
+                color = if (isSelected) AppColors.LimoOrange else Color.Black
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImageUploadSectionHeader(title: String, isRequired: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(text = title, style = AppTextStyles.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp))
+        if (isRequired) {
+            Text(text = " *", style = AppTextStyles.bodyMedium.copy(color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 13.sp))
+        }
+    }
+}
+
+@Composable
+private fun ImageUploadBorderedGrid(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp)) // Cleaner, rounder border
+            .padding(16.dp), // Increased padding
+        content = content
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ImageUploadShimmerGrid() {
+    val shimmerColors = listOf(
+        ComposeColor.LightGray.copy(alpha = 0.6f),
+        ComposeColor.LightGray.copy(alpha = 0.2f),
+        ComposeColor.LightGray.copy(alpha = 0.6f),
+    )
+
+    val transition = rememberInfiniteTransition()
+    val translateAnim = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 1200,
+                easing = LinearEasing
+            ),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+
+    val brush = Brush.linearGradient(
+        colors = shimmerColors,
+        start = Offset.Zero,
+        end = Offset(x = translateAnim.value, y = translateAnim.value)
+    )
+
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Random widths to simulate real chips loading
+        val sizes = listOf(100.dp, 80.dp, 120.dp, 90.dp, 110.dp, 70.dp, 130.dp, 85.dp)
+
+        sizes.forEach { width ->
+            Box(
+                modifier = Modifier
+                    .width(width)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(brush)
+            )
+        }
+    }
+}
+
+@Composable
+private fun VehicleImageItem(
     index: Int,
     bitmap: Bitmap?,
     imageUrl: String?,
@@ -236,19 +396,19 @@ fun VehicleImageItem(
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("VEHICLE IMAGE ${index + 1}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            Text("VEHICLE IMAGE ${index + 1}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = LimoBlack)
             if (index == 0) Text(" *", color = Color.Red, fontSize = 10.sp)
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFFF3F4F6))
-                .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFF9FAFB)) // Very light gray background
+                .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp))
                 .clickable { onAddClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -263,7 +423,7 @@ fun VehicleImageItem(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Uploaded",
-                        tint = Color.White,
+                        tint = LimoWhite,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
@@ -272,7 +432,7 @@ fun VehicleImageItem(
                             .size(12.dp)
                     )
                 } else {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AppColors.LimoOrange)
+                    ShimmerCircle(size = 24.dp)
                 }
             } else if (imageUrl != null) {
                 AsyncImage(
@@ -285,7 +445,7 @@ fun VehicleImageItem(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Uploaded",
-                        tint = Color.White,
+                        tint = LimoWhite,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
@@ -299,18 +459,18 @@ fun VehicleImageItem(
                     Icon(
                         imageVector = Icons.Default.CameraAlt,
                         contentDescription = null,
-                        tint = Color.Gray
+                        tint = ComposeColor.LightGray
                     )
-                    Text("Add", fontSize = 12.sp, color = Color.Gray)
+                    Text("Add", fontSize = 12.sp, color = ComposeColor.LightGray)
                 }
             }
         }
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
+
+        Spacer(modifier = Modifier.height(6.dp))
+
         Button(
             onClick = onAddClick,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+            colors = ButtonDefaults.buttonColors(containerColor = LimoBlack),
             shape = RoundedCornerShape(50),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
             modifier = Modifier.height(30.dp)

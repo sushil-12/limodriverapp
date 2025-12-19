@@ -36,19 +36,23 @@ import com.limo1800driver.app.data.model.registration.BasicInfoRequest
 // Removed CommonDropdown import for DOB to use custom logic, still used for Gender/Year
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
+import com.limo1800driver.app.ui.components.DatePickerComponent
+import com.limo1800driver.app.ui.components.DatePickerConfig
+import com.limo1800driver.app.ui.components.DateStep
 import com.limo1800driver.app.ui.components.LocationAutocomplete
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.BasicInfoViewModel
 import java.util.Calendar
 
 // Enum to track which step of the date selection is active
-enum class DateStep { MONTH, DAY, YEAR }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BasicInfoScreen(
     onNext: (String?) -> Unit,
     onBack: (() -> Unit)? = null,
+    isEditMode: Boolean = false,
     viewModel: BasicInfoViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -77,8 +81,6 @@ fun BasicInfoScreen(
     var dobDay by remember { mutableStateOf<String?>(null) }
     var dobYear by remember { mutableStateOf<String?>(null) }
 
-    // Smart Date Picker State
-    var activeDateStep by remember { mutableStateOf<DateStep?>(null) }
 
     var driverYear by remember { mutableStateOf<String?>(null) }
     var location by remember { mutableStateOf("") }
@@ -446,67 +448,28 @@ fun BasicInfoScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // --- REDESIGNED DATE OF BIRTH SECTION ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                // Month Field
-                DateDropdownField(
-                    label = "DATE OF BIRTH",
-                    value = dobMonth,
-                    placeholder = "MM",
-                    modifier = Modifier.weight(1f),
-                    isError = dobError != null,
-                    isRequired = true,
-                    onClick = {
-                        focusManager.clearFocus()
-                        activeDateStep = DateStep.MONTH
-                    }
-                )
-
-                // Day Field
-                DateDropdownField(
-                    label = "",
-                    value = dobDay,
-                    placeholder = "DD",
-                    modifier = Modifier.weight(1f),
-                    isError = dobError != null,
-                    isRequired = true,
-                    onClick = {
-                        focusManager.clearFocus()
-                        activeDateStep = DateStep.DAY
-                    }
-                )
-
-                // Year Field
-                DateDropdownField(
-                    label = "",
-                    value = dobYear,
-                    placeholder = "YYYY",
-                    modifier = Modifier.weight(1f),
-                    isError = dobError != null,
-                    isRequired = true,
-                    onClick = {
-                        focusManager.clearFocus()
-                        activeDateStep = DateStep.YEAR
-                    }
-                )
-            }
-
-            // Date of Birth Error Message
-            dobError?.let {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = it,
-                    style = TextStyle(
-                        fontSize = 12.sp,
-                        color = Color(0xFFEF4444),
-                        fontWeight = FontWeight.Normal
-                    )
-                )
-            }
+            // --- DATE OF BIRTH SECTION ---
+            DatePickerComponent(
+                label = "DATE OF BIRTH",
+                selectedMonth = dobMonth,
+                selectedDay = dobDay,
+                selectedYear = dobYear,
+                onDateSelected = { month, day, year ->
+                    dobMonth = month
+                    dobDay = day
+                    dobYear = year
+                    dobError = if (month.isNotEmpty() && day.isNotEmpty() && year.isNotEmpty()) null else "Please select your complete date of birth"
+                    apiError = null
+                },
+                config = DatePickerConfig(
+                    allowFutureDates = false, // DOB can't be in future
+                    allowPastDates = true,
+                    minAgeYears = 18, // Must be at least 18 years old
+                    yearRange = 1900..Calendar.getInstance().get(Calendar.YEAR) // Reasonable range for DOB
+                ),
+                errorMessage = dobError,
+                isRequired = true
+            )
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -666,275 +629,13 @@ fun BasicInfoScreen(
                     firstInvalidField?.requestFocus()
                 }
             },
-            isLoading = uiState.isLoading
+            isLoading = uiState.isLoading,
+            isEditMode = isEditMode
         )
 
-        // --- SMART DATE PICKER BOTTOM SHEET ---
-        if (activeDateStep != null) {
-            ModalBottomSheet(
-                onDismissRequest = { activeDateStep = null },
-                containerColor = Color.White,
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ) {
-                DateSelectionContent(
-                    step = activeDateStep!!,
-                    onMonthSelected = {
-                        dobMonth = it
-                        dobError = if (dobDay != null && dobYear != null) null else "Please select your complete date of birth"
-                        activeDateStep = DateStep.DAY // Auto-move to Day
-                        apiError = null
-                    },
-                    onDaySelected = {
-                        dobDay = it
-                        dobError = if (dobMonth != null && dobYear != null) null else "Please select your complete date of birth"
-                        activeDateStep = DateStep.YEAR // Auto-move to Year
-                        apiError = null
-                    },
-                    onYearSelected = {
-                        dobYear = it
-                        dobError = if (dobMonth != null && dobDay != null) null else "Please select your complete date of birth"
-                        activeDateStep = null // Close sheet
-                        apiError = null
-                    },
-                    currentMonth = dobMonth,
-                    currentDay = dobDay,
-                    currentYear = dobYear
-                )
-            }
-        }
     }
 }
 
-/**
- * A specialized visual component for the Date Fields that mimics CommonDropdown
- * but doesn't have the internal logic, allowing us to control the Click
- */
-@Composable
-fun DateDropdownField(
-    label: String,
-    value: String?,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-    isError: Boolean,
-    isRequired: Boolean,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        if (label.isNotBlank()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = label.uppercase(),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Gray
-                    )
-                )
-                if (isRequired) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "*",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFEF4444)
-                        )
-                    )
-                }
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
-                .border(
-                    width = 1.dp,
-                    color = if (isError) Color(0xFFEF4444) else Color(0xFFE0E0E0),
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { onClick() }
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = value ?: placeholder,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = if (value.isNullOrBlank()) Color(0xFF9CA3AF) else AppColors.LimoBlack,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                    tint = AppColors.LimoBlack.copy(alpha = 0.6f)
-                )
-            }
-        }
-    }
-}
-
-/**
- * The Content of the Date Picker Sheet.
- * Displays different grids based on the DateStep (Month, Day, or Year).
- */
-@Composable
-fun DateSelectionContent(
-    step: DateStep,
-    onMonthSelected: (String) -> Unit,
-    onDaySelected: (String) -> Unit,
-    onYearSelected: (String) -> Unit,
-    currentMonth: String?,
-    currentDay: String?,
-    currentYear: String?
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .padding(bottom = 32.dp)
-    ) {
-        // Dynamic Title
-        Text(
-            text = when (step) {
-                DateStep.MONTH -> "Select Month"
-                DateStep.DAY -> "Select Day"
-                DateStep.YEAR -> "Select Year"
-            },
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = AppColors.LimoBlack,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        val heightModifier = Modifier.height(350.dp)
-
-        when (step) {
-            DateStep.MONTH -> {
-                val months = (1..12).map { String.format("%02d", it) }
-                val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = heightModifier,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(months.size) { index ->
-                        val value = months[index]
-                        val name = monthNames[index]
-                        val isSelected = value == currentMonth
-
-                        DateGridItem(
-                            text = name,
-                            subText = value,
-                            isSelected = isSelected,
-                            onClick = { onMonthSelected(value) }
-                        )
-                    }
-                }
-            }
-            DateStep.DAY -> {
-                val days = (1..31).map { String.format("%02d", it) }
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(7), // Calendar look
-                    modifier = heightModifier,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(days.size) { index ->
-                        val day = days[index]
-                        val isSelected = day == currentDay
-
-                        Box(
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                                .clip(CircleShape)
-                                .background(if (isSelected) AppColors.LimoOrange else Color(0xFFF3F4F6))
-                                .clickable { onDaySelected(day) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = day.toInt().toString(), // Show 1 instead of 01 for cleaner look
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Color.White else AppColors.LimoBlack
-                            )
-                        }
-                    }
-                }
-            }
-            DateStep.YEAR -> {
-                val currentYearInt = Calendar.getInstance().get(Calendar.YEAR)
-                val years = (1950..currentYearInt).map { it.toString() }.reversed()
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = heightModifier,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(years.size) { index ->
-                        val year = years[index]
-                        val isSelected = year == currentYear
-
-                        DateGridItem(
-                            text = year,
-                            isSelected = isSelected,
-                            onClick = { onYearSelected(year) }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DateGridItem(
-    text: String,
-    subText: String? = null,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .height(50.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) AppColors.LimoOrange else Color(0xFFF3F4F6))
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = text,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) Color.White else AppColors.LimoBlack,
-                fontSize = 16.sp
-            )
-            if (subText != null) {
-                Text(
-                    text = subText,
-                    fontSize = 10.sp,
-                    color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray
-                )
-            }
-        }
-    }
-}
 
 @Composable
 fun DarkDropdown(
@@ -1020,7 +721,8 @@ fun BottomNavigationRow(
     onBack: (() -> Unit)?,
     onReset: () -> Unit,
     onNext: () -> Unit,
-    isLoading: Boolean
+    isLoading: Boolean,
+    isEditMode: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -1030,7 +732,7 @@ fun BottomNavigationRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        if (onBack != null) {
+        if (onBack != null && !isEditMode) {
             IconButton(
                 onClick = onBack,
                 modifier = Modifier
@@ -1048,27 +750,29 @@ fun BottomNavigationRow(
             Spacer(modifier = Modifier.size(50.dp))
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        if (!isEditMode) {
+            Spacer(modifier = Modifier.width(16.dp))
 
-        Button(
-            onClick = onReset,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF3F4F6),
-                contentColor = AppColors.LimoBlack
-            ),
-            shape = RoundedCornerShape(50),
-            modifier = Modifier
-                .weight(1f)
-                .height(50.dp)
-        ) {
-            Text(
-                text = "Reset",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp
-            )
+            Button(
+                onClick = onReset,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFF3F4F6),
+                    contentColor = AppColors.LimoBlack
+                ),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+            ) {
+                Text(
+                    text = "Reset",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
         }
-
-        Spacer(modifier = Modifier.width(12.dp))
 
         Button(
             onClick = onNext,
@@ -1083,22 +787,31 @@ fun BottomNavigationRow(
             enabled = !isLoading
         ) {
             if (isLoading) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                ShimmerCircle(size = 24.dp)
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isEditMode) {
                     Text(
-                        text = "Next",
+                        text = "Save",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
                         color = Color.White
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Next",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

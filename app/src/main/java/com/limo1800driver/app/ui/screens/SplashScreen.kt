@@ -29,32 +29,33 @@ fun SplashScreen(
 ) {
     var scale by remember { mutableStateOf(0.3f) }
     var alpha by remember { mutableStateOf(0f) }
+    var syncedNextStep by remember { mutableStateOf<String?>(null) }
     var hasSynced by remember { mutableStateOf(false) }
-    
+
     // Sync registration state if needed
     LaunchedEffect(Unit) {
         viewModel.syncRegistrationState { nextStep ->
+            syncedNextStep = nextStep
             hasSynced = true
         }
     }
-    
+
     LaunchedEffect(hasSynced) {
         if (hasSynced) {
             // Start with fade in and zoom in simultaneously
             alpha = 1f
             scale = 1.0f
             kotlinx.coroutines.delay(1200)
-            
+
             // Hold for a moment
             kotlinx.coroutines.delay(500)
-            
+
             // Fade out
             alpha = 0f
             kotlinx.coroutines.delay(300)
-            
-            // Get the synced next step
-            val state = viewModel.uiState.value
-            onFinished(null) // Pass null, MainActivity will determine route from stored state
+
+            // Pass the synced next step to MainActivity
+            onFinished(syncedNextStep)
         }
     }
 

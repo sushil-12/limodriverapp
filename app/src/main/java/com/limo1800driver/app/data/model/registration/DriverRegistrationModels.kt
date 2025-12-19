@@ -542,7 +542,15 @@ data class ProfilePictureStepResponse(
 
 data class ProfilePictureStepPrefillData(
     @SerializedName("profile_image")
-    val profileImage: String?
+    val profileImage: ProfileImageData?
+)
+
+data class ProfileImageData(
+    @SerializedName("id")
+    val id: String?,
+
+    @SerializedName("url")
+    val url: String?
 )
 
 // ==================== Vehicle Insurance ====================
@@ -1229,19 +1237,19 @@ data class VehicleCurrency(
 )
 
 data class VehicleInfoData(
-    @SerializedName("vehicle_type")
+    @SerializedName("vehicleType")
     val vehicleType: String?,
 
-    @SerializedName("vehicle_color")
+    @SerializedName("vehicleColor")
     val vehicleColor: String?,
 
-    @SerializedName("vehicle_year")
+    @SerializedName("vehicleYear")
     val vehicleYear: String?,
 
-    @SerializedName("vehicle_make")
+    @SerializedName("vehicleMake")
     val vehicleMake: String?,
 
-    @SerializedName("vehicle_model")
+    @SerializedName("vehicleModel")
     val vehicleModel: String?,
 
     @SerializedName("vehicle_image")

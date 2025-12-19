@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.viewmodel.DriverEarningsViewModel
 
 /**
@@ -152,9 +153,8 @@ fun EarningsView(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = orangeColor
+                        ShimmerCircle(
+                            size = 24.dp,
                         )
                         Text(
                             text = "Loading recent payments...",

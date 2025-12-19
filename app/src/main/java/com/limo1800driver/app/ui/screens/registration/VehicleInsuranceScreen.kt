@@ -6,10 +6,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Error
@@ -28,6 +32,9 @@ import com.limo1800driver.app.data.model.registration.VehicleInsuranceRequest
 import coil.compose.AsyncImage
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.CommonDropdown
+import com.limo1800driver.app.ui.components.DatePickerComponent
+import com.limo1800driver.app.ui.components.DatePickerConfig
+import com.limo1800driver.app.ui.components.DateStep
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
 import com.limo1800driver.app.ui.components.camera.DocumentSide
 import com.limo1800driver.app.ui.components.camera.DocumentType
@@ -39,10 +46,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import java.util.Calendar
 
+// Enum to track which step of the date selection is active
+enum class DateStep { MONTH, DAY, YEAR }
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehicleInsuranceScreen(
     onNext: (String?) -> Unit,
@@ -52,7 +64,7 @@ fun VehicleInsuranceScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val registrationNavigationState = remember { RegistrationNavigationState() }
-    
+
     var insuranceCompanyName by remember { mutableStateOf("") }
     var agencyName by remember { mutableStateOf("") }
     var policyNumber by remember { mutableStateOf("") }
@@ -62,7 +74,8 @@ fun VehicleInsuranceScreen(
     var expiryMonth by remember { mutableStateOf<String?>(null) }
     var expiryDay by remember { mutableStateOf<String?>(null) }
     var expiryYear by remember { mutableStateOf<String?>(null) }
-    
+
+
     var insuranceImage by remember { mutableStateOf<Bitmap?>(null) }
     var insuranceImageId by remember { mutableStateOf<Int?>(null) }
     var insuranceImageUrl by remember { mutableStateOf<String?>(null) }
@@ -73,24 +86,23 @@ fun VehicleInsuranceScreen(
     var insuranceCompanyNameError by remember { mutableStateOf<String?>(null) }
     var policyNumberError by remember { mutableStateOf<String?>(null) }
     var agentPhoneError by remember { mutableStateOf<String?>(null) }
-    var expiryMonthError by remember { mutableStateOf<String?>(null) }
-    var expiryYearError by remember { mutableStateOf<String?>(null) }
+    var expiryDateError by remember { mutableStateOf<String?>(null) }
     var insuranceLimitError by remember { mutableStateOf<String?>(null) }
     var insuranceImageError by remember { mutableStateOf<String?>(null) }
     var apiError by remember { mutableStateOf<String?>(null) }
-    
+
     val months = (1..12).map { String.format("%02d", it) }
     val days = (1..31).map { String.format("%02d", it) }
     val years = (2024..2035).map { it.toString() }
     val limits = listOf("$500,000", "$1,000,000", "$1,500,000", "$5,000,000")
     val defaultAgentIsd = "+1"
     val defaultAgentCountry = "US"
-    
+
     // Fetch step data on load
     LaunchedEffect(Unit) {
         viewModel.fetchVehicleInsuranceStep()
     }
-    
+
     // Prefill data
     LaunchedEffect(uiState.prefillData) {
         uiState.prefillData?.let { prefill ->
@@ -125,7 +137,7 @@ fun VehicleInsuranceScreen(
             }
         }
     }
-    
+
     // Handle success
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
@@ -134,7 +146,7 @@ fun VehicleInsuranceScreen(
             viewModel.consumeSuccess()
         }
     }
-    
+
     // Validation function
     fun validateField(fieldName: String, value: String): String? {
         return when (fieldName) {
@@ -165,8 +177,7 @@ fun VehicleInsuranceScreen(
             insuranceCompanyNameError = null
             policyNumberError = null
             agentPhoneError = null
-            expiryMonthError = null
-            expiryYearError = null
+            expiryDateError = null
             insuranceLimitError = null
             insuranceImageError = null
         }
@@ -179,7 +190,7 @@ fun VehicleInsuranceScreen(
             showErrorDialog = true
         }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -251,9 +262,9 @@ fun VehicleInsuranceScreen(
                 isRequired = true,
                 errorMessage = insuranceCompanyNameError
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Agency Name
             CommonTextField(
                 label = "Agent NAME",
@@ -261,9 +272,9 @@ fun VehicleInsuranceScreen(
                 text = agencyName,
                 onValueChange = { agencyName = it }
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Policy Number
             CommonTextField(
                 label = "POLICY NUMBER",
@@ -277,9 +288,9 @@ fun VehicleInsuranceScreen(
                 isRequired = true,
                 errorMessage = policyNumberError
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Agent Phone
             CommonTextField(
                 label = "AGENCY/INSURANCE TELEPHONE",
@@ -293,9 +304,9 @@ fun VehicleInsuranceScreen(
                 isRequired = true,
                 errorMessage = agentPhoneError
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Agent Email
             CommonTextField(
                 label = "INSURANCE / AGENT EMAIL",
@@ -303,54 +314,33 @@ fun VehicleInsuranceScreen(
                 text = agentEmail,
                 onValueChange = { agentEmail = it }
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
-            // Policy Expiry Date
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                CommonDropdown(
-                    label = "POLICY EXPIRY",
-                    placeholder = "MM",
-                    selectedValue = expiryMonth,
-                    options = months,
-                    onValueSelected = {
-                        expiryMonth = it
-                        expiryMonthError = if (it.isNullOrBlank()) "Month is required" else null
-                        apiError = null
-                    },
-                    modifier = Modifier.weight(1f),
-                    isRequired = true,
-                    errorMessage = expiryMonthError
-                )
-                CommonDropdown(
-                    label = "",
-                    placeholder = "DD",
-                    selectedValue = expiryDay,
-                    options = days,
-                    onValueSelected = { expiryDay = it },
-                    modifier = Modifier.weight(1f)
-                )
-                CommonDropdown(
-                    label = "",
-                    placeholder = "YYYY",
-                    selectedValue = expiryYear,
-                    options = years,
-                    onValueSelected = {
-                        expiryYear = it
-                        expiryYearError = if (it.isNullOrBlank()) "Year is required" else null
-                        apiError = null
-                    },
-                    modifier = Modifier.weight(1f),
-                    isRequired = true,
-                    errorMessage = expiryYearError
-                )
-            }
-            
+
+            // --- POLICY EXPIRY DATE SECTION ---
+            DatePickerComponent(
+                label = "POLICY EXPIRY",
+                selectedMonth = expiryMonth,
+                selectedDay = expiryDay,
+                selectedYear = expiryYear,
+                onDateSelected = { month, day, year ->
+                    expiryMonth = month
+                    expiryDay = day
+                    expiryYear = year
+                    expiryDateError = if (month.isNotEmpty() && day.isNotEmpty() && year.isNotEmpty()) null else "Please select your complete policy expiry date"
+                    apiError = null
+                },
+                config = DatePickerConfig(
+                    allowFutureDates = true, // Policy expiry can be in future
+                    allowPastDates = false, // But not in past
+                    yearRange = Calendar.getInstance().get(Calendar.YEAR)..(Calendar.getInstance().get(Calendar.YEAR) + 10) // Next 10 years
+                ),
+                errorMessage = expiryDateError,
+                isRequired = true
+            )
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Insurance Limit
             CommonDropdown(
                 label = "INSURANCE LIMIT",
@@ -365,9 +355,9 @@ fun VehicleInsuranceScreen(
                 isRequired = true,
                 errorMessage = insuranceLimitError
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Insurance Document Image
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -514,7 +504,7 @@ fun VehicleInsuranceScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
-        
+
         // Bottom Bar (match BankDetails styling)
         Column(
             modifier = Modifier
@@ -528,8 +518,7 @@ fun VehicleInsuranceScreen(
                     insuranceCompanyNameError = null
                     policyNumberError = null
                     agentPhoneError = null
-                    expiryMonthError = null
-                    expiryYearError = null
+                    expiryDateError = null
                     insuranceLimitError = null
                     insuranceImageError = null
                     apiError = null
@@ -564,15 +553,9 @@ fun VehicleInsuranceScreen(
                         hasErrors = true
                     }
 
-                    // Validate Expiry Month
-                    if (expiryMonth.isNullOrBlank()) {
-                        expiryMonthError = "Month is required"
-                        hasErrors = true
-                    }
-
-                    // Validate Expiry Year
-                    if (expiryYear.isNullOrBlank()) {
-                        expiryYearError = "Year is required"
+                    // Validate Expiry Date
+                    if (expiryMonth.isNullOrBlank() || expiryDay.isNullOrBlank() || expiryYear.isNullOrBlank()) {
+                        expiryDateError = "Please select your complete policy expiry date"
                         hasErrors = true
                     }
 
@@ -629,7 +612,7 @@ fun VehicleInsuranceScreen(
             }
         }
     }
-    
+
     // Camera Screen
     if (showCamera) {
         DocumentCameraScreen(
@@ -658,18 +641,19 @@ fun VehicleInsuranceScreen(
             onDismiss = { showCamera = false }
         )
     }
-    
+
+
     // Error Dialog
     if (showErrorDialog && uiState.error != null) {
         AlertDialog(
-            onDismissRequest = { 
+            onDismissRequest = {
                 showErrorDialog = false
                 viewModel.clearError()
             },
             title = { Text("Error") },
             text = { Text(uiState.error ?: "Unknown error") },
             confirmButton = {
-                TextButton(onClick = { 
+                TextButton(onClick = {
                     showErrorDialog = false
                     viewModel.clearError()
                 }) {
@@ -679,4 +663,5 @@ fun VehicleInsuranceScreen(
         )
     }
 }
+
 

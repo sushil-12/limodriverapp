@@ -89,7 +89,14 @@ class AccountSettingsViewModel @Inject constructor(
     fun getDriverImageURL(): String? {
         return _uiState.value.profile?.driverImage
     }
-    
+
+    /**
+     * Get driver rating
+     */
+    fun getDriverRating(): String {
+        return _uiState.value.profile?.driverRating?.toString() ?: "0.0"
+    }
+
     /**
      * Check if should show company details
      */
@@ -97,6 +104,13 @@ class AccountSettingsViewModel @Inject constructor(
         return _uiState.value.affiliateType?.lowercase() != "gig_operator"
     }
     
+    /**
+     * Refresh profile data - public method for manual refresh
+     */
+    fun refreshProfileData() {
+        fetchProfileData()
+    }
+
     /**
      * Clear error state
      */

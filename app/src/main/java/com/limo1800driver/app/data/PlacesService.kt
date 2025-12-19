@@ -1,32 +1,35 @@
 package com.limo1800driver.app.data
 
 import android.content.Context
+import android.util.Log
 import com.google.android.libraries.places.api.Places
-import com.google.android.libraries.places.api.model.AddressComponent
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.model.TypeFilter
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.android.libraries.places.api.net.PlacesClient
 import com.limo1800driver.app.data.network.NetworkConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import android.util.Log
 
 class PlacesService(private val context: Context) {
 
+    // 1. OPTIMIZATION: Initialize Client once to save memory/battery
+    private val placesClient: PlacesClient by lazy {
+        Places.createClient(context)
+    }
+
     init {
-        // Initialize Places API if not already initialized
         if (!Places.isInitialized()) {
             try {
-                Places.initialize(context, NetworkConfig.GOOGLE_PLACES_API_KEY)
+                // Use applicationContext to prevent activity leaks
+                Places.initialize(context.applicationContext, NetworkConfig.GOOGLE_PLACES_API_KEY)
                 Log.d("PlacesService", "Places API initialized successfully")
             } catch (e: Exception) {
                 Log.e("PlacesService", "Failed to initialize Places API", e)
             }
-        } else {
-            Log.d("PlacesService", "Places API is already initialized")
         }
     }
 
@@ -37,18 +40,19 @@ class PlacesService(private val context: Context) {
         try {
             if (query.length < 2) return@withContext emptyList()
 
-            Log.d("PlacesService", "Getting predictions for query: $query")
             val token = AutocompleteSessionToken.newInstance()
             val requestBuilder = FindAutocompletePredictionsRequest.builder()
                 .setQuery(query)
                 .setSessionToken(token)
-                .apply {
-                    typeFilter?.let { setTypeFilter(it) }
-                }
-            
+
+            typeFilter?.let { requestBuilder.setTypeFilter(it) }
+
             val request = requestBuilder.build()
-            val response = Places.createClient(context).findAutocompletePredictions(request).await()
-            val predictions = response.autocompletePredictions.map { prediction ->
+
+            // Use the single instance client
+            val response = placesClient.findAutocompletePredictions(request).await()
+
+            response.autocompletePredictions.map { prediction ->
                 PlacePrediction(
                     placeId = prediction.placeId,
                     primaryText = prediction.getPrimaryText(null).toString(),
@@ -56,9 +60,6 @@ class PlacesService(private val context: Context) {
                     fullText = prediction.getFullText(null).toString()
                 )
             }.take(10)
-            
-            Log.d("PlacesService", "Found ${predictions.size} predictions")
-            predictions
         } catch (e: Exception) {
             Log.e("PlacesService", "Error getting place predictions", e)
             emptyList()
@@ -77,20 +78,30 @@ class PlacesService(private val context: Context) {
                 )
             ).build()
 
-            val response = Places.createClient(context).fetchPlace(request).await()
+            val response = placesClient.fetchPlace(request).await()
             val place = response.place
             val addressComponents = place.addressComponents?.asList() ?: emptyList()
             val latLng = place.latLng
 
+            // --- Extraction Logic ---
+
             val streetNumber = addressComponents.find { it.types.contains("street_number") }?.name ?: ""
             val route = addressComponents.find { it.types.contains("route") }?.name ?: ""
+
+            // 2. ROBUSTNESS: Check sublocality if locality is missing (common in large metros)
             val city = addressComponents.find { it.types.contains("locality") }?.name
-                ?: addressComponents.find { it.types.contains("postal_town") }?.name ?: ""
-            val state = addressComponents.find { it.types.contains("administrative_area_level_1") }?.name ?: ""
-            val postalCodeComponent = addressComponents.find { it.types.contains("postal_code") }
-            val postalCode = postalCodeComponent?.name ?: ""
+                ?: addressComponents.find { it.types.contains("sublocality") }?.name
+                ?: addressComponents.find { it.types.contains("postal_town") }?.name
+                ?: ""
+
+            // 3. DATA FIX: Use shortName for State (e.g., "NY" vs "New York")
+            val stateComponent = addressComponents.find { it.types.contains("administrative_area_level_1") }
+            val state = stateComponent?.shortName ?: stateComponent?.name ?: ""
+
+            val postalCode = addressComponents.find { it.types.contains("postal_code") }?.name ?: ""
+
+            // 4. DATA FIX: Use shortName for Country (e.g., "US" vs "United States")
             val countryComponent = addressComponents.find { it.types.contains("country") }
-            // Use the ISO 3166-1 alpha-2 country code (shortName) to satisfy backend expectations
             val country = countryComponent?.shortName ?: countryComponent?.name ?: ""
 
             PlaceDetails(
@@ -131,4 +142,3 @@ data class PlaceDetails(
     val latitude: Double? = null,
     val longitude: Double? = null
 )
-

@@ -50,6 +50,7 @@ import com.limo1800driver.app.ui.screens.dashboard.WalletScreen
 import com.limo1800driver.app.ui.screens.dashboard.PreArrangedRidesScreen
 import com.limo1800driver.app.ui.screens.dashboard.NotificationsScreen
 import com.limo1800driver.app.ui.screens.dashboard.AccountSettingsScreen
+import com.limo1800driver.app.ui.screens.dashboard.ProfileViewScreen
 import com.limo1800driver.app.ui.screens.booking.BookingPreviewScreen
 import com.limo1800driver.app.ui.screens.booking.EditBookingDetailsAndRatesScreen
 import com.limo1800driver.app.ui.screens.booking.FinalizeBookingScreen
@@ -59,6 +60,7 @@ import com.limo1800driver.app.ui.screens.ride.RideInProgressScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.limo1800driver.app.ui.theme.LimoDriverAppTheme
+import timber.log.Timber
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -112,8 +114,20 @@ fun DriverAppNavigation(
     val registrationNavigationState = remember { RegistrationNavigationState() }
 
     fun navigateToDashboardHome(openDrawer: Boolean = false) {
+        // Check if we're already on the Dashboard route
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        if (currentRoute == NavRoutes.Dashboard) {
+            // Already on Dashboard, just open the drawer if requested
+            if (openDrawer) {
+                runCatching {
+                    navController.currentBackStackEntry?.savedStateHandle?.set("openDrawer", true)
+                }
+            }
+            return
+        }
+
         if (openDrawer) {
-            // Signal Dashboard to open the drawer when we return.
+            // Signal Dashboard to open the drawer when we navigate to it.
             runCatching {
                 navController.getBackStackEntry(NavRoutes.Dashboard)
                     .savedStateHandle["openDrawer"] = true
@@ -173,34 +187,39 @@ fun DriverAppNavigation(
         startDestination = NavRoutes.Splash
     ) {
         composable(NavRoutes.Splash) {
-            SplashScreen(onFinished = {
+            SplashScreen(onFinished = { syncedNextStep ->
                 val isAuthenticated = tokenManager.isAuthenticated()
                 val hasSeenOnboarding = tokenManager.hasSeenOnboarding()
-                
+
+                Timber.tag("MainActivity").d("Splash finished with syncedNextStep: $syncedNextStep")
+
                 when {
                     isAuthenticated -> {
                         // Check profile completion status first (priority check)
                         val isProfileCompleted = tokenManager.isProfileCompleted()
-                        
+
                         if (isProfileCompleted) {
                             // Profile completed, go directly to dashboard
+                            Timber.tag("MainActivity").d("Profile completed, navigating to dashboard")
                             navigateToRegistrationStep("dashboard", true)
                         } else {
-                            // Check stored registration state
-                            val registrationState = tokenManager.getDriverRegistrationState()
-                            val nextStep = registrationState?.nextStep ?: tokenManager.getNextStep()
-                            
-                            if (registrationState?.isCompleted == true || nextStep == null || nextStep == "dashboard") {
-                                // Registration complete, go to dashboard
+                            // Use the synced next step from SplashScreen, fallback to stored state
+                            val nextStep = syncedNextStep ?: run {
+                                val registrationState = tokenManager.getDriverRegistrationState()
+                                registrationState?.nextStep ?: tokenManager.getNextStep()
+                            }
+
+                            Timber.tag("MainActivity").d("Using nextStep: $nextStep (synced: ${syncedNextStep != null})")
+
+                            if (syncedNextStep == null || nextStep == null || nextStep == "dashboard") {
+                                // Registration complete, go to dashboard and mark profile as completed
+                                Timber.tag("MainActivity").d("Registration completed, marking profile as completed and going to dashboard")
+                                tokenManager.saveProfileCompleted(true)
                                 navigateToRegistrationStep("dashboard", true)
-                            } else if (nextStep != null) {
-                                // Navigate to next registration step
-                                navigateToRegistrationStep(nextStep, true, forceDirect = false)
                             } else {
-                                // Fallback to phone entry
-                                navController.navigate(NavRoutes.PhoneEntry) {
-                                    popUpTo(NavRoutes.Splash) { inclusive = true }
-                                }
+                                // Navigate to next registration step
+                                Timber.tag("MainActivity").d("Navigating to next registration step: $nextStep")
+                                navigateToRegistrationStep(nextStep, true, forceDirect = false)
                             }
                         }
                     }
@@ -365,9 +384,49 @@ fun DriverAppNavigation(
         
         // Profile picture edit when launched from Account Settings -> Profile
         composable(NavRoutes.ProfilePictureFromAccountSettings) {
+            val profileViewModel: com.limo1800driver.app.ui.viewmodel.DriverProfileViewModel = hiltViewModel()
             ProfilePictureScreen(
-                onNext = { _ -> navController.popBackStack() }, // return to Account Settings
+                onNext = { _ ->
+                    // Profile picture updated, refresh the cache
+                    profileViewModel.refreshDriverProfile()
+                    navController.popBackStack()
+                },
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        // Company Info edit from Account Settings
+        composable(NavRoutes.CompanyInfoFromAccountSettings) {
+            CompanyInfoScreen(
+                onNext = { _ ->
+                    // Company info updated, just go back to Account Settings
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() },
+                isEditMode = true,
+                onUpdateComplete = { navController.popBackStack() }
+            )
+        }
+
+        // Company Documents edit from Account Settings
+        composable(NavRoutes.CompanyDocumentsFromAccountSettings) {
+            CompanyDocumentsScreen(
+                onNext = { _ ->
+                    // Company documents updated, just go back to Account Settings
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() },
+                isEditMode = true,
+                onUpdateComplete = { navController.popBackStack() }
+            )
+        }
+
+        // Basic Info edit from Account Settings/Profile View
+        composable(NavRoutes.BasicInfoFromAccountSettings) {
+            BasicInfoScreen(
+                onNext = { _ -> navController.popBackStack() }, // Return to previous screen on save
+                onBack = { navController.popBackStack() },      // Allow going back
+                isEditMode = true                                // Enable edit mode
             )
         }
 
@@ -406,8 +465,13 @@ fun DriverAppNavigation(
 
         // iOS-style coordinator flow used from Account Settings
         composable(NavRoutes.VehicleDetailsCoordinatorFromAccountSettings) {
+            val profileViewModel: com.limo1800driver.app.ui.viewmodel.DriverProfileViewModel = hiltViewModel()
             VehicleDetailsCoordinatorFromAccountSettings(
-                onClose = { navController.popBackStack() }
+                onClose = { navController.popBackStack() },
+                onProfileUpdated = {
+                    // Refresh driver profile cache when vehicle details are updated
+                    profileViewModel.refreshDriverProfile()
+                }
             )
         }
 
@@ -481,6 +545,7 @@ fun DriverAppNavigation(
                 .collectAsStateWithLifecycle()
 
             com.limo1800driver.app.ui.screens.dashboard.DashboardScreen(
+                navBackStackEntry = it,
                 openDrawerRequest = openDrawer,
                 onDrawerRequestConsumed = { it.savedStateHandle["openDrawer"] = false },
                 onNavigateToBooking = { bookingId ->
@@ -672,12 +737,23 @@ fun DriverAppNavigation(
                 onBack = { navigateToDashboardHome(openDrawer = true) }
             )
         }
-        
+
+        composable(NavRoutes.ProfileView) {
+            ProfileViewScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToBasicInfo = {
+                    navController.navigate(NavRoutes.BasicInfoFromAccountSettings) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
         composable(NavRoutes.AccountSettings) {
             AccountSettingsScreen(
                 onBack = { navigateToDashboardHome(openDrawer = true) },
                 onNavigateToProfile = {
-                    navController.navigate(NavRoutes.UserProfileDetails) {
+                    navController.navigate(NavRoutes.ProfileView) {
                         launchSingleTop = true
                     }
                 },
@@ -687,7 +763,12 @@ fun DriverAppNavigation(
                     }
                 },
                 onNavigateToCompanyInfo = {
-                    navController.navigate(NavRoutes.CompanyInfo) {
+                    navController.navigate(NavRoutes.CompanyInfoFromAccountSettings) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToCompanyDocuments = {
+                    navController.navigate(NavRoutes.CompanyDocumentsFromAccountSettings) {
                         launchSingleTop = true
                     }
                 },

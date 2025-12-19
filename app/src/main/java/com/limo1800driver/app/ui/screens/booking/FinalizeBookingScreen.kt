@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -19,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.viewmodel.BookingPreviewViewModel
 
 @Composable
@@ -48,7 +48,7 @@ fun FinalizeBookingScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         when {
-            state.isLoading -> CircularProgressIndicator()
+            state.isLoading -> ShimmerCircle(size = 32.dp)
             state.error != null -> Text(text = state.error ?: "Error", color = MaterialTheme.colorScheme.error)
             state.preview != null -> {
                 val p = state.preview!!

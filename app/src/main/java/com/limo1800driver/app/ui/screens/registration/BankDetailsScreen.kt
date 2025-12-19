@@ -2,13 +2,18 @@ package com.limo1800driver.app.ui.screens.registration
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable // Required for the overlay
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +30,7 @@ import com.limo1800driver.app.data.model.registration.BankDetailsRequest
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.LocationAutocomplete
+import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.ui.theme.*
@@ -300,6 +306,7 @@ fun BankDetailsScreen(
                 onValueChange = {
                     bankName = it
                     bankNameError = validateField("bankName", it)
+                    bankAddressError = null // Clear bank address error when bank name changes
                     apiError = null
                 },
                 onLocationSelected = { fullAddress, name, _, _, displayText, _, _, countryCode, placeLabel ->
@@ -466,11 +473,17 @@ fun BankDetailsScreen(
                 )
 
                 // This overlay Box makes the entire text field area clickable
+                val interactionSource = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .clickable { currencySheetOpen = true },
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null, // <--- This removes the gray ripple/shadow effect
+                            onClick = { currencySheetOpen = true }
+                        ),
                     contentAlignment = Alignment.CenterEnd
+
                 ) {
                     // Add the dropdown arrow icon to match CommonDropdown style
                     Icon(
@@ -723,9 +736,8 @@ fun BankDetailsScreen(
                     enabled = !uiState.isLoading
                 ) {
                     if (uiState.isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(24.dp),
+                        ShimmerCircle(
+                            size = 24.dp,
                             strokeWidth = 2.5.dp
                         )
                     } else {
@@ -747,53 +759,76 @@ fun BankDetailsScreen(
         ModalBottomSheet(
             onDismissRequest = { currencySheetOpen = false },
             sheetState = currencySheetState,
-            containerColor = Color.White
+            containerColor = Color.White,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // --- Header ---
                 Text(
                     text = "Select Currency",
-                    style = AppTextStyles.phoneEntryHeadline.copy(
-                        color = Color.Black,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.LimoBlack
+                    ),
+                    modifier = Modifier.padding(top = 4.dp)
                 )
 
-                // Using OutlinedTextField for search to match app style
+                // --- Search Bar ---
                 OutlinedTextField(
                     value = currencySearch,
                     onValueChange = { currencySearch = it },
-                    placeholder = { Text("Search currency") },
-                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            "Search (e.g. USD, Euro)",
+                            style = TextStyle(color = Color.Gray, fontSize = 14.sp)
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth(),
                     singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = Color.Gray
+                        )
+                    },
+                    shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color(0xFFE89148),
-                        unfocusedBorderColor = Color.LightGray
+                        focusedContainerColor = Color(0xFFFAFAFA),
+                        unfocusedContainerColor = Color(0xFFFAFAFA),
+                        focusedBorderColor = AppColors.LimoOrange,
+                        unfocusedBorderColor = Color(0xFFE5E7EB), // Light gray
+                        cursorColor = AppColors.LimoOrange
                     )
                 )
 
-                val filtered = currencyOptions.filter {
-                    currencySearch.isBlank() ||
-                            it.display.contains(currencySearch, ignoreCase = true) ||
-                            it.code.contains(currencySearch, ignoreCase = true)
+                val filtered = remember(currencyOptions, currencySearch) {
+                    currencyOptions.filter {
+                        currencySearch.isBlank() ||
+                                it.display.contains(currencySearch, ignoreCase = true) ||
+                                it.code.contains(currencySearch, ignoreCase = true)
+                    }
                 }
 
-                // Scrollable list for currencies
-                Column(
+                // --- Scrollable List (Optimized) ---
+                LazyColumn(
                     modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .padding(bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp) // Space for navigation bar
+                        .weight(1f, fill = false), // Takes available space but doesn't force full height
+                    verticalArrangement = Arrangement.Top
                 ) {
-                    filtered.forEach { option ->
-                        Surface(
+                    items(filtered) { option ->
+                        val isSelected = currency == option.code
+
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
@@ -803,40 +838,87 @@ fun BankDetailsScreen(
                                     currencySearch = ""
                                     currencyError = null
                                     apiError = null
-                                },
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFF8F8F8),
-                            tonalElevation = 1.dp
+                                }
+                                .padding(vertical = 12.dp, horizontal = 4.dp), // Comfortable touch target
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .padding(vertical = 10.dp, horizontal = 14.dp)
-                            ) {
-                                Text(
-                                    text = option.display,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
-                                    color = Color.Black
-                                )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // Currency Code Badge
+                                    Surface(
+                                        color = if (isSelected) AppColors.LimoOrange.copy(alpha = 0.1f) else Color(0xFFF3F4F6),
+                                        shape = RoundedCornerShape(4.dp),
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = option.code,
+                                            style = TextStyle(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                color = if (isSelected) AppColors.LimoOrange else Color.Black
+                                            ),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+
+                                    // Currency Name
+                                    Text(
+                                        text = option.display,
+                                        style = TextStyle(
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 15.sp,
+                                            color = if (isSelected) AppColors.LimoOrange else AppColors.LimoBlack
+                                        )
+                                    )
+                                }
+
+                                // Country Name (Secondary Text)
                                 Text(
                                     text = option.countryName,
+                                    style = TextStyle(
+                                        fontSize = 13.sp,
+                                        color = Color.Gray
+                                    ),
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+
+                            // Selection Checkmark
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = AppColors.LimoOrange,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        // Clean Divider
+                        HorizontalDivider(
+                            color = Color(0xFFF3F4F6),
+                            thickness = 1.dp
+                        )
+                    }
+
+                    if (filtered.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No currency found",
                                     color = Color.Gray,
-                                    fontSize = 12.sp
+                                    fontSize = 14.sp
                                 )
                             }
                         }
                     }
-
-                    if (filtered.isEmpty()) {
-                        Text(
-                            text = "No currency found",
-                            color = Color.Gray,
-                            modifier = Modifier.padding(vertical = 16.dp),
-                            fontSize = 13.sp
-                        )
-                    }
                 }
-
             }
         }
     }
