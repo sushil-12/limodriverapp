@@ -230,8 +230,43 @@ fun VehicleRatesScreen(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
+
+            // --- UPDATED CALL SITE ---
             if (state.currentStep == RateStep.BASE_RATES) {
-                BaseRatesStep(state, viewModel)
+                BaseRatesStep(
+                    state = state,
+                    vm = viewModel,
+                    currencyError = currencyError,
+                    perMileError = perMileError,
+                    upToMilesError = upToMilesError,
+                    additionalPerMileError = additionalPerMileError,
+                    minCityIntercityError = minCityIntercityError,
+                    onCurrencyChange = {
+                        viewModel.onEvent(RateEvent.SelectCurrency(it))
+                        currencyError = validateField("currency", it)
+                        apiError = null
+                    },
+                    onPerMileChange = {
+                        viewModel.onEvent(RateEvent.SetPerMile(it))
+                        perMileError = validateField("perMile", it)
+                        apiError = null
+                    },
+                    onUpToMilesChange = {
+                        viewModel.onEvent(RateEvent.SetUpToMiles(it))
+                        upToMilesError = validateField("upToMiles", it)
+                        apiError = null
+                    },
+                    onAdditionalPerMileChange = {
+                        viewModel.onEvent(RateEvent.SetAdditionalPerMile(it))
+                        additionalPerMileError = validateField("additionalPerMile", it)
+                        apiError = null
+                    },
+                    onMinCityIntercityChange = {
+                        viewModel.onEvent(RateEvent.SetField("minCityIntercity", it))
+                        minCityIntercityError = validateField("minCityIntercity", it)
+                        apiError = null
+                    }
+                )
             } else {
                 AmenityTaxStep(state, viewModel)
             }
@@ -264,8 +299,24 @@ private fun HeaderCard(state: VehicleRatesState) {
     }
 }
 
+// --- UPDATED CHILD COMPOSABLE SIGNATURE ---
 @Composable
-private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
+private fun BaseRatesStep(
+    state: VehicleRatesState,
+    vm: VehicleRatesViewModel,
+    // Error States passed down
+    currencyError: String?,
+    perMileError: String?,
+    upToMilesError: String?,
+    additionalPerMileError: String?,
+    minCityIntercityError: String?,
+    // Callbacks passed down
+    onCurrencyChange: (String) -> Unit,
+    onPerMileChange: (String) -> Unit,
+    onUpToMilesChange: (String) -> Unit,
+    onAdditionalPerMileChange: (String) -> Unit,
+    onMinCityIntercityChange: (String) -> Unit
+) {
     // Vehicle details card (match reference design)
     Row(
         modifier = Modifier
@@ -303,13 +354,12 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
                 }
             }
         }
-        
-        // Vehicle image on the right (bigger like reference)
+
+        // Vehicle image on the right
         Box(
             modifier = Modifier
                 .width(96.dp)
                 .height(54.dp)
-                // Order matters: draw border, then clip content so border is visible
                 .border(1.dp, Color.Gray.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color.White),
@@ -323,7 +373,6 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                // Placeholder when no image - matching iOS design
                 Icon(
                     imageVector = Icons.Default.CameraAlt,
                     contentDescription = null,
@@ -339,13 +388,9 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
         placeholder = "Select Currency",
         selectedValue = state.selectedCurrency,
         options = state.currencyOptions,
-        onValueSelected = {
-            vm.onEvent(RateEvent.SelectCurrency(it))
-            currencyError = validateField("currency", it)
-            apiError = null
-        },
+        onValueSelected = onCurrencyChange, // Use passed callback
         isRequired = true,
-        errorMessage = currencyError
+        errorMessage = currencyError // Use passed error
     )
 
     Spacer(modifier = Modifier.height(10.dp))
@@ -369,14 +414,10 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
             placeholder = "Select",
             selectedValue = state.perMile,
             options = state.perMileOptions,
-            onValueSelected = {
-                vm.onEvent(RateEvent.SetPerMile(it))
-                perMileError = validateField("perMile", it)
-                apiError = null
-            },
+            onValueSelected = onPerMileChange, // Use passed callback
             modifier = Modifier.weight(1f),
             isRequired = true,
-            errorMessage = perMileError
+            errorMessage = perMileError // Use passed error
         )
 
         CommonDropdown(
@@ -384,14 +425,10 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
             placeholder = "Select",
             selectedValue = state.upToMiles,
             options = state.uptoMilesOptions,
-            onValueSelected = {
-                vm.onEvent(RateEvent.SetUpToMiles(it))
-                upToMilesError = validateField("upToMiles", it)
-                apiError = null
-            },
+            onValueSelected = onUpToMilesChange, // Use passed callback
             modifier = Modifier.weight(1f),
             isRequired = true,
-            errorMessage = upToMilesError
+            errorMessage = upToMilesError // Use passed error
         )
     }
     Spacer(modifier = Modifier.height(10.dp))
@@ -400,24 +437,26 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
         placeholder = "Select",
         selectedValue = state.additionalPerMile,
         options = state.perMileOptions,
-        onValueSelected = {
-            vm.onEvent(RateEvent.SetAdditionalPerMile(it))
-            additionalPerMileError = validateField("additionalPerMile", it)
-            apiError = null
-        },
+        onValueSelected = onAdditionalPerMileChange, // Use passed callback
         isRequired = true,
-        errorMessage = additionalPerMileError
+        errorMessage = additionalPerMileError // Use passed error
     )
 
     Spacer(modifier = Modifier.height(16.dp))
 
     MoneyRow("MIN AIRPORT RATE - DEP", state.minAirportDep) { vm.onEvent(RateEvent.SetField("minAirportDep", it)) }
     MoneyRow("MIN AIRPORT RATE - ARR", state.minAirportArr) { vm.onEvent(RateEvent.SetField("minAirportArr", it)) }
-    MoneyRow("MINIMUM CITY TO INTERCITY RATE", state.minCityIntercity, true, minCityIntercityError) {
-        vm.onEvent(RateEvent.SetField("minCityIntercity", it))
-        minCityIntercityError = validateField("minCityIntercity", it)
-        apiError = null
+
+    // Updated MoneyRow call
+    MoneyRow(
+        label = "MINIMUM CITY TO INTERCITY RATE",
+        value = state.minCityIntercity,
+        required = true,
+        errorMessage = minCityIntercityError
+    ) {
+        onMinCityIntercityChange(it) // Use passed callback
     }
+
     MoneyRow("MIN CRUISE PORT RATE - ARR", state.minCruiseArr) { vm.onEvent(RateEvent.SetField("minCruiseArr", it)) }
     MoneyRow("MIN CRUISE PORT RATE - DEP", state.minCruiseDep) { vm.onEvent(RateEvent.SetField("minCruiseDep", it)) }
     MoneyRow("HOURLY RATE", state.hourlyRate) { vm.onEvent(RateEvent.SetField("hourlyRate", it)) }
@@ -446,7 +485,7 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
     }
 
     Spacer(modifier = Modifier.height(16.dp))
-    
+
     CommonDropdown(
         label = "SHARED RIDE RATE - PER PERSON",
         placeholder = "Select",
@@ -457,16 +496,16 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
     )
 
     Spacer(modifier = Modifier.height(16.dp))
-    
+
     Text(
         "You may add Early/Late rate between 11 PM and 5.30 AM.",
         fontSize = 12.sp,
         color = LimoOrange,
         style = AppTextStyles.bodyMedium
     )
-    
+
     Spacer(modifier = Modifier.height(8.dp))
-    
+
     CommonDropdown(
         label = "EARLY AM / LATE PM SURGE RATE",
         placeholder = "Select",
@@ -475,9 +514,9 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
         onValueSelected = { vm.onEvent(RateEvent.SetField("earlyLateSurge", it)) },
         isRequired = false
     )
-    
+
     Spacer(modifier = Modifier.height(16.dp))
-    
+
     CommonDropdown(
         label = "HOLIDAY SURGE RATE",
         placeholder = "Select",
@@ -486,9 +525,9 @@ private fun BaseRatesStep(state: VehicleRatesState, vm: VehicleRatesViewModel) {
         onValueSelected = { vm.onEvent(RateEvent.SetField("holidaySurge", it)) },
         isRequired = false
     )
-    
+
     Spacer(modifier = Modifier.height(16.dp))
-    
+
     CommonDropdown(
         label = "FRIDAY / SATURDAY NIGHT SURGE RATE",
         placeholder = "Select",
@@ -562,7 +601,7 @@ private fun AmenityTaxStep(state: VehicleRatesState, vm: VehicleRatesViewModel) 
         )
     }
     Spacer(modifier = Modifier.height(8.dp))
-    
+
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         CommonTextField(
             label = "SEA PORT TAX",
