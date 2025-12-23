@@ -124,8 +124,10 @@ class SplashViewModel @Inject constructor(
      */
     private fun determineNextStepFromAllSteps(steps: com.limo1800driver.app.data.model.registration.RegistrationStepsData): String? {
         // Check if user is a gig operator to skip company-related steps
-        val isGigOperator = tokenManager.getAffiliateType()?.lowercase() == "gig_operator"
-
+        val affiliateType = tokenManager.getAffiliateType()
+        val isGigOperator = affiliateType?.lowercase() == "gig_operator"
+        Timber.tag("SplashVM").d("isGigOperator and Token manager: $isGigOperator + $affiliateType")
+        Timber.tag("SplashVM").d("isGigOperator and Token manager: $isGigOperator + ${tokenManager.getAffiliateType()}" )
         return when {
             steps.basicInfo?.isCompleted != true -> "basic_info"
             // Skip company info and company documents for gig operators

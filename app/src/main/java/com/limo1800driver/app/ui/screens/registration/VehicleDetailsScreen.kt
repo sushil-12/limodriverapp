@@ -71,10 +71,25 @@ fun VehicleDetailsScreen(
     var selectedColorError by remember { mutableStateOf<String?>(null) }
     var seatsError by remember { mutableStateOf<String?>(null) }
     var luggageError by remember { mutableStateOf<String?>(null) }
+    var selectedServicesError by remember { mutableStateOf<String?>(null) }
     var nonCharterPolicyError by remember { mutableStateOf<String?>(null) }
     var charterPolicyError by remember { mutableStateOf<String?>(null) }
     var licensePlateError by remember { mutableStateOf<String?>(null) }
     var apiError by remember { mutableStateOf<String?>(null) }
+
+    // Clear errors on value changes
+    LaunchedEffect(selectedVehicleTypeId) { if (selectedVehicleTypeId != null) selectedVehicleTypeError = null }
+    LaunchedEffect(selectedMakeId) { if (selectedMakeId != null) selectedMakeError = null }
+    LaunchedEffect(selectedModelId) { if (selectedModelId != null) selectedModelError = null }
+    LaunchedEffect(numVehicles) { if (numVehicles.isNotEmpty()) numVehiclesError = null }
+    LaunchedEffect(selectedYearId) { if (selectedYearId != null) selectedYearError = null }
+    LaunchedEffect(selectedColorId) { if (selectedColorId != null) selectedColorError = null }
+    LaunchedEffect(seats) { if (seats.isNotEmpty()) seatsError = null }
+    LaunchedEffect(luggage) { if (luggage.isNotEmpty()) luggageError = null }
+    LaunchedEffect(selectedServices) { if (selectedServices.isNotEmpty()) selectedServicesError = null }
+    LaunchedEffect(nonCharterPolicy) { if (nonCharterPolicy != null) nonCharterPolicyError = null }
+    LaunchedEffect(charterPolicy) { if (charterPolicy != null) charterPolicyError = null }
+    LaunchedEffect(licensePlate) { if (licensePlate.trim().isNotEmpty()) licensePlateError = null }
 
     // Helper to find name by ID
     fun getVehicleTypeName(id: Int?): String = uiState.vehicleTypes.find { (it.idInt ?: it.id?.toIntOrNull()) == id }?.vehicleName ?: ""
@@ -103,6 +118,7 @@ fun VehicleDetailsScreen(
             selectedColorError = null
             seatsError = null
             luggageError = null
+            selectedServicesError = null
             nonCharterPolicyError = null
             charterPolicyError = null
             licensePlateError = null
@@ -120,10 +136,12 @@ fun VehicleDetailsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shadowElevation = 10.dp,
                 color = Color.White
+
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(horizontal = 16.dp, vertical = 16.dp)
                 ) {
                     Button(
@@ -140,6 +158,7 @@ fun VehicleDetailsScreen(
                             if (selectedColorId == null) { selectedColorError = "Required"; hasErrors = true }
                             if (seats.isEmpty()) { seatsError = "Required"; hasErrors = true }
                             if (luggage.isEmpty()) { luggageError = "Required"; hasErrors = true }
+                            if (selectedServices.isEmpty()) { selectedServicesError = "Please select at least one service type"; hasErrors = true }
                             if (nonCharterPolicy == null) { nonCharterPolicyError = "Required"; hasErrors = true }
                             if (charterPolicy == null) { charterPolicyError = "Required"; hasErrors = true }
                             if (licensePlate.trim().isEmpty()) { licensePlateError = "Required"; hasErrors = true }
@@ -204,9 +223,8 @@ fun VehicleDetailsScreen(
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
-                    "Local Service Only" to "local_service_only",
+                    "Local / Shuttle Service" to "local_service_only",
                     "Over The Road" to "over_the_road",
-                    "Shuttle Service" to "shuttle_service"
                 ).forEach { (label, apiValue) ->
                     val isSelected = selectedServices.contains(apiValue)
                     FilterChip(
@@ -223,6 +241,7 @@ fun VehicleDetailsScreen(
                     )
                 }
             }
+            selectedServicesError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
 
             Spacer(modifier = Modifier.height(24.dp))
 

@@ -73,8 +73,8 @@ class VehicleSelectionViewModel @Inject constructor(
 
     suspend fun saveSelectedVehicle(vehicle: VehicleType) {
         try {
-            // Save vehicle ID to storage for later use
-            val vehicleId = vehicle.vehicleId ?: vehicle.getIdentifier()
+            // Save vehicle ID to storage for later use (only if it's a real vehicle ID, not a type ID)
+            val vehicleId = vehicle.vehicleId ?: "0" // Use "0" for new vehicles, not the type identifier
             tokenManager.saveSelectedVehicleId(vehicleId)
             Timber.tag("VehicleSelectionVM").d("Saved vehicle ID: $vehicleId")
             _uiState.value = _uiState.value.copy(success = true)

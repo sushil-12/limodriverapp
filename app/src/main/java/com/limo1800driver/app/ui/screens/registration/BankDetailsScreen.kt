@@ -589,8 +589,7 @@ fun BankDetailsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 16.dp)
-                    // Apply safe area padding here so the background extends behind the nav bar,
-                    // but the content is pushed up safely.
+                    .windowInsetsPadding(WindowInsets.navigationBars)
                     .navigationBarsPadding()
             ) {
 

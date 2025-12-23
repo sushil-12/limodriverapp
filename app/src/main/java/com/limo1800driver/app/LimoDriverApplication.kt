@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.google.android.gms.maps.MapsInitializer
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.HiltAndroidApp
@@ -23,6 +24,11 @@ class LimoDriverApplication : Application() {
         runCatching { FirebaseApp.initializeApp(this) }
             .onSuccess { Timber.tag("DriverFCM").d("FirebaseApp initialized") }
             .onFailure { Timber.tag("DriverFCM").e(it, "FirebaseApp init failed") }
+
+        // Initialize Google Maps SDK
+        runCatching { MapsInitializer.initialize(this) }
+            .onSuccess { Timber.tag("MapsSDK").d("Google Maps SDK initialized") }
+            .onFailure { Timber.tag("MapsSDK").e(it, "Google Maps SDK init failed") }
 
         // Create notification channels early (prevents FirebaseMessaging warnings)
         createNotificationChannels()

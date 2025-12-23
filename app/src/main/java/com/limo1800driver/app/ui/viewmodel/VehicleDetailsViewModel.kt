@@ -155,7 +155,7 @@ class VehicleDetailsViewModel @Inject constructor(
         if (selectedServiceTypes.value.isEmpty()) return setError("Please select at least one service type")
 
         val request = VehicleDetailsRequest(
-            vehicleId = prefillVehicleId ?: tokenManager.getSelectedVehicleId()?.toIntOrNull(),
+            vehicleId = prefillVehicleId ?: 0,
             typeOfService = selectedServiceTypes.value,
             vehicleType = selectedVehicleTypeId.value!!,
             make = selectedMakeId.value!!,

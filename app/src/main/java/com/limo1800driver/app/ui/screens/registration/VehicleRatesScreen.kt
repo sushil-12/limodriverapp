@@ -6,8 +6,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import com.limo1800driver.app.ui.util.noRippleClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,9 +31,11 @@ import coil.compose.AsyncImage
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
+import com.limo1800driver.app.ui.components.MasterRatesBottomSheet
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.AppTextStyles
 import com.limo1800driver.app.ui.theme.LimoOrange
+import com.limo1800driver.app.ui.util.noRippleClickable
 import com.limo1800driver.app.ui.viewmodel.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +55,16 @@ fun VehicleRatesScreen(
     var additionalPerMileError by remember { mutableStateOf<String?>(null) }
     var minCityIntercityError by remember { mutableStateOf<String?>(null) }
     var apiError by remember { mutableStateOf<String?>(null) }
+
+    // Local state for the Bottom Sheet
+    var showRatesSheet by remember { mutableStateOf(state.showMasterRatesPopup) }
+
+    // Auto-show master rates sheet when detected
+    LaunchedEffect(state.showMasterRatesPopup) {
+        if (state.showMasterRatesPopup) {
+            showRatesSheet = true
+        }
+    }
 
     // Helper: Validation
     fun validateField(fieldName: String, value: String): String? {
@@ -108,6 +118,7 @@ fun VehicleRatesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 16.dp)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
                         .navigationBarsPadding()
                 ) {
                     Button(
@@ -159,69 +170,97 @@ fun VehicleRatesScreen(
         },
         containerColor = Color.White
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .background(Color.White)
-                .verticalScroll(scroll)
-                .padding(horizontal = 16.dp)
-        ) {
-            Spacer(modifier = Modifier.height(24.dp))
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(Color.White)
+                    .verticalScroll(scroll)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
 
-            HeaderCard(state)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            VehicleInfoCard(state)
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // API Error
-            apiError?.let { error ->
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F2)), modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Error, "Error", tint = Color(0xFFDC2626), modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(text = error, style = TextStyle(fontSize = 14.sp, color = Color(0xFFDC2626)))
-                    }
-                }
+                HeaderCard(state)
                 Spacer(modifier = Modifier.height(16.dp))
+
+                VehicleInfoCard(state)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // API Error
+                apiError?.let { error ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F2)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Error,
+                                "Error",
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = error,
+                                style = TextStyle(fontSize = 14.sp, color = Color(0xFFDC2626))
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (state.currentStep == RateStep.BASE_RATES) {
+                    BaseRatesStep(
+                        state = state,
+                        vm = viewModel,
+                        currencyError = currencyError,
+                        perMileError = perMileError,
+                        upToMilesError = upToMilesError,
+                        additionalPerMileError = additionalPerMileError,
+                        minCityIntercityError = minCityIntercityError,
+                        // Pass trigger to open sheet
+                        onShowMasterRates = { showRatesSheet = true },
+                        onCurrencyChange = {
+                            viewModel.onEvent(RateEvent.SelectCurrency(it))
+                            currencyError = validateField("currency", it)
+                        },
+                        onPerMileChange = {
+                            viewModel.onEvent(RateEvent.SetPerMile(it))
+                            perMileError = validateField("perMile", it)
+                        },
+                        onUpToMilesChange = {
+                            viewModel.onEvent(RateEvent.SetUpToMiles(it))
+                            upToMilesError = validateField("upToMiles", it)
+                        },
+                        onAdditionalPerMileChange = {
+                            viewModel.onEvent(RateEvent.SetAdditionalPerMile(it))
+                            additionalPerMileError = validateField("additionalPerMile", it)
+                        },
+                        onMinCityIntercityChange = {
+                            viewModel.onEvent(RateEvent.SetField("minCityIntercity", it))
+                            minCityIntercityError = validateField("minCityIntercity", it)
+                        }
+                    )
+                } else {
+                    AmenityTaxStep(state, viewModel)
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
             }
 
-            if (state.currentStep == RateStep.BASE_RATES) {
-                BaseRatesStep(
-                    state = state,
-                    vm = viewModel,
-                    currencyError = currencyError,
-                    perMileError = perMileError,
-                    upToMilesError = upToMilesError,
-                    additionalPerMileError = additionalPerMileError,
-                    minCityIntercityError = minCityIntercityError,
-                    onCurrencyChange = {
-                        viewModel.onEvent(RateEvent.SelectCurrency(it))
-                        currencyError = validateField("currency", it)
-                    },
-                    onPerMileChange = {
-                        viewModel.onEvent(RateEvent.SetPerMile(it))
-                        perMileError = validateField("perMile", it)
-                    },
-                    onUpToMilesChange = {
-                        viewModel.onEvent(RateEvent.SetUpToMiles(it))
-                        upToMilesError = validateField("upToMiles", it)
-                    },
-                    onAdditionalPerMileChange = {
-                        viewModel.onEvent(RateEvent.SetAdditionalPerMile(it))
-                        additionalPerMileError = validateField("additionalPerMile", it)
-                    },
-                    onMinCityIntercityChange = {
-                        viewModel.onEvent(RateEvent.SetField("minCityIntercity", it))
-                        minCityIntercityError = validateField("minCityIntercity", it)
+            // Bottom Sheet Implementation
+            if (showRatesSheet) {
+                MasterRatesBottomSheet(
+                    onDismiss = {
+                        showRatesSheet = false
+                        viewModel.dismissMasterRatesPopup()
                     }
                 )
-            } else {
-                AmenityTaxStep(state, viewModel)
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -297,7 +336,7 @@ private fun VehicleInfoCard(state: VehicleRatesState) {
                     contentDescription = "Vehicle",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .width(120.dp)
+                        .width(110.dp)
                         .height(70.dp)
                 )
             } else {
@@ -337,18 +376,34 @@ private fun BaseRatesStep(
     upToMilesError: String?,
     additionalPerMileError: String?,
     minCityIntercityError: String?,
+    onShowMasterRates: () -> Unit, // ADDED callback
     onCurrencyChange: (String) -> Unit,
     onPerMileChange: (String) -> Unit,
     onUpToMilesChange: (String) -> Unit,
     onAdditionalPerMileChange: (String) -> Unit,
     onMinCityIntercityChange: (String) -> Unit
 ) {
-    Text(
-        text = "Rate Manager (Adjust Your rates up or down)",
-        fontWeight = FontWeight.Bold,
-        fontSize = 15.sp,
-        color = Color.Black
-    )
+    // UPDATED Header Row with Master Rates Link
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Rate Manager",
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            color = Color.Black
+        )
+        Text(
+            text = "Master Rates ⓘ",
+            fontSize = 13.sp,
+            color = LimoOrange,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onShowMasterRates() }
+        )
+    }
+
     Text(
         text = "Click on the range value to reset.",
         fontSize = 12.sp,
@@ -575,19 +630,10 @@ private fun MoneyRow(label: String, value: String, required: Boolean = false, er
 @Composable
 private fun ToggleMoneyRow(label: String, value: String, isFlat: Boolean, onChange: (String) -> Unit, onToggle: (Boolean) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
-//        Text(
-//            text = label,
-//            style = AppTextStyles.bodyMedium.copy(
-//                fontSize = 12.sp,
-//                fontWeight = FontWeight.SemiBold,
-//                color = Color.Gray
-//            )
-//        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // FIXED: Removed fixed height, removed padding issues
             CommonTextField(
                 label = label,
                 placeholder = "0.00",
@@ -598,7 +644,6 @@ private fun ToggleMoneyRow(label: String, value: String, isFlat: Boolean, onChan
                 isRequired = false
             )
 
-            // FIXED: Reduced height to 48dp to look less bulky
             CustomSegmentedControl(
                 items = listOf("FLAT ($)", "PERCENT"),
                 selectedIndex = if (isFlat) 0 else 1,

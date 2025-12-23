@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import timber.log.Timber
 import javax.inject.Inject
 import kotlin.collections.forEach
 import kotlin.math.abs
@@ -37,6 +38,9 @@ data class VehicleRatesState(
     val vehicleName: String = "",
     val vehicleTags: List<String> = emptyList(), // color/year/make/model
     val vehicleImageUrl: String? = null,
+
+    // Master rates indicator
+    val showMasterRatesPopup: Boolean = false,
 
     // Currency + unit
     val currencyOptions: List<String> = listOf(
@@ -160,6 +164,13 @@ class VehicleRatesViewModel @Inject constructor(
         _uiState.update { it.copy(success = false, nextStep = null) }
     }
 
+    /**
+     * Dismiss the master rates popup
+     */
+    fun dismissMasterRatesPopup() {
+        _uiState.update { it.copy(showMasterRatesPopup = false) }
+    }
+
     private fun loadPrefill() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isPrefilling = true, error = null) }
@@ -176,6 +187,10 @@ class VehicleRatesViewModel @Inject constructor(
 
                 // Step 2: Fetch rate settings step first (it can return vehicle_id even when we don't pass one)
                 val rateStep = repo.getVehicleRateSettingsStep(initialVehicleIdString).getOrNull()?.data?.data
+
+                // Check if rates are master/default rates (vehicle_id from response doesn't match user's vehicle)
+                val isMasterRates = rateStep?.vehicleId != null && vehicleId != null && rateStep.vehicleId != vehicleId
+                Timber.tag("VehicleRatesVM").d("Master rates check: rateStep.vehicleId=${rateStep?.vehicleId}, vehicleId=$vehicleId, isMasterRates=$isMasterRates")
 
                 // Step 3: If still missing, fetch VehicleDetailsStep and cache it (iOS pattern)
                 if (vehicleId == null && rateStep?.vehicleId == null) {
@@ -242,7 +257,8 @@ class VehicleRatesViewModel @Inject constructor(
                         vehicleTags = finalVehicleTags,
                         vehicleImageUrl = vehicleInfoResult?.vehicleImage ?: state.vehicleImageUrl,
                         amenityRates = amenityRatesMap, // Use metadata from VehicleInfo
-                        amenityPrices = mergedAmenityPrices // Use merged prices
+                        amenityPrices = mergedAmenityPrices, // Use merged prices
+                        showMasterRatesPopup = isMasterRates // Show popup if these are master rates
                     )
                 }
 

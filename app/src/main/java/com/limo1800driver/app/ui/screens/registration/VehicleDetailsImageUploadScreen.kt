@@ -1,21 +1,10 @@
 package com.limo1800driver.app.ui.screens.registration
 
 import android.graphics.Bitmap
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
@@ -38,9 +27,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ShimmerCircle
-import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
-import com.limo1800driver.app.ui.components.camera.DocumentSide
-import com.limo1800driver.app.ui.components.camera.DocumentType
+import com.limo1800driver.app.ui.components.camera.VehicleCameraScreen
+import com.limo1800driver.app.R
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.VehicleDetailsImageUploadViewModel
 
@@ -49,13 +37,22 @@ import com.limo1800driver.app.ui.viewmodel.VehicleDetailsImageUploadViewModel
 fun VehicleDetailsImageUploadScreen(
     onNext: (String?) -> Unit,
     onBack: (() -> Unit)? = null,
+    // Added: Pass the vehicle type here to determine slots/overlays
+    vehicleTypeName: String = "Mid-Size Sedan",
     viewModel: VehicleDetailsImageUploadViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
     var showCamera by remember { mutableStateOf(false) }
-    var activeSlotIndex by remember { mutableStateOf(-1) }
+
+    // CHANGED: Track the entire Slot object, not just index, so we can access the overlay ID
+    var activeSlot by remember { mutableStateOf<VehicleImageSlot?>(null) }
+
+    // Dynamic Configuration based on Vehicle Type
+    val vehicleSlots = remember(vehicleTypeName) {
+        VehicleImageConfig.getSlotsForVehicle(vehicleTypeName)
+    }
 
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
@@ -97,7 +94,9 @@ fun VehicleDetailsImageUploadScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // --- 1. Special Amenities ---
+                // ==========================================
+                // --- SECTION 1: SPECIAL AMENITIES (KEPT) ---
+                // ==========================================
                 ImageUploadSectionHeader(title = "CHOOSE SPECIAL AMENITIES", isRequired = true)
                 Text(
                     text = "(Choose Each Special Amenity You Supply Or Provide)",
@@ -129,7 +128,9 @@ fun VehicleDetailsImageUploadScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // --- 2. Interiors ---
+                // ==========================================
+                // --- SECTION 2: INTERIORS (KEPT) ---
+                // ==========================================
                 ImageUploadSectionHeader(title = "CHOOSE INTERIORS", isRequired = true)
                 Text(
                     text = "(Choose Each Interior Option For This Vehicle)",
@@ -161,48 +162,56 @@ fun VehicleDetailsImageUploadScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // --- 3. Image Upload Grid ---
+                // ==========================================
+                // --- SECTION 3: IMAGES (UPDATED) ---
+                // ==========================================
                 Text(
                     text = "Exterior and Interior",
                     style = AppTextStyles.headlineMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LimoBlack)
                 )
                 Text(
-                    text = "Upload the pictures of Interior and Exterior of the vehicle",
+                    text = "Upload photos as per the requested angles for better quote accuracy.",
                     style = AppTextStyles.bodyMedium.copy(color = AppColors.LimoOrange, fontSize = 12.sp)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Dynamic Grid based on Configuration
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    for (row in 0 until 3) {
+                    // Step 2 to render pairs
+                    for (i in vehicleSlots.indices step 2) {
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             // Left Column
-                            val idx1 = row * 2
+                            val slot1 = vehicleSlots[i]
                             VehicleImageItem(
-                                index = idx1,
-                                bitmap = uiState.displayedImages[idx1],
-                                imageUrl = uiState.displayedImageUrls[idx1],
-                                isUploaded = uiState.uploadedImageIds.containsKey(idx1),
+                                slot = slot1,
+                                bitmap = uiState.displayedImages[slot1.index],
+                                imageUrl = uiState.displayedImageUrls[slot1.index],
+                                isUploaded = uiState.uploadedImageIds.containsKey(slot1.index),
                                 modifier = Modifier.weight(1f),
                                 onAddClick = {
-                                    activeSlotIndex = idx1
+                                    activeSlot = slot1
                                     showCamera = true
                                 }
                             )
 
-                            // Right Column
-                            val idx2 = row * 2 + 1
-                            VehicleImageItem(
-                                index = idx2,
-                                bitmap = uiState.displayedImages[idx2],
-                                imageUrl = uiState.displayedImageUrls[idx2],
-                                isUploaded = uiState.uploadedImageIds.containsKey(idx2),
-                                modifier = Modifier.weight(1f),
-                                onAddClick = {
-                                    activeSlotIndex = idx2
-                                    showCamera = true
-                                }
-                            )
+                            // Right Column (check existence)
+                            if (i + 1 < vehicleSlots.size) {
+                                val slot2 = vehicleSlots[i + 1]
+                                VehicleImageItem(
+                                    slot = slot2,
+                                    bitmap = uiState.displayedImages[slot2.index],
+                                    imageUrl = uiState.displayedImageUrls[slot2.index],
+                                    isUploaded = uiState.uploadedImageIds.containsKey(slot2.index),
+                                    modifier = Modifier.weight(1f),
+                                    onAddClick = {
+                                        activeSlot = slot2
+                                        showCamera = true
+                                    }
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
@@ -222,12 +231,25 @@ fun VehicleDetailsImageUploadScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(horizontal = 16.dp, vertical = 16.dp)
-                    .navigationBarsPadding()
             ) {
 
                 Button(
-                    onClick = { viewModel.submitFinalDetails() },
+                    onClick = {
+                        // Optional: Validate mandatory image slots before submitting
+                        val missingMandatory = vehicleSlots.any { slot ->
+                            slot.isRequired &&
+                                    !uiState.uploadedImageIds.containsKey(slot.index)
+                        }
+
+                        if (missingMandatory) {
+                            // Use viewModel to show error state
+                            // viewModel.showError("Please upload all required photos marked with *")
+                            return@Button
+                        }
+                        viewModel.submitFinalDetails()
+                    },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFE89148),
@@ -260,12 +282,13 @@ fun VehicleDetailsImageUploadScreen(
         }
     }
 
-    if (showCamera) {
-        DocumentCameraScreen(
-            documentType = DocumentType.VEHICLE_INSURANCE,
-            side = DocumentSide.FRONT,
+    if (showCamera && activeSlot != null) {
+        VehicleCameraScreen(
+            vehicleTypeTitle = vehicleTypeName, // "Mid-Size Sedan"
+//            overlayResId = activeSlot!!.overlayResId ?: R.drawable.overlay_van_outline, // Fallback if null
+            overlayResId = R.drawable.vehicle_van,
             onImageCaptured = { bitmap ->
-                bitmap?.let { viewModel.uploadImage(activeSlotIndex, it) }
+                bitmap?.let { viewModel.uploadImage(activeSlot!!.index, it) }
                 showCamera = false
             },
             onDismiss = { showCamera = false }
@@ -273,7 +296,7 @@ fun VehicleDetailsImageUploadScreen(
     }
 }
 
-// --- Components (Private to avoid conflicts) ---
+// --- Components ---
 
 @Composable
 private fun CustomChipItem(
@@ -331,8 +354,8 @@ private fun ImageUploadBorderedGrid(content: @Composable ColumnScope.() -> Unit)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp)) // Cleaner, rounder border
-            .padding(16.dp), // Increased padding
+            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp))
+            .padding(16.dp),
         content = content
     )
 }
@@ -370,9 +393,7 @@ private fun ImageUploadShimmerGrid() {
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Random widths to simulate real chips loading
         val sizes = listOf(100.dp, 80.dp, 120.dp, 90.dp, 110.dp, 70.dp, 130.dp, 85.dp)
-
         sizes.forEach { width ->
             Box(
                 modifier = Modifier
@@ -385,9 +406,10 @@ private fun ImageUploadShimmerGrid() {
     }
 }
 
+// --- UPDATED ITEM COMPONENT TO ACCEPT SLOT CONFIG ---
 @Composable
 private fun VehicleImageItem(
-    index: Int,
+    slot: VehicleImageSlot, // Changed from index to Slot Object
     bitmap: Bitmap?,
     imageUrl: String?,
     isUploaded: Boolean,
@@ -395,10 +417,24 @@ private fun VehicleImageItem(
     onAddClick: () -> Unit
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        // Label Row
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("VEHICLE IMAGE ${index + 1}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = LimoBlack)
-            if (index == 0) Text(" *", color = Color.Red, fontSize = 10.sp)
+            Text(
+                text = slot.label.uppercase(),
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = LimoBlack),
+                maxLines = 1
+            )
+            if (slot.isRequired) {
+                Text(" *", color = Color.Red, fontSize = 11.sp)
+            }
         }
+
+        // Description
+        Text(
+            text = slot.description,
+            style = TextStyle(fontSize = 10.sp, color = Color.Gray),
+            maxLines = 1
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -407,8 +443,12 @@ private fun VehicleImageItem(
                 .fillMaxWidth()
                 .height(100.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFF9FAFB)) // Very light gray background
-                .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp))
+                .background(Color(0xFFF9FAFB))
+                .border(
+                    width = 1.dp,
+                    color = if(slot.isRequired && !isUploaded) Color.Red.copy(alpha=0.3f) else Color(0xFFE5E7EB),
+                    shape = RoundedCornerShape(12.dp)
+                )
                 .clickable { onAddClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -475,7 +515,7 @@ private fun VehicleImageItem(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
             modifier = Modifier.height(30.dp)
         ) {
-            Text("Add", fontSize = 12.sp)
+            Text(if (isUploaded) "Change" else "Add", fontSize = 12.sp)
         }
     }
 }
