@@ -217,7 +217,15 @@ class TokenManager @Inject constructor(
      * Get affiliate type
      */
     fun getAffiliateType(): String? {
-        return sharedPreferences.getString(KEY_AFFILIATE_TYPE, null)
+        // First try to get from stored value
+        val storedAffiliateType = sharedPreferences.getString(KEY_AFFILIATE_TYPE, null)
+        if (storedAffiliateType != null) {
+            return storedAffiliateType
+        }
+
+        // Fallback to cached profile data if available
+        val cachedProfile = getCachedDriverProfileData()
+        return cachedProfile?.affiliateType
     }
     
     /**
@@ -228,6 +236,7 @@ class TokenManager @Inject constructor(
         sharedPreferences.edit()
             .putString(KEY_DRIVER_REGISTRATION_STATE, json)
             .apply()
+
         // Also save next step for quick access
         saveNextStep(state.nextStep)
     }

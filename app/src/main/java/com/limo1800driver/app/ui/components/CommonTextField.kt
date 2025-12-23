@@ -3,12 +3,12 @@ package com.limo1800driver.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.limo1800driver.app.ui.theme.*
+import com.limo1800driver.app.ui.theme.LimoOrange
 
 @Composable
 fun CommonTextField(
@@ -44,15 +44,26 @@ fun CommonTextField(
     errorMessage: String? = null,
     focusRequester: FocusRequester? = null
 ) {
-    // State for focus and selection logic
     val internalFocusRequester = remember { FocusRequester() }
     val currentFocusRequester = focusRequester ?: internalFocusRequester
     var isFocused by remember { mutableStateOf(false) }
-    var shouldSelectAll by remember { mutableStateOf(false) }
+
+    // 1. Internal state to manage cursor position (Selection)
+    var textFieldValue by remember { mutableStateOf(TextFieldValue(text = text)) }
+
+    // 2. Sync Logic: If parent updates 'text' (e.g. prefill or reset), update internal state.
+    // We check (text != textFieldValue.text) to avoid overwriting the cursor while the user is typing.
+    if (text != textFieldValue.text) {
+        textFieldValue = textFieldValue.copy(
+            text = text,
+            // If text changed externally, move cursor to end to be safe
+            selection = TextRange(text.length)
+        )
+    }
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp) // Spacing between Label and Box
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         // --- Label Section ---
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -61,7 +72,7 @@ fun CommonTextField(
                 style = TextStyle(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.Gray // Matches your EditableTextField style
+                    color = Color.Gray
                 )
             )
             if (isRequired) {
@@ -71,25 +82,23 @@ fun CommonTextField(
                     style = TextStyle(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFEF4444) // Red
+                        color = Color(0xFFEF4444)
                     )
                 )
             }
         }
 
         // --- Input Field Container ---
-        // This replaces OutlinedTextField with the custom Box design
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp) // Matches your EditableTextField height
+                .height(50.dp)
                 .background(
-                    color = Color(0xFFF5F5F5), // Light Gray Background
+                    color = Color(0xFFF5F5F5),
                     shape = RoundedCornerShape(8.dp)
                 )
                 .border(
                     width = 1.dp,
-                    // Dynamic border: Red for error, Orange when focused, Light Gray when not
                     color = when {
                         errorMessage != null -> Color(0xFFEF4444)
                         isFocused -> LimoOrange
@@ -97,66 +106,56 @@ fun CommonTextField(
                     },
                     shape = RoundedCornerShape(8.dp)
                 )
-                .clickable { currentFocusRequester.requestFocus() }, // Request focus when clicked - applied before padding
+                .clickable { currentFocusRequester.requestFocus() },
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp) // Moved padding to inner Row
+                    .padding(horizontal = 16.dp)
             ) {
-                // We wrap the BasicTextField and Placeholder in a Box to stack them
                 Box(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    // Placeholder Text
                     if (text.isEmpty()) {
                         Text(
                             text = placeholder,
                             style = TextStyle(
-                                color = Color(0xFF9CA3AF), // Placeholder Gray
+                                color = Color(0xFF9CA3AF),
                                 fontSize = 16.sp
                             )
                         )
                     }
 
-                    // The Editable BasicTextField Logic
                     BasicTextField(
-                        value = TextFieldValue(
-                            text = text,
-                            // Select-All logic
-                            selection = if (shouldSelectAll && text.isNotEmpty()) {
-                                TextRange(0, text.length)
-                            } else {
-                                TextRange(text.length)
-                            }
-                        ),
-                        onValueChange = {
-                            // Once user starts typing/interacting, disable select-all
-                            shouldSelectAll = false
-                            onValueChange(it.text)
+                        value = textFieldValue,
+                        onValueChange = { newValue ->
+                            // Update internal state (keeps cursor position)
+                            textFieldValue = newValue
+                            // Notify parent of text change
+                            onValueChange(newValue.text)
                         },
                         textStyle = TextStyle(
                             fontSize = 16.sp,
-                            color = Color.Black, // Or LimoBlack
+                            color = Color.Black,
                             fontWeight = FontWeight.Normal
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(currentFocusRequester)
                             .onFocusChanged { focusState ->
-                                val wasFocused = isFocused
-                                isFocused = focusState.isFocused
-
-                                // Select all text only on first focus, and only if field has content
-                                if (!wasFocused && focusState.isFocused && text.isNotEmpty()) {
-                                    shouldSelectAll = true
-                                } else if (!focusState.isFocused) {
-                                    // Reset select-all flag when field loses focus
-                                    shouldSelectAll = false
+                                // 3. Handle "Select All" logic here
+                                if (focusState.isFocused && !isFocused) {
+                                    // Field just gained focus
+                                    if (textFieldValue.text.isNotEmpty()) {
+                                        textFieldValue = textFieldValue.copy(
+                                            selection = TextRange(0, textFieldValue.text.length)
+                                        )
+                                    }
                                 }
+                                isFocused = focusState.isFocused
                             },
                         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                         singleLine = singleLine,
@@ -164,12 +163,11 @@ fun CommonTextField(
                         maxLines = maxLines,
                         enabled = enabled,
                         readOnly = readOnly,
-                        cursorBrush = SolidColor(LimoOrange), // Custom Cursor Color
+                        cursorBrush = SolidColor(LimoOrange),
                         interactionSource = remember { MutableInteractionSource() }
                     )
                 }
 
-                // Trailing Icon (if provided)
                 if (trailingIcon != null) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(14.dp)) {
@@ -179,7 +177,6 @@ fun CommonTextField(
             }
         }
 
-        // Error Message
         errorMessage?.let {
             Spacer(modifier = Modifier.height(4.dp))
             Text(

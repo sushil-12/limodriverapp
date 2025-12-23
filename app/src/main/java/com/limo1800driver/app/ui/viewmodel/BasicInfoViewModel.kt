@@ -47,6 +47,11 @@ class BasicInfoViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { response ->
                         if (response.success && response.data != null) {
+                            // Save affiliate type if available in prefill data
+                            response.data.data?.affiliateType?.let { affiliateType ->
+                                tokenManager.saveAffiliateType(affiliateType)
+                                Timber.tag("BasicInfoVM").d("Saved affiliate type from prefill: $affiliateType")
+                            }
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 prefillData = response.data.data,
@@ -96,13 +101,15 @@ class BasicInfoViewModel @Inject constructor(
                         if (response.success && response.data != null) {
                             // Save basic info email for prefill in other screens
                             tokenManager.saveBasicInfoEmail(request.email)
+                            // Save affiliate type for proper navigation logic
+                            tokenManager.saveAffiliateType(request.affiliateType)
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 success = true,
                                 nextStep = response.data.nextStep,
                                 message = "Basic info completed successfully"
                             )
-                            Timber.tag("BasicInfoVM").d("Basic info completed, next_step: ${response.data.nextStep}")
+                            Timber.tag("BasicInfoVM").d("Basic info completed, next_step: ${response.data.nextStep}, affiliate_type: ${request.affiliateType}")
                         } else {
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,

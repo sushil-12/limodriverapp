@@ -240,15 +240,6 @@ private fun DateSelectionContent(
             .padding(horizontal = 16.dp)
             .padding(bottom = 32.dp)
     ) {
-        // Sheet Handle (Visual Cue)
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .width(40.dp)
-                .height(4.dp)
-                .background(Color(0xFFE0E0E0), RoundedCornerShape(2.dp))
-        )
-        
         Spacer(modifier = Modifier.height(20.dp))
 
         // Title
@@ -363,7 +354,7 @@ private fun DateGridItem(
         isSelected -> LimoOrange
         else -> Color.White
     }
-    
+
     val borderColor = when {
         !isEnabled -> Color.Transparent
         isSelected -> LimoOrange

@@ -583,7 +583,7 @@ fun DriverAppNavigation(
                     // Clear all data and navigate to splash
                     tokenManager.clearAll()
                     navController.navigate(NavRoutes.Splash) {
-                        popUpTo(NavRoutes.Splash) { inclusive = true }
+                        popUpTo(navController.graph.id) { inclusive = true }
                     }
                 }
             )
@@ -801,7 +801,7 @@ fun DriverAppNavigation(
                     // Clear token and navigate to splash
                     tokenManager.clearAll()
                     navController.navigate(NavRoutes.Splash) {
-                        popUpTo(NavRoutes.Splash) { inclusive = true }
+                        popUpTo(navController.graph.id) { inclusive = true }
                     }
                 }
             )

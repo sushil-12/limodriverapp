@@ -601,6 +601,7 @@ fun VehicleInsuranceScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
+                    .navigationBarsPadding()
             ) {
                 Text(
                     text = if (uiState.isLoading || isUploading) "Submitting..." else "Submit",

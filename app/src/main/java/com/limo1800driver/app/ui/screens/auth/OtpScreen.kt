@@ -1,9 +1,11 @@
 package com.limo1800driver.app.ui.screens.auth
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,10 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.SpanStyle
@@ -44,17 +46,18 @@ fun OtpScreen(
     viewModel: OtpViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
-    val focusRequesters = remember { List(6) { FocusRequester() } }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Store digits locally for immediate UI updates
+    // Focus Requesters for the 6 boxes
+    val focusRequesters = remember { List(6) { FocusRequester() } }
+
+    // State for the 6 digits
     val otpValues = remember { mutableStateListOf("", "", "", "", "", "") }
 
     LaunchedEffect(tempUserId, phoneNumber) {
         viewModel.setInitialData(tempUserId, phoneNumber)
-        // Delay focus slightly to ensure the keyboard pops up smoothly
+        // Request focus on the first box immediately
         focusRequesters[0].requestFocus()
     }
 
@@ -64,27 +67,49 @@ fun OtpScreen(
         }
     }
 
-    fun moveFocus(currentIndex: Int, forward: Boolean) {
-        if (forward) {
-            if (currentIndex < 5) {
-                focusRequesters[currentIndex + 1].requestFocus()
-            } else {
-                focusManager.clearFocus()
-                keyboardController?.hide()
-            }
-        } else {
-            if (currentIndex > 0) {
-                focusRequesters[currentIndex - 1].requestFocus()
-            }
-        }
-    }
+    // --- Logic Helpers ---
 
-    fun checkAndSubmit() {
+    fun submitOtp() {
         if (otpValues.all { it.isNotEmpty() }) {
             focusManager.clearFocus()
             keyboardController?.hide()
             viewModel.onEvent(OtpUiEvent.OtpChanged(otpValues.joinToString("")))
             viewModel.onEvent(OtpUiEvent.VerifyOtp)
+        }
+    }
+
+    fun handleInput(index: Int, newValue: String) {
+        // Handle Paste (length == 6)
+        if (newValue.length == 6 && newValue.all { it.isDigit() }) {
+            newValue.forEachIndexed { i, char ->
+                if (i < 6) otpValues[i] = char.toString()
+            }
+            submitOtp()
+            return
+        }
+
+        // Handle Normal Input
+        if (newValue.length <= 1) {
+            if (newValue.all { it.isDigit() }) {
+                otpValues[index] = newValue
+                if (newValue.isNotEmpty()) {
+                    // Auto-advance
+                    if (index < 5) {
+                        focusRequesters[index + 1].requestFocus()
+                    } else {
+                        // Last digit entered
+                        submitOtp()
+                    }
+                }
+            }
+        }
+    }
+
+    fun handleBackspace(index: Int) {
+        if (otpValues[index].isEmpty() && index > 0) {
+            focusRequesters[index - 1].requestFocus()
+        } else {
+            otpValues[index] = ""
         }
     }
 
@@ -132,57 +157,18 @@ fun OtpScreen(
 
         Spacer(Modifier.height(40.dp))
 
-        // --- OTP Input Boxes ---
+        // --- Optimized OTP Input Row ---
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(6) { index ->
-                OutlinedTextField(
+                OtpDigitInput(
                     value = otpValues[index],
-                    onValueChange = { newValue ->
-                        if (newValue.length <= 1) {
-                            if (newValue.all { it.isDigit() }) {
-                                otpValues[index] = newValue
-                                if (newValue.isNotEmpty()) {
-                                    moveFocus(index, forward = true)
-                                    checkAndSubmit()
-                                }
-                            }
-                        } else if (newValue.length == 6 && index == 0) {
-                            newValue.forEachIndexed { i, char ->
-                                if (i < 6 && char.isDigit()) otpValues[i] = char.toString()
-                            }
-                            checkAndSubmit()
-                        }
-                    },
-                    modifier = Modifier
-                        .width(48.dp)
-                        .height(48.dp) // Increased height to match screenshot
-                        .focusRequester(focusRequesters[index])
-                        .onKeyEvent { event ->
-                            if (event.key == Key.Backspace && otpValues[index].isEmpty()) {
-                                moveFocus(index, forward = false)
-                                true
-                            } else {
-                                false
-                            }
-                        },
-                    textStyle = TextStyle(
-                        fontSize = 16.sp,
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Normal,
-                        color = Color.Black
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Black,
-                        unfocusedBorderColor = Color(0xFFE5E7EB),
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color(0xFFF9FAFB)
-                    )
+                    focusRequester = focusRequesters[index],
+                    onValueChange = { handleInput(index, it) },
+                    onBackspace = { handleBackspace(index) }
                 )
             }
         }
@@ -200,7 +186,7 @@ fun OtpScreen(
             onClick = {
                 if (uiState.canResend) viewModel.onEvent(OtpUiEvent.ResendOtp)
             },
-            shape = RoundedCornerShape(12.dp), // Squared-off pill shape
+            shape = RoundedCornerShape(12.dp),
             color = Color(0xFFF3F4F6),
             enabled = uiState.canResend || uiState.resendCooldown > 0
         ) {
@@ -230,28 +216,75 @@ fun OtpScreen(
         // --- Loading ---
         if (uiState.isLoading) {
             Spacer(modifier = Modifier.height(32.dp))
-            ShimmerCircle(
-                size = 32.dp,
-                modifier = Modifier.size(24.dp).align(Alignment.CenterHorizontally),
-                strokeWidth = 2.dp
-            )
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                ShimmerCircle(
+                    size = 32.dp,
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+            }
         }
     }
 }
 
-
-@Preview(
-    name = "OTP Screen",
-    showBackground = true,
-)
+// --- Isolated Component for Performance & Event Handling ---
 @Composable
-fun OtpScreenPreview() {
-    MaterialTheme {
-        OtpScreen(
-            tempUserId = "temp-user-123",
-            phoneNumber = "+91 98765 43210",
-            onNext = {},
-            onBack = {}
-        )
+private fun OtpDigitInput(
+    value: String,
+    focusRequester: FocusRequester,
+    onValueChange: (String) -> Unit,
+    onBackspace: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    val borderColor = when {
+        isFocused -> Color.Black
+        value.isNotEmpty() -> Color.Black // Optional: Keep border black if filled
+        else -> Color(0xFFE5E7EB)
     }
+
+    val containerColor = if (isFocused) Color.Transparent else Color(0xFFF9FAFB)
+
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier
+            .size(width = 48.dp, height = 56.dp) // Adjusted to 56dp for better touch target
+            .focusRequester(focusRequester)
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { event ->
+                // CRITICAL: Handle backspace on KeyDown to prevent "stuck" state
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Backspace) {
+                    onBackspace()
+                    true // Consume the event so the text field doesn't get confused
+                } else {
+                    false
+                }
+            },
+        textStyle = TextStyle(
+            fontSize = 20.sp, // Slightly larger for better readability
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Normal,
+            color = Color.Black,
+            fontFamily = GoogleSansFamily
+        ),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        cursorBrush = SolidColor(Color.Black), // Custom clean cursor
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(containerColor, RoundedCornerShape(12.dp))
+                    .border(
+                        width = 1.dp,
+                        color = borderColor,
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                innerTextField()
+            }
+        }
+    )
 }
