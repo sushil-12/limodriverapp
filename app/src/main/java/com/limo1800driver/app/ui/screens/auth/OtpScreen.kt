@@ -13,10 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.SpanStyle
@@ -37,7 +35,6 @@ import com.limo1800driver.app.ui.theme.GoogleSansFamily
 import com.limo1800driver.app.ui.theme.LimoRed
 import com.limo1800driver.app.ui.viewmodel.OtpViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 fun OtpScreen(
@@ -50,13 +47,10 @@ fun OtpScreen(
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val scope = rememberCoroutineScope()
 
-    // Focus Requesters for the 6 boxes
-    val focusRequesters = remember { List(6) { FocusRequester() } }
-
-    // State for the 6 digits
-    val otpValues = remember { mutableStateListOf("", "", "", "", "", "") }
+    // Single source of truth for the OTP
+    var otpValue by remember { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
 
     // Error dialog state
     var showErrorDialog by remember { mutableStateOf(false) }
@@ -64,19 +58,11 @@ fun OtpScreen(
     var errorDialogMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(tempUserId, phoneNumber) {
-        // Clear any previous state when navigating to this screen
-        otpValues.replaceAll { "" }
         viewModel.setInitialData(tempUserId, phoneNumber)
-
-        // Request focus on the first box after a short delay to ensure the UI is ready
-        scope.launch {
-            delay(100) // Small delay to ensure UI is composed
-            try {
-                focusRequesters[0].requestFocus()
-            } catch (e: Exception) {
-                // Ignore focus request failures
-            }
-        }
+        // Request focus immediately on load
+        delay(300)
+        focusRequester.requestFocus()
+        keyboardController?.show()
     }
 
     LaunchedEffect(uiState.success) {
@@ -85,58 +71,24 @@ fun OtpScreen(
         }
     }
 
-    // Show error dialog when there's an API error
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             errorDialogTitle = "Error"
             errorDialogMessage = error
             showErrorDialog = true
+            // Clear OTP on error so user can retry easily
+            otpValue = ""
+            focusRequester.requestFocus()
         }
     }
 
-    // --- Logic Helpers ---
-
-    fun submitOtp() {
-        if (otpValues.all { it.isNotEmpty() }) {
+    // Auto-submit when length reaches 6
+    LaunchedEffect(otpValue) {
+        if (otpValue.length == 6) {
             focusManager.clearFocus()
             keyboardController?.hide()
-            viewModel.onEvent(OtpUiEvent.OtpChanged(otpValues.joinToString("")))
+            viewModel.onEvent(OtpUiEvent.OtpChanged(otpValue))
             viewModel.onEvent(OtpUiEvent.VerifyOtp)
-        }
-    }
-
-    fun handleInput(index: Int, newValue: String) {
-        // Handle Paste (length == 6)
-        if (newValue.length == 6 && newValue.all { it.isDigit() }) {
-            newValue.forEachIndexed { i, char ->
-                if (i < 6) otpValues[i] = char.toString()
-            }
-            submitOtp()
-            return
-        }
-
-        // Handle Normal Input
-        if (newValue.length <= 1) {
-            if (newValue.all { it.isDigit() }) {
-                otpValues[index] = newValue
-                if (newValue.isNotEmpty()) {
-                    // Auto-advance
-                    if (index < 5) {
-                        focusRequesters[index + 1].requestFocus()
-                    } else {
-                        // Last digit entered
-                        submitOtp()
-                    }
-                }
-            }
-        }
-    }
-
-    fun handleBackspace(index: Int) {
-        if (otpValues[index].isEmpty() && index > 0) {
-            focusRequesters[index - 1].requestFocus()
-        } else {
-            otpValues[index] = ""
         }
     }
 
@@ -180,27 +132,50 @@ fun OtpScreen(
                 textDecoration = TextDecoration.Underline
             ),
             modifier = Modifier.clickable {
-                // Clear OTP state before navigating back
-                otpValues.replaceAll { "" }
+                otpValue = ""
                 onBack?.invoke()
             }
         )
 
         Spacer(Modifier.height(40.dp))
 
-        // --- Optimized OTP Input Row ---
-        Row(
+        // --- OPTIMIZED OTP INPUT ---
+        // This box holds the invisible TextField and the visible boxes
+        Box(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
+            contentAlignment = Alignment.Center
         ) {
-            repeat(6) { index ->
-                OtpDigitInput(
-                    value = otpValues[index],
-                    focusRequester = focusRequesters[index],
-                    onValueChange = { handleInput(index, it) },
-                    onBackspace = { handleBackspace(index) }
-                )
+            // 1. The Invisible TextField (Handles all input logic)
+            BasicTextField(
+                value = otpValue,
+                onValueChange = {
+                    if (it.length <= 6 && it.all { char -> char.isDigit() }) {
+                        otpValue = it
+                    }
+                },
+                modifier = Modifier
+                    .matchParentSize() // Fill the box so clicks anywhere trigger keyboard
+                    .focusRequester(focusRequester),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                cursorBrush = SolidColor(Color.Transparent), // Hide default cursor
+                textStyle = TextStyle(color = Color.Transparent), // Hide typed text
+                decorationBox = { innerTextField -> innerTextField() }
+            )
+
+            // 2. The Visual Boxes (Drawn based on otpValue state)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(6) { index ->
+                    val char = if (index < otpValue.length) otpValue[index].toString() else ""
+                    val isFocused = index == otpValue.length
+
+                    OtpDigitVisual(
+                        char = char,
+                        isFocused = isFocused
+                    )
+                }
             }
         }
 
@@ -233,17 +208,6 @@ fun OtpScreen(
             )
         }
 
-        // --- Error Messages ---
-        uiState.error?.let {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(it, color = LimoRed, style = TextStyle(fontSize = 14.sp))
-        }
-
-        uiState.message?.let {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(it, color = LimoRed, style = TextStyle(fontSize = 14.sp))
-        }
-
         // --- Loading ---
         if (uiState.isLoading) {
             Spacer(modifier = Modifier.height(32.dp))
@@ -257,85 +221,52 @@ fun OtpScreen(
         }
     }
 
-    // Error Alert Dialog
     ErrorAlertDialog(
         isVisible = showErrorDialog,
-        onDismiss = {
-            showErrorDialog = false
-            // Clear the error from viewModel when dialog is dismissed
-            // Note: This is handled by the LaunchedEffect clearing the error
-        },
+        onDismiss = { showErrorDialog = false },
         title = errorDialogTitle,
         message = errorDialogMessage
     )
-
-    // Cleanup when composable is disposed
-    DisposableEffect(Unit) {
-        onDispose {
-            // Cancel any ongoing operations in the viewModel
-            // The viewModel's onCleared will handle coroutine cleanup
-        }
-    }
 }
 
-// --- Isolated Component for Performance & Event Handling ---
+/**
+ * Purely visual component for a single OTP box.
+ * It does NOT handle input events.
+ */
 @Composable
-private fun OtpDigitInput(
-    value: String,
-    focusRequester: FocusRequester,
-    onValueChange: (String) -> Unit,
-    onBackspace: () -> Unit
+private fun OtpDigitVisual(
+    char: String,
+    isFocused: Boolean
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val borderColor = if (isFocused) Color.Black else Color(0xFFE5E7EB)
+    val containerColor = if (isFocused) Color.White else Color(0xFFF9FAFB)
 
-    val borderColor = when {
-        isFocused -> Color.Black
-        value.isNotEmpty() -> Color.Black // Optional: Keep border black if filled
-        else -> Color(0xFFE5E7EB)
-    }
-
-    val containerColor = if (isFocused) Color.Transparent else Color(0xFFF9FAFB)
-
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
+    Box(
         modifier = Modifier
-            .size(width = 46.dp, height = 46.dp) // Adjusted to 56dp for better touch target
-            .focusRequester(focusRequester)
-            .onFocusChanged { isFocused = it.isFocused }
-            .onKeyEvent { event ->
-                // CRITICAL: Handle backspace on KeyDown to prevent "stuck" state
-                if (event.type == KeyEventType.KeyDown && event.key == Key.Backspace) {
-                    onBackspace()
-                    true // Consume the event so the text field doesn't get confused
-                } else {
-                    false
-                }
-            },
-        textStyle = TextStyle(
-            fontSize = 19.sp, // Slightly larger for better readability
-            textAlign = TextAlign.Center,
-            fontWeight = FontWeight.Normal,
-            color = Color.Black,
-            fontFamily = GoogleSansFamily
-        ),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        singleLine = true,
-        cursorBrush = SolidColor(Color.Black), // Custom clean cursor
-        decorationBox = { innerTextField ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(containerColor, RoundedCornerShape(12.dp))
-                    .border(
-                        width = 1.dp,
-                        color = borderColor,
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                innerTextField()
-            }
+            .size(46.dp)
+            .background(containerColor, RoundedCornerShape(12.dp))
+            .border(
+                width = if (isFocused) 1.5.dp else 1.dp,
+                color = borderColor,
+                shape = RoundedCornerShape(12.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = char,
+            style = TextStyle(
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black,
+                fontFamily = GoogleSansFamily,
+                textAlign = TextAlign.Center
+            )
+        )
+
+        // Optional: Blinking cursor for the active empty box
+        if (isFocused && char.isEmpty()) {
+            // We can add a simple blinking cursor here if desired
+            // For now, the focused border is usually sufficient
         }
-    )
+    }
 }
