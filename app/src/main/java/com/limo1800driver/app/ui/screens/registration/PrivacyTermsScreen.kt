@@ -27,12 +27,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.theme.*
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.viewmodel.PrivacyTermsViewModel
 
 @Composable
 fun PrivacyTermsScreen(
     onNext: (String?) -> Unit,
     onBack: (() -> Unit)? = null,
+    onNavigateToWebView: ((String, String) -> Unit)? = null,
     viewModel: PrivacyTermsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -189,6 +191,7 @@ fun PrivacyTermsScreen(
                     )
                         .firstOrNull()?.let {
                             // Handle Terms Link Click
+                            onNavigateToWebView?.invoke("https://1800limo.com/client-terms-condition", "Terms of Service")
                         }
                     annotatedString.getStringAnnotations(
                         tag = "PRIVACY",
@@ -197,6 +200,7 @@ fun PrivacyTermsScreen(
                     )
                         .firstOrNull()?.let {
                             // Handle Privacy Link Click
+                            onNavigateToWebView?.invoke("https://1800limo.com/privacy-policy", "Privacy Policy")
                         }
                 }
             )
@@ -279,28 +283,14 @@ fun PrivacyTermsScreen(
     }
 
     // Error Dialog
-    if (showErrorDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showErrorDialog = false
-                viewModel.clearError()
-            },
-            containerColor = Color.White,
-            title = { Text("Required", fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    if (uiState.error != null) uiState.error!!
-                    else "Please accept the Terms & Privacy Policy to continue."
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showErrorDialog = false
-                    viewModel.clearError()
-                }) {
-                    Text("OK", color = AppColors.LimoOrange)
-                }
-            }
-        )
-    }
+    ErrorAlertDialog(
+        isVisible = showErrorDialog,
+        onDismiss = {
+            showErrorDialog = false
+            viewModel.clearError()
+        },
+        title = "Required",
+        message = if (uiState.error != null) uiState.error!!
+                  else "Please accept the Terms & Privacy Policy to continue."
+    )
 }

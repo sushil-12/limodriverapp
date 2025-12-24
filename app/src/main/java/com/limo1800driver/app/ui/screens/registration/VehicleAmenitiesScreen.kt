@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.registration.Amenity
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ShimmerCircle
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.theme.AppColors
 import com.limo1800driver.app.ui.theme.AppTextStyles
 import com.limo1800driver.app.ui.viewmodel.VehicleAmenitiesViewModel
@@ -47,16 +48,12 @@ fun VehicleAmenitiesScreen(
     val scrollState = rememberScrollState()
 
     // Error Dialog
-    if (uiState.error != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.clearError() },
-            title = { Text("Error") },
-            text = { Text(uiState.error!!) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.clearError() }) { Text("OK", color = AppColors.LimoOrange) }
-            }
-        )
-    }
+    ErrorAlertDialog(
+        isVisible = uiState.error != null,
+        onDismiss = { viewModel.clearError() },
+        title = "Error",
+        message = uiState.error ?: "Unknown error"
+    )
 
     Scaffold(
         topBar = { RegistrationTopBar(onBack = onBack) },

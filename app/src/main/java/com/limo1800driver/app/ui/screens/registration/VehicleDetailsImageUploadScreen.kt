@@ -28,6 +28,7 @@ import coil.compose.AsyncImage
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.camera.VehicleCameraScreen
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.R
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.VehicleDetailsImageUploadViewModel
@@ -61,15 +62,13 @@ fun VehicleDetailsImageUploadScreen(
         }
     }
 
-    // Error Handling
-    if (uiState.error != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.clearError() },
-            title = { Text("Error") },
-            text = { Text(uiState.error!!) },
-            confirmButton = { TextButton(onClick = { viewModel.clearError() }) { Text("OK") } }
-        )
-    }
+    // Error Dialog
+    ErrorAlertDialog(
+        isVisible = uiState.error != null,
+        onDismiss = { viewModel.clearError() },
+        title = "Error",
+        message = uiState.error ?: "Unknown error"
+    )
 
     Box(modifier = Modifier.fillMaxSize().background(LimoWhite)) {
         Column(

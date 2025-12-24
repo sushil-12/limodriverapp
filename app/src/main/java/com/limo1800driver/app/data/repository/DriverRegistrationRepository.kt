@@ -84,7 +84,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete basic info")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -97,7 +97,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch basic info step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -115,7 +115,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete company info")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -128,7 +128,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch company info step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -146,7 +146,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete company documents")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -159,7 +159,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch company documents step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -177,7 +177,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete privacy & terms")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -195,7 +195,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete driving license")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -208,7 +208,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch driving license step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -226,7 +226,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete bank details")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -239,7 +239,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch bank details step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -257,7 +257,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete profile picture")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -270,7 +270,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch profile picture step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -288,7 +288,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete vehicle insurance")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -301,7 +301,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch vehicle insurance step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -314,7 +314,7 @@ class DriverRegistrationRepository @Inject constructor(
                 val response = registrationApi.getVehicleMakes()
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -325,7 +325,7 @@ class DriverRegistrationRepository @Inject constructor(
                 val response = registrationApi.getVehicleModels(makeId)
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -336,7 +336,7 @@ class DriverRegistrationRepository @Inject constructor(
                 val response = registrationApi.getVehicleYears()
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -347,7 +347,7 @@ class DriverRegistrationRepository @Inject constructor(
                 val response = registrationApi.getVehicleColors()
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -368,7 +368,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete vehicle details")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -386,7 +386,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch vehicle details step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -404,7 +404,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to complete vehicle rate settings")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -417,7 +417,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch vehicle rate settings step")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -431,7 +431,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch vehicle info")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -447,7 +447,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to upload image")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -462,7 +462,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch vehicle types")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -475,7 +475,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch amenities")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -488,7 +488,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch special amenities")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -501,7 +501,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch vehicle interior")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -514,7 +514,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch organisation types")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -527,7 +527,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch languages")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -540,7 +540,7 @@ class DriverRegistrationRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch all steps")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }

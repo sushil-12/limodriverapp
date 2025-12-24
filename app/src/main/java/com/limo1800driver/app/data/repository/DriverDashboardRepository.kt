@@ -32,7 +32,7 @@ class DriverDashboardRepository @Inject constructor(
                 val response = dashboardApi.getDashboardStats()
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -52,7 +52,7 @@ class DriverDashboardRepository @Inject constructor(
                 val response = dashboardApi.getDriverBookings(page, perPage, startDate, endDate, search, status)
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -70,7 +70,7 @@ class DriverDashboardRepository @Inject constructor(
                 val response = dashboardApi.getDriverAllActivity(page, perPage, startDate, endDate)
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -86,7 +86,7 @@ class DriverDashboardRepository @Inject constructor(
                 val response = dashboardApi.getDriverEarningsSummary(startDate, endDate)
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -99,7 +99,7 @@ class DriverDashboardRepository @Inject constructor(
                 val response = dashboardApi.getDriverUpdates()
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -112,7 +112,7 @@ class DriverDashboardRepository @Inject constructor(
                 val response = dashboardApi.getDriverProfile()
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -128,7 +128,7 @@ class DriverDashboardRepository @Inject constructor(
                 val response = dashboardApi.getDriverWallet(page, perPage)
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -139,7 +139,7 @@ class DriverDashboardRepository @Inject constructor(
                 val response = dashboardApi.getDriverWalletDetails()
                 Result.success(response)
             } catch (e: Exception) {
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -158,7 +158,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch booking audit records")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -173,7 +173,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch reservation")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -186,7 +186,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch reservation rates")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -203,7 +203,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch booking rates vehicle")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -220,7 +220,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to finalize rate edit")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -237,7 +237,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to process payment")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -252,7 +252,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch booking preview")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -269,7 +269,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to edit reservation")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -286,7 +286,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to accept booking")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -301,7 +301,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to reject booking")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -314,7 +314,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch credit card details")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -329,7 +329,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to process credit card payment")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -344,7 +344,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch mobile airlines")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -357,7 +357,7 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch mobile airports")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }

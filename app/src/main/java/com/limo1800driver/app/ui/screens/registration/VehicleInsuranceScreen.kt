@@ -49,6 +49,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.RegistrationTopBar
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import java.util.Calendar
 
 // Enum to track which step of the date selection is active
@@ -645,24 +646,15 @@ fun VehicleInsuranceScreen(
 
 
     // Error Dialog
-    if (showErrorDialog && uiState.error != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showErrorDialog = false
-                viewModel.clearError()
-            },
-            title = { Text("Error") },
-            text = { Text(uiState.error ?: "Unknown error") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showErrorDialog = false
-                    viewModel.clearError()
-                }) {
-                    Text("OK")
-                }
-            }
-        )
-    }
+    ErrorAlertDialog(
+        isVisible = showErrorDialog && uiState.error != null,
+        onDismiss = {
+            showErrorDialog = false
+            viewModel.clearError()
+        },
+        title = "Error",
+        message = uiState.error ?: "Unknown error"
+    )
 }
 
 

@@ -43,8 +43,17 @@ class OtpViewModel @Inject constructor(
     fun setInitialData(tempUserId: String, phoneNumber: String) {
         _uiState.value = _uiState.value.copy(
             tempUserId = tempUserId,
-            phoneNumber = phoneNumber
+            phoneNumber = phoneNumber,
+            otp = "", // Clear any previous OTP
+            isFormValid = false,
+            error = null,
+            message = null,
+            isLoading = false,
+            success = false,
+            nextAction = null
         )
+        // Cancel any existing cooldown job
+        resendCooldownJob?.cancel()
         // Set up resend cooldown timer
         startResendCooldown()
     }
@@ -125,6 +134,8 @@ class OtpViewModel @Inject constructor(
                     },
                     onFailure = { error ->
                         val errorMessage = errorHandler.handleError(error)
+                        Timber.tag("OtpVM").e(error, "Failed to verify OTP ${errorMessage}")
+
                         _uiState.value = currentState.copy(
                             isLoading = false,
                             error = errorMessage
@@ -189,10 +200,27 @@ class OtpViewModel @Inject constructor(
                     },
                     onFailure = { error ->
                         val errorMessage = errorHandler.handleError(error)
-                        _uiState.value = currentState.copy(
-                            isLoading = false,
-                            error = errorMessage
-                        )
+
+                        // Check if this is a rate limit error and start cooldown
+                        val isRateLimitError = errorMessage.contains("wait", ignoreCase = true) ||
+                                              errorMessage.contains("60 seconds", ignoreCase = true) ||
+                                              errorMessage.contains("Too many requests", ignoreCase = true)
+
+                        if (isRateLimitError) {
+                            // Start 60-second cooldown for rate limit errors
+                            _uiState.value = currentState.copy(
+                                isLoading = false,
+                                error = errorMessage,
+                                resendCooldown = 60
+                            )
+                            startResendCooldown()
+                        } else {
+                            _uiState.value = currentState.copy(
+                                isLoading = false,
+                                error = errorMessage
+                            )
+                        }
+
                         Timber.tag("OtpVM").e(error, "Failed to resend OTP")
                     }
                 )

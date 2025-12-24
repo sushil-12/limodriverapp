@@ -20,9 +20,11 @@ import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.limo1800driver.app.ui.navigation.NavRoutes
 import com.limo1800driver.app.ui.screens.SplashScreen
 import com.limo1800driver.app.ui.screens.auth.OtpScreen
@@ -35,6 +37,7 @@ import com.limo1800driver.app.ui.screens.registration.PrivacyTermsScreen
 import com.limo1800driver.app.ui.screens.registration.BankDetailsScreen
 import com.limo1800driver.app.ui.screens.registration.ProfilePictureScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleSelectionScreen
+import com.limo1800driver.app.ui.components.WebViewScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleDetailsScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleAmenitiesScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleDetailsImageUploadScreen
@@ -264,7 +267,10 @@ fun DriverAppNavigation(
                     navigateToRegistrationStep(nextAction, true, forceDirect = false)
                 },
                 onBack = {
-                    navController.popBackStack()
+                    // Navigate back to phone entry screen and clear OTP from back stack
+                    navController.navigate(NavRoutes.PhoneEntry) {
+                        popUpTo(NavRoutes.PhoneEntry) { inclusive = false }
+                    }
                 }
             )
         }
@@ -339,6 +345,9 @@ fun DriverAppNavigation(
                             popUpTo(NavRoutes.PrivacyTerms) { inclusive = true }
                         }
                     }
+                },
+                onNavigateToWebView = { url, title ->
+                    navController.navigate("${NavRoutes.WebView}?url=${url}&title=${title}")
                 }
             )
         }
@@ -804,6 +813,24 @@ fun DriverAppNavigation(
                         popUpTo(navController.graph.id) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        // WebView for external links (Terms of Service, Privacy Policy, etc.)
+        composable(
+            route = "${NavRoutes.WebView}?url={url}&title={title}",
+            arguments = listOf(
+                navArgument("url") { type = NavType.StringType },
+                navArgument("title") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val url = backStackEntry.arguments?.getString("url") ?: ""
+            val title = backStackEntry.arguments?.getString("title") ?: "Web View"
+
+            WebViewScreen(
+                url = url,
+                title = title,
+                onBack = { navController.popBackStack() }
             )
         }
     }

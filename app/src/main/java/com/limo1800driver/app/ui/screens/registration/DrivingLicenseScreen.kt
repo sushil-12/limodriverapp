@@ -43,6 +43,7 @@ import com.limo1800driver.app.data.model.registration.OptionalCertificationReque
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ShimmerBox
 import com.limo1800driver.app.ui.components.ShimmerCircle
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
 import com.limo1800driver.app.ui.components.camera.DocumentSide
 import com.limo1800driver.app.ui.components.camera.DocumentType
@@ -623,26 +624,17 @@ fun DriverLicenseFormScreen(
         }
     }
 
-    if (showErrorDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showErrorDialog = false
-                localErrorMessage = null
-                viewModel.clearError()
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showErrorDialog = false
-                    localErrorMessage = null
-                    viewModel.clearError()
-                }) {
-                    Text("OK")
-                }
-            },
-            title = { Text("Error") },
-            text = { Text(localErrorMessage ?: uiState.error ?: "Something went wrong") }
-        )
-    }
+    // Error Dialog
+    ErrorAlertDialog(
+        isVisible = showErrorDialog,
+        onDismiss = {
+            showErrorDialog = false
+            localErrorMessage = null
+            viewModel.clearError()
+        },
+        title = "Error",
+        message = localErrorMessage ?: uiState.error ?: "Something went wrong"
+    )
 }
 
 // Simple network bitmap loader for prefill images

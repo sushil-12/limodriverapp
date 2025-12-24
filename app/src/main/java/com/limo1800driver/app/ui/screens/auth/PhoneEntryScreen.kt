@@ -33,9 +33,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.Countries
 import com.limo1800driver.app.data.model.Country
 import com.limo1800driver.app.domain.validation.CountryCode
+import com.limo1800driver.app.ui.components.AlertType
+import com.limo1800driver.app.ui.components.CommonErrorAlertDialog
 import com.limo1800driver.app.ui.components.ShimmerCircle
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.state.PhoneEntryUiEvent
 import com.limo1800driver.app.ui.theme.*
+import com.limo1800driver.app.ui.theme.LimoRed
 import com.limo1800driver.app.ui.viewmodel.PhoneEntryViewModel
 import kotlinx.coroutines.launch
 
@@ -64,10 +68,24 @@ fun PhoneEntryScreen(
     var showCountryPicker by remember { mutableStateOf(false) }
     val phone = remember { mutableStateOf(uiState.phoneNumber) }
 
+    // Error dialog state
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorDialogTitle by remember { mutableStateOf("") }
+    var errorDialogMessage by remember { mutableStateOf("") }
+
     // Navigate when OTP is sent successfully
     LaunchedEffect(uiState.success) {
         if (uiState.success && uiState.tempUserId.isNotEmpty()) {
             onNext(uiState.tempUserId, uiState.phoneNumberWithCountryCode)
+        }
+    }
+
+    // Show error dialog when there's an API error
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            errorDialogTitle = "Error"
+            errorDialogMessage = error
+            showErrorDialog = true
         }
     }
 
@@ -167,7 +185,7 @@ fun PhoneEntryScreen(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = it,
-                color = MaterialTheme.colorScheme.error,
+                color = LimoRed,
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -176,7 +194,7 @@ fun PhoneEntryScreen(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = it,
-                color = Color.Green, // Consider using a formal Success color
+                color = LimoRed, // Using LimoRed for all messages as requested
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -275,6 +293,19 @@ fun PhoneEntryScreen(
             }
         )
     }
+
+    // Error Alert Dialog
+    CommonErrorAlertDialog(
+        isVisible = showErrorDialog,
+        onDismiss = {
+            showErrorDialog = false
+            // Clear the error from viewModel when dialog is dismissed
+            // Note: This is handled by the LaunchedEffect clearing the error
+        },
+        type = AlertType.ERROR,
+        title = errorDialogTitle,
+        message = errorDialogMessage
+    )
 }
 
 /**

@@ -53,7 +53,7 @@ class DriverAuthRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to send verification code")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -108,7 +108,7 @@ class DriverAuthRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to verify OTP")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }
@@ -126,7 +126,7 @@ class DriverAuthRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to resend OTP")
-                Result.failure(Exception(errorHandler.handleApiError(e)))
+                Result.failure(Exception(errorHandler.handleError(e)))
             }
         }
     }

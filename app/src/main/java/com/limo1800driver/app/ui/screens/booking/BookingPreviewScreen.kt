@@ -33,6 +33,8 @@ import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.LimoGreen
 import com.limo1800driver.app.ui.theme.LimoOrange
 import com.limo1800driver.app.ui.theme.LimoRed
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
+import com.limo1800driver.app.ui.components.SuccessAlertDialog
 import com.limo1800driver.app.ui.viewmodel.BookingPreviewViewModel
 
 // Standard gray for labels
@@ -143,34 +145,25 @@ fun BookingPreviewScreen(
         }
     }
 
-    // Dialog handling remains same
-    if (successDialogMessage != null) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Success") },
-            text = { Text(successDialogMessage.orEmpty()) },
-            confirmButton = {
-                TextButton(onClick = {
-                    successDialogMessage = null
-                    viewModel.consumeSuccess()
-                    onCompleted()
-                }) { Text("OK", color = LimoOrange) }
-            },
-            containerColor = Color.White
-        )
-    }
+    // Success Dialog
+    SuccessAlertDialog(
+        isVisible = successDialogMessage != null,
+        onDismiss = {
+            successDialogMessage = null
+            viewModel.consumeSuccess()
+            onCompleted()
+        },
+        title = "Success",
+        message = successDialogMessage.orEmpty()
+    )
 
-    if (errorDialogMessage != null && !state.isLoading) {
-        AlertDialog(
-            onDismissRequest = { errorDialogMessage = null },
-            title = { Text("Error") },
-            text = { Text(errorDialogMessage.orEmpty()) },
-            confirmButton = {
-                TextButton(onClick = { errorDialogMessage = null }) { Text("OK", color = LimoOrange) }
-            },
-            containerColor = Color.White
-        )
-    }
+    // Error Dialog
+    ErrorAlertDialog(
+        isVisible = errorDialogMessage != null && !state.isLoading,
+        onDismiss = { errorDialogMessage = null },
+        title = "Error",
+        message = errorDialogMessage.orEmpty()
+    )
 }
 
 @Composable

@@ -171,6 +171,7 @@ class PhoneEntryViewModel @Inject constructor(
                     },
                     onFailure = { error ->
                         val errorMessage = errorHandler.handleError(error)
+                        Timber.tag("PhoneEntryVM").e(error, "Error Message , ${errorMessage}")
                         _uiState.value = currentState.copy(
                             isLoading = false,
                             error = errorMessage

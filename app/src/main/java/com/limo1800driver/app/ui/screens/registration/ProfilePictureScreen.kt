@@ -30,6 +30,7 @@ import com.limo1800driver.app.ui.components.camera.ProfileCameraScreen
 import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.ProfilePictureViewModel
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import kotlinx.coroutines.launch
 
 @Composable
@@ -308,24 +309,16 @@ fun ProfilePictureScreen(
         )
     }
 
-    if (showErrorDialog && uiState.error != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showErrorDialog = false
-                viewModel.clearError()
-            },
-            title = { Text("Error") },
-            text = { Text(uiState.error ?: "Unknown error") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showErrorDialog = false
-                    viewModel.clearError()
-                }) {
-                    Text("OK")
-                }
-            }
-        )
-    }
+    // Error Dialog
+    ErrorAlertDialog(
+        isVisible = showErrorDialog && uiState.error != null,
+        onDismiss = {
+            showErrorDialog = false
+            viewModel.clearError()
+        },
+        title = "Error",
+        message = uiState.error ?: "Unknown error"
+    )
 }
 
 @Composable

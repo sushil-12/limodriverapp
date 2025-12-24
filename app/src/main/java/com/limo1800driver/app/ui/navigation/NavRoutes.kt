@@ -72,5 +72,8 @@ object NavRoutes {
 
     // Account Settings -> Vehicle Details (iOS-style coordinator: form -> amenities -> image upload)
     const val VehicleDetailsCoordinatorFromAccountSettings = "vehicle_details_coordinator_from_account_settings"
+
+    // WebView for external links
+    const val WebView = "webview"
 }
 

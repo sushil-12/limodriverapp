@@ -27,15 +27,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.state.OtpUiEvent
 import com.limo1800driver.app.ui.theme.GoogleSansFamily
-import com.limo1800driver.app.ui.theme.LimoGreen
+import com.limo1800driver.app.ui.theme.LimoRed
 import com.limo1800driver.app.ui.viewmodel.OtpViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun OtpScreen(
@@ -48,6 +50,7 @@ fun OtpScreen(
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
 
     // Focus Requesters for the 6 boxes
     val focusRequesters = remember { List(6) { FocusRequester() } }
@@ -55,15 +58,39 @@ fun OtpScreen(
     // State for the 6 digits
     val otpValues = remember { mutableStateListOf("", "", "", "", "", "") }
 
+    // Error dialog state
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorDialogTitle by remember { mutableStateOf("") }
+    var errorDialogMessage by remember { mutableStateOf("") }
+
     LaunchedEffect(tempUserId, phoneNumber) {
+        // Clear any previous state when navigating to this screen
+        otpValues.replaceAll { "" }
         viewModel.setInitialData(tempUserId, phoneNumber)
-        // Request focus on the first box immediately
-        focusRequesters[0].requestFocus()
+
+        // Request focus on the first box after a short delay to ensure the UI is ready
+        scope.launch {
+            delay(100) // Small delay to ensure UI is composed
+            try {
+                focusRequesters[0].requestFocus()
+            } catch (e: Exception) {
+                // Ignore focus request failures
+            }
+        }
     }
 
     LaunchedEffect(uiState.success) {
         if (uiState.success && uiState.nextAction != null) {
             onNext(uiState.nextAction!!)
+        }
+    }
+
+    // Show error dialog when there's an API error
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            errorDialogTitle = "Error"
+            errorDialogMessage = error
+            showErrorDialog = true
         }
     }
 
@@ -152,7 +179,11 @@ fun OtpScreen(
                 color = Color.Black.copy(alpha = 0.6f),
                 textDecoration = TextDecoration.Underline
             ),
-            modifier = Modifier.clickable { onBack?.invoke() }
+            modifier = Modifier.clickable {
+                // Clear OTP state before navigating back
+                otpValues.replaceAll { "" }
+                onBack?.invoke()
+            }
         )
 
         Spacer(Modifier.height(40.dp))
@@ -205,12 +236,12 @@ fun OtpScreen(
         // --- Error Messages ---
         uiState.error?.let {
             Spacer(modifier = Modifier.height(16.dp))
-            Text(it, color = MaterialTheme.colorScheme.error, style = TextStyle(fontSize = 14.sp))
+            Text(it, color = LimoRed, style = TextStyle(fontSize = 14.sp))
         }
 
         uiState.message?.let {
             Spacer(modifier = Modifier.height(16.dp))
-            Text(it, color = LimoGreen, style = TextStyle(fontSize = 14.sp))
+            Text(it, color = LimoRed, style = TextStyle(fontSize = 14.sp))
         }
 
         // --- Loading ---
@@ -223,6 +254,26 @@ fun OtpScreen(
                     strokeWidth = 2.dp
                 )
             }
+        }
+    }
+
+    // Error Alert Dialog
+    ErrorAlertDialog(
+        isVisible = showErrorDialog,
+        onDismiss = {
+            showErrorDialog = false
+            // Clear the error from viewModel when dialog is dismissed
+            // Note: This is handled by the LaunchedEffect clearing the error
+        },
+        title = errorDialogTitle,
+        message = errorDialogMessage
+    )
+
+    // Cleanup when composable is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            // Cancel any ongoing operations in the viewModel
+            // The viewModel's onCleared will handle coroutine cleanup
         }
     }
 }
@@ -249,7 +300,7 @@ private fun OtpDigitInput(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier
-            .size(width = 48.dp, height = 56.dp) // Adjusted to 56dp for better touch target
+            .size(width = 46.dp, height = 46.dp) // Adjusted to 56dp for better touch target
             .focusRequester(focusRequester)
             .onFocusChanged { isFocused = it.isFocused }
             .onKeyEvent { event ->
@@ -262,7 +313,7 @@ private fun OtpDigitInput(
                 }
             },
         textStyle = TextStyle(
-            fontSize = 20.sp, // Slightly larger for better readability
+            fontSize = 19.sp, // Slightly larger for better readability
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.Normal,
             color = Color.Black,

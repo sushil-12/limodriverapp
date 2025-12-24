@@ -38,6 +38,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.limo1800driver.app.data.model.registration.VehicleType
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ShimmerCircle
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.theme.* // Ensure you have your AppColors/AppTextStyles here
 import com.limo1800driver.app.ui.viewmodel.VehicleSelectionUiState
 import com.limo1800driver.app.ui.viewmodel.VehicleSelectionViewModel
@@ -194,24 +195,15 @@ fun VehicleSelectionScreen(
     }
 
     // Error Dialog
-    if (showErrorDialog && uiState.error != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showErrorDialog = false
-                viewModel.clearError()
-            },
-            title = { Text("Error") },
-            text = { Text(uiState.error ?: "Unknown error occurred") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showErrorDialog = false
-                    viewModel.clearError()
-                }) {
-                    Text("OK", color = Color(0xFFF57F20))
-                }
-            }
-        )
-    }
+    ErrorAlertDialog(
+        isVisible = showErrorDialog && uiState.error != null,
+        onDismiss = {
+            showErrorDialog = false
+            viewModel.clearError()
+        },
+        title = "Error",
+        message = uiState.error ?: "Unknown error occurred"
+    )
 }
 
 /**
