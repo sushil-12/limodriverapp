@@ -6,7 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,24 +28,22 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.toSize
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.registration.BasicInfoRequest
-// Removed CommonDropdown import for DOB to use custom logic, still used for Gender/Year
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.DatePickerComponent
 import com.limo1800driver.app.ui.components.DatePickerConfig
-import com.limo1800driver.app.ui.components.DateStep
 import com.limo1800driver.app.ui.components.LocationAutocomplete
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.BasicInfoViewModel
 import java.util.Calendar
-
-// Enum to track which step of the date selection is active
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -220,7 +218,7 @@ fun BasicInfoScreen(
 
     // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
-        if (uiState.success) {
+        if (uiState.success && uiState.nextStep != null) {
             onNext(uiState.nextStep)
         }
     }
@@ -643,19 +641,28 @@ fun DarkDropdown(
     selectedValue: String?,
     options: List<String>,
     onValueSelected: (String) -> Unit,
+    // 1. Add modifier parameter with default value
+    modifier: Modifier = Modifier, 
     errorMessage: String? = null,
     onDropdownOpened: (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // State to store the width of the trigger button
+    var rowSize by remember { mutableStateOf(Size.Zero) }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    // 2. Apply the passed modifier here instead of hardcoding fillMaxWidth
+    Column(modifier = modifier) { 
         Box {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth() // This fills the Column (which is controlled by the param above)
                     .height(56.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (errorMessage != null) Color(0xFF7F1D1D) else Color(0xFF121212))
+                    // 3. Capture the width of the button
+                    .onGloballyPositioned { coordinates ->
+                        rowSize = coordinates.size.toSize()
+                    }
                     .clickable {
                         expanded = true
                         onDropdownOpened?.invoke()
@@ -686,7 +693,8 @@ fun DarkDropdown(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
+                    // 4. Set the menu width to match the button width exactly
+                    .width(with(LocalDensity.current) { rowSize.width.toDp() })
                     .background(Color.White)
             ) {
                 options.forEach { option ->

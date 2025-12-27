@@ -428,6 +428,9 @@ data class BankDetailsRequest(
     @SerializedName("currency")
     val currency: String,
 
+    @SerializedName("country")
+    val country: String,
+
     @SerializedName("social_security_number")
     val socialSecurityNumber: String,
 
@@ -1462,8 +1465,66 @@ data class StepStatusResponse(
 data class Language(
     @SerializedName("id")
     val id: Int,
-    
+
     @SerializedName("name")
     val name: String
+)
+
+// ==================== Email Verification ====================
+
+data class EmailVerificationStatusResponse(
+    @SerializedName("success")
+    val success: Boolean,
+
+    @SerializedName("message")
+    val message: String,
+
+    @SerializedName("data")
+    val data: EmailVerificationData,
+
+    @SerializedName("timestamp")
+    val timestamp: String,
+
+    @SerializedName("code")
+    val code: Int
+)
+
+data class EmailVerificationData(
+    @SerializedName("main_email")
+    val mainEmail: EmailStatus,
+
+    @SerializedName("dispatch_email")
+    val dispatchEmail: DispatchEmailStatus,
+
+    @SerializedName("emails_match")
+    val emailsMatch: Boolean,
+
+    @SerializedName("auto_verification_applied")
+    val autoVerificationApplied: Boolean
+)
+
+data class EmailStatus(
+    @SerializedName("email")
+    val email: String?,
+
+    @SerializedName("is_verified")
+    val isVerified: Boolean,
+
+    @SerializedName("verification_required")
+    val verificationRequired: Boolean
+)
+
+data class DispatchEmailStatus(
+    @SerializedName("email")
+    val email: String?,
+
+    @SerializedName("is_verified")
+    val isVerified: Boolean,
+
+    @SerializedName("verification_required")
+    val verificationRequired: Boolean,
+
+    @SerializedName("exists")
+    val exists: Boolean
 )
 

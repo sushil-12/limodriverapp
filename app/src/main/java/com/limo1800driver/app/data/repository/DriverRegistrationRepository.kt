@@ -563,5 +563,22 @@ class DriverRegistrationRepository @Inject constructor(
         tokenManager.saveDriverRegistrationState(updatedState)
         Timber.tag(TAG).d("Registration state updated: current_step=$currentStep, next_step=$nextStep")
     }
+
+    /**
+     * Get email verification status
+     */
+    suspend fun getEmailVerificationStatus(): Result<EmailVerificationData> = withContext(Dispatchers.IO) {
+        try {
+            val response = registrationApi.getEmailVerificationStatus()
+            if (response.success) {
+                Result.success(response.data)
+            } else {
+                Result.failure(Exception(response.message))
+            }
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Failed to get email verification status")
+            Result.failure(Exception(errorHandler.handleError(e)))
+        }
+    }
 }
 

@@ -36,7 +36,6 @@ import com.limo1800driver.app.domain.validation.CountryCode
 import com.limo1800driver.app.ui.components.AlertType
 import com.limo1800driver.app.ui.components.CommonErrorAlertDialog
 import com.limo1800driver.app.ui.components.ShimmerCircle
-import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.state.PhoneEntryUiEvent
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.theme.LimoRed
@@ -53,6 +52,7 @@ private val BorderGray = Color(0xFFE5E7EB)
 fun PhoneEntryScreen(
     onNext: (String, String) -> Unit, // tempUserId, phoneNumber
     onBack: (() -> Unit)? = null,
+    onNavigateToWebView: (String, String) -> Unit,
     viewModel: PhoneEntryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -161,7 +161,7 @@ fun PhoneEntryScreen(
                 singleLine = true,
                 textStyle = TextStyle(
                     fontSize = 16.sp,
-                    letterSpacing = 1.5.sp, // 2.sp is clean; try 3 or 4 for a more 'airy' look
+                    letterSpacing = 1.2.sp, // 2.sp is clean; try 3 or 4 for a more 'airy' look
                     color = AppColors.LimoBlack,
                     fontWeight = FontWeight.Normal
                 ),
@@ -194,7 +194,7 @@ fun PhoneEntryScreen(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = it,
-                color = LimoRed, // Using LimoRed for all messages as requested
+                color = LimoGreen, // Using LimoRed for all messages as requested
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -267,11 +267,11 @@ fun PhoneEntryScreen(
             onClick = { offset ->
                 annotatedString.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
                     .firstOrNull()?.let {
-                        // Handle Terms Click
+                        onNavigateToWebView("https://1800limo.com/client-terms-condition", "Terms of Service")
                     }
                 annotatedString.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset)
                     .firstOrNull()?.let {
-                        // Handle Privacy Click
+                        onNavigateToWebView("https://1800limo.com/privacy-policy", "Privacy Policy")
                     }
             }
         )

@@ -59,22 +59,20 @@ class PhoneEntryViewModel @Inject constructor(
     private fun handlePhoneNumberChanged(phoneNumber: String) {
         // Clean the phone number to get raw digits only
         val rawNumber = phoneNumber.replace(Regex("[^0-9]"), "")
-        
-        val formattedNumber = phoneValidationService.formatPhoneNumber(
-            rawNumber, 
-            _uiState.value.selectedCountryCode
-        )
-        
+
+        // Keep raw digits only - no formatting
+        val displayNumber = rawNumber
+
         // Smart validation: only validate if user has started entering digits
         val validationResult = if (rawNumber.isNotEmpty()) {
             phoneValidationService.validatePhoneNumber(
-                rawNumber, 
+                rawNumber,
                 _uiState.value.selectedCountryCode
             )
         } else {
             ValidationResult.Success // Don't show error for empty input
         }
-        
+
         // Smart validation: show errors intelligently
         val shouldShowError = when {
             rawNumber.isEmpty() -> false // Never show error for empty input
@@ -88,9 +86,9 @@ class PhoneEntryViewModel @Inject constructor(
             }
             else -> false
         }
-        
+
         _uiState.value = _uiState.value.copy(
-            phoneNumber = formattedNumber,
+            phoneNumber = displayNumber,
             rawPhoneNumber = rawNumber,
             isFormValid = validationResult is ValidationResult.Success,
             error = if (shouldShowError && validationResult is ValidationResult.Error) {

@@ -44,6 +44,8 @@ import com.limo1800driver.app.ui.components.camera.DocumentType
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.CompanyDocumentsViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jetbrains.annotations.Debug
 
 @Composable
 fun CompanyDocumentsScreen(
@@ -98,24 +100,147 @@ fun CompanyDocumentsScreen(
     // API Error state
     var apiError by remember { mutableStateOf<String?>(null) }
 
-    // Fetch initial data
+    // Initial Data Fetch
     LaunchedEffect(Unit) {
+        // Reset success state when screen loads (important for back navigation)
+        viewModel.resetSuccessState()
         viewModel.fetchCompanyDocumentsStep()
         viewModel.fetchLanguages()
         viewModel.fetchOrganisationTypes()
     }
 
-    // Prefill logic
+    // Prefill logic - runs when prefill data is available
     LaunchedEffect(uiState.prefillData) {
+        android.util.Log.d("CompanyDocumentsScreen", "LaunchedEffect triggered - prefillData: ${uiState.prefillData != null}")
         uiState.prefillData?.let { prefill ->
+            android.util.Log.d("CompanyDocumentsScreen", "Prefill data received: $prefill")
+
+            // Transport authority registration number
             if (regNo.isEmpty()) regNo = prefill.transportAuthorityRegNo ?: ""
+
+            // Languages - parse JSON array string (only if languages are loaded)
+            if (uiState.languages.isNotEmpty()) {
+                prefill.language?.let { languageJson ->
+                    android.util.Log.d("CompanyDocumentsScreen", "Processing language JSON: $languageJson")
+                    try {
+                        // Parse JSON array like "[\"1\"]" to get IDs
+                        val languageIds = languageJson
+                            .removeSurrounding("[", "]")
+                            .split(",")
+                            .map { it.trim().removeSurrounding("\"") }
+                            .filter { it.isNotEmpty() }
+
+                        android.util.Log.d("CompanyDocumentsScreen", "Parsed language IDs: $languageIds")
+
+                        // Only set if we don't already have selections (to avoid overriding user changes)
+                        if (selectedLanguages.isEmpty()) {
+                            val prefillLanguages = uiState.languages.filter { lang ->
+                                languageIds.contains(lang.id.toString())
+                            }
+                            android.util.Log.d("CompanyDocumentsScreen", "Found matching languages: ${prefillLanguages.map { it.id }}")
+                            if (prefillLanguages.isNotEmpty()) {
+                                selectedLanguages = prefillLanguages
+                                android.util.Log.d("CompanyDocumentsScreen", "Set selectedLanguages to: ${selectedLanguages.map { it.id }}")
+                            }
+                        } else {
+                            android.util.Log.d("CompanyDocumentsScreen", "Skipping language prefill - selectedLanguages already set")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("CompanyDocumentsScreen", "Failed to parse language JSON: $languageJson", e)
+                    }
+                }
+            } else {
+                android.util.Log.d("CompanyDocumentsScreen", "Languages not loaded yet, will retry when available")
+            }
+
+            // Organization types - parse JSON array string
+            prefill.organisationType?.let { orgJson ->
+                try {
+                    // Parse JSON array like "[\"1\",\"2\",\"12\"]" to get IDs
+                    val orgIds = orgJson
+                        .removeSurrounding("[", "]")
+                        .split(",")
+                        .map { it.trim().removeSurrounding("\"") }
+                        .filter { it.isNotEmpty() }
+
+                    // Only set if we don't already have selections
+                    if (selectedOrganisationTypes.isEmpty()) {
+                        selectedOrganisationTypes = orgIds
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("CompanyDocumentsScreen", "Failed to parse organisation JSON: $orgJson", e)
+                }
+            }
+
+            // Photo IDs and load images
+            prefill.businessFrontPhoto?.let { photo ->
+                android.util.Log.d("CompanyDocumentsScreen", "Loading front image: id=${photo.id}, url=${photo.url}")
+                frontImageId = photo.id
+                photo.url?.let { url ->
+                    loadBitmapFromUrl(url)?.let { bitmap ->
+                        frontImage = bitmap
+                        android.util.Log.d("CompanyDocumentsScreen", "Front image loaded successfully")
+                    } ?: android.util.Log.e("CompanyDocumentsScreen", "Failed to load front image from $url")
+                }
+            }
+            prefill.businessBackPhoto?.let { photo ->
+                android.util.Log.d("CompanyDocumentsScreen", "Loading back image: id=${photo.id}, url=${photo.url}")
+                backImageId = photo.id
+                photo.url?.let { url ->
+                    loadBitmapFromUrl(url)?.let { bitmap ->
+                        backImage = bitmap
+                        android.util.Log.d("CompanyDocumentsScreen", "Back image loaded successfully")
+                    } ?: android.util.Log.e("CompanyDocumentsScreen", "Failed to load back image from $url")
+                }
+            }
+            prefill.permitImage?.let { photo ->
+                android.util.Log.d("CompanyDocumentsScreen", "Loading permit image: id=${photo.id}, url=${photo.url}")
+                permitImageId = photo.id
+                photo.url?.let { url ->
+                    loadBitmapFromUrl(url)?.let { bitmap ->
+                        permitImage = bitmap
+                        android.util.Log.d("CompanyDocumentsScreen", "Permit image loaded successfully")
+                    } ?: android.util.Log.e("CompanyDocumentsScreen", "Failed to load permit image from $url")
+                }
+            }
         }
     }
 
-    // Default English selection
+    // Handle language prefill when languages become available (if prefill data was loaded first)
+    LaunchedEffect(uiState.languages, uiState.prefillData) {
+        if (uiState.languages.isNotEmpty() && uiState.prefillData != null && selectedLanguages.isEmpty()) {
+            val prefill = uiState.prefillData!!
+            prefill.language?.let { languageJson ->
+                android.util.Log.d("CompanyDocumentsScreen", "Processing language JSON (delayed): $languageJson")
+                try {
+                    // Parse JSON array like "[\"1\"]" to get IDs
+                    val languageIds = languageJson
+                        .removeSurrounding("[", "]")
+                        .split(",")
+                        .map { it.trim().removeSurrounding("\"") }
+                        .filter { it.isNotEmpty() }
+
+                    android.util.Log.d("CompanyDocumentsScreen", "Parsed language IDs (delayed): $languageIds")
+
+                    val prefillLanguages = uiState.languages.filter { lang ->
+                        languageIds.contains(lang.id.toString())
+                    }
+                    android.util.Log.d("CompanyDocumentsScreen", "Found matching languages (delayed): ${prefillLanguages.map { it.id }}")
+                    if (prefillLanguages.isNotEmpty()) {
+                        selectedLanguages = prefillLanguages
+                        android.util.Log.d("CompanyDocumentsScreen", "Set selectedLanguages to (delayed): ${selectedLanguages.map { it.id }}")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("CompanyDocumentsScreen", "Failed to parse language JSON (delayed): $languageJson", e)
+                }
+            }
+        }
+    }
+
+    // Default English selection (only if no prefill or user selection)
     LaunchedEffect(uiState.languages) {
-        if (uiState.languages.isNotEmpty() && selectedLanguages.isEmpty()) {
-            // Find English language and select it by default
+        if (uiState.languages.isNotEmpty() && selectedLanguages.isEmpty() && uiState.prefillData?.language.isNullOrEmpty()) {
+            // Find English language and select it by default (only if no prefill data)
             val englishLanguage = uiState.languages.find { it.name.equals("English", ignoreCase = true) }
             englishLanguage?.let {
                 selectedLanguages = listOf(it)
@@ -125,7 +250,7 @@ fun CompanyDocumentsScreen(
 
     // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
-        if (uiState.success) {
+        if (uiState.success && uiState.nextStep != null) {
             onNext(uiState.nextStep)
         }
     }
@@ -227,11 +352,16 @@ fun CompanyDocumentsScreen(
                 selectedItems = selectedLanguages,
                 itemLabel = { it.name },
                 onItemSelected = { lang ->
-                    if (!selectedLanguages.any { it.id == lang.id }) {
+                    if (selectedLanguages.any { it.id == lang.id }) {
+                        // Item is already selected, remove it (deselect)
+                        selectedLanguages = selectedLanguages.filter { it.id != lang.id }
+                        languagesError = if (selectedLanguages.isEmpty()) "Please select at least one language" else null
+                    } else {
+                        // Item is not selected, add it (select)
                         selectedLanguages = selectedLanguages + lang
                         languagesError = null
-                        apiError = null
                     }
+                    apiError = null
                 },
                 onItemRemoved = { lang ->
                     selectedLanguages = selectedLanguages.filter { it.id != lang.id }
@@ -268,10 +398,14 @@ fun CompanyDocumentsScreen(
                 itemLabel = { it.name },
                 onItemSelected = { org ->
                     val orgId = org.id.toString()
-                    if (!selectedOrganisationTypes.contains(orgId)) {
+                    if (selectedOrganisationTypes.contains(orgId)) {
+                        // Item is already selected, remove it (deselect)
+                        selectedOrganisationTypes = selectedOrganisationTypes.filter { it != orgId }
+                    } else {
+                        // Item is not selected, add it (select)
                         selectedOrganisationTypes = selectedOrganisationTypes + orgId
-                        apiError = null
                     }
+                    apiError = null
                 },
                 onItemRemoved = { org ->
                     val orgId = org.id.toString()
@@ -314,7 +448,6 @@ fun CompanyDocumentsScreen(
                         Text(" *", color = Color.Red, fontSize = 12.sp)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-
                     ImageUploadCard(
                         imageBitmap = frontImage,
                         placeholderResId = R.drawable.back_image,
@@ -351,7 +484,6 @@ fun CompanyDocumentsScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-
                     ImageUploadCard(
                         imageBitmap = backImage,
                         placeholderResId = R.drawable.back_image,
@@ -602,6 +734,27 @@ fun ImageUploadCard(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )
+        }
+    }
+}
+
+// Simple network bitmap loader for prefill images
+private suspend fun loadBitmapFromUrl(url: String): Bitmap? {
+    return withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            android.util.Log.d("CompanyDocumentsScreen", "Loading image from URL: $url")
+            val connection = java.net.URL(url).openConnection()
+            connection.connectTimeout = 10000 // 10 seconds
+            connection.readTimeout = 10000    // 10 seconds
+            connection.connect()
+            val input = connection.getInputStream()
+            val bitmap = android.graphics.BitmapFactory.decodeStream(input)
+            input.close()
+            android.util.Log.d("CompanyDocumentsScreen", "Image loaded successfully from $url")
+            bitmap
+        } catch (e: Exception) {
+            android.util.Log.e("CompanyDocumentsScreen", "Failed to load image from $url", e)
+            null
         }
     }
 }

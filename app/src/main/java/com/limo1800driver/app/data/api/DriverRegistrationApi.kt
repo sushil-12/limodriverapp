@@ -131,5 +131,9 @@ interface DriverRegistrationApi {
     // All Steps
     @GET("api/mobile/v1/driver/registration/all-steps")
     suspend fun getAllSteps(): BaseResponse<com.limo1800driver.app.data.model.registration.RegistrationStepsData>
+
+    // Email Verification Status
+    @GET("api/mobile/v1/driver/registration/email-verification-status")
+    suspend fun getEmailVerificationStatus(): EmailVerificationStatusResponse
 }
 

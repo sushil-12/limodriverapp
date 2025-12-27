@@ -44,21 +44,40 @@ fun CommonTextField(
     errorMessage: String? = null,
     focusRequester: FocusRequester? = null
 ) {
+    // Internal focus requester to handle clicks on the container
     val internalFocusRequester = remember { FocusRequester() }
     val currentFocusRequester = focusRequester ?: internalFocusRequester
+
+    // Track focus state
     var isFocused by remember { mutableStateOf(false) }
 
-    // 1. Internal state to manage cursor position (Selection)
+    // Internal state for TextFieldValue to manage selection (cursor)
     var textFieldValue by remember { mutableStateOf(TextFieldValue(text = text)) }
 
-    // 2. Sync Logic: If parent updates 'text' (e.g. prefill or reset), update internal state.
-    // We check (text != textFieldValue.text) to avoid overwriting the cursor while the user is typing.
+    // 1. Sync External Changes:
+    // If the parent updates 'text' (e.g., masking or reset), update our internal state.
+    // We only update if the text content is actually different to avoid interfering with typing.
     if (text != textFieldValue.text) {
         textFieldValue = textFieldValue.copy(
             text = text,
-            // If text changed externally, move cursor to end to be safe
+            // If text changed externally, move cursor to the end to prevent index errors
             selection = TextRange(text.length)
         )
+    }
+
+    // 2. Smooth "Select All" Logic:
+    // We use LaunchedEffect to trigger this whenever 'isFocused' becomes true.
+    // This ensures it happens after any initial touch events, preventing the cursor
+    // from jumping back to the touch position immediately.
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            val currentText = textFieldValue.text
+            if (currentText.isNotEmpty()) {
+                textFieldValue = textFieldValue.copy(
+                    selection = TextRange(0, currentText.length)
+                )
+            }
+        }
     }
 
     Column(
@@ -106,6 +125,7 @@ fun CommonTextField(
                     },
                     shape = RoundedCornerShape(8.dp)
                 )
+                // Clicking the container requests focus for the TextField
                 .clickable { currentFocusRequester.requestFocus() },
             contentAlignment = Alignment.CenterStart
         ) {
@@ -132,10 +152,11 @@ fun CommonTextField(
                     BasicTextField(
                         value = textFieldValue,
                         onValueChange = { newValue ->
-                            // Update internal state (keeps cursor position)
                             textFieldValue = newValue
-                            // Notify parent of text change
-                            onValueChange(newValue.text)
+                            // Only notify parent if text actually changed
+                            if (text != newValue.text) {
+                                onValueChange(newValue.text)
+                            }
                         },
                         textStyle = TextStyle(
                             fontSize = 16.sp,
@@ -146,15 +167,6 @@ fun CommonTextField(
                             .fillMaxWidth()
                             .focusRequester(currentFocusRequester)
                             .onFocusChanged { focusState ->
-                                // 3. Handle "Select All" logic here
-                                if (focusState.isFocused && !isFocused) {
-                                    // Field just gained focus
-                                    if (textFieldValue.text.isNotEmpty()) {
-                                        textFieldValue = textFieldValue.copy(
-                                            selection = TextRange(0, textFieldValue.text.length)
-                                        )
-                                    }
-                                }
                                 isFocused = focusState.isFocused
                             },
                         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),

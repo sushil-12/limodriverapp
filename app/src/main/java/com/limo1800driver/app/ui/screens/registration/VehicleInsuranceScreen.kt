@@ -32,6 +32,9 @@ import com.limo1800driver.app.data.model.registration.VehicleInsuranceRequest
 import coil.compose.AsyncImage
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.CommonDropdown
+import com.limo1800driver.app.ui.components.PhoneInputField
+import com.limo1800driver.app.data.model.Country
+import com.limo1800driver.app.data.model.Countries
 import com.limo1800driver.app.ui.components.DatePickerComponent
 import com.limo1800driver.app.ui.components.DatePickerConfig
 import com.limo1800driver.app.ui.components.DateStep
@@ -70,6 +73,7 @@ fun VehicleInsuranceScreen(
     var agencyName by remember { mutableStateOf("") }
     var policyNumber by remember { mutableStateOf("") }
     var agentPhone by remember { mutableStateOf("") }
+    var selectedAgentCountry by remember { mutableStateOf(Countries.list.find { it.shortCode == "US" } ?: Countries.list.first()) }
     var agentEmail by remember { mutableStateOf("") }
     var insuranceLimit by remember { mutableStateOf<String?>(null) }
     var expiryMonth by remember { mutableStateOf<String?>(null) }
@@ -96,8 +100,6 @@ fun VehicleInsuranceScreen(
     val days = (1..31).map { String.format("%02d", it) }
     val years = (2024..2035).map { it.toString() }
     val limits = listOf("$500,000", "$1,000,000", "$1,500,000", "$5,000,000")
-    val defaultAgentIsd = "+1"
-    val defaultAgentCountry = "US"
 
     // Fetch step data on load
     LaunchedEffect(Unit) {
@@ -111,6 +113,12 @@ fun VehicleInsuranceScreen(
             if (agencyName.isEmpty()) agencyName = prefill.agencyName ?: ""
             if (policyNumber.isEmpty()) policyNumber = prefill.insurancePolicyNumber ?: ""
             if (agentPhone.isEmpty()) agentPhone = prefill.agentTelephoneNumber ?: ""
+            // Set agent phone country if available
+            prefill.agentTelephoneCountry?.let { countryCode ->
+                Countries.list.find { it.shortCode == countryCode }?.let { country ->
+                    selectedAgentCountry = country
+                }
+            }
             if (agentEmail.isEmpty()) agentEmail = prefill.agentEmail ?: ""
             if (insuranceLimit == null) {
                 fun normLimit(s: String?): String = s.orEmpty().replace(Regex("[^0-9]"), "")
@@ -293,14 +301,17 @@ fun VehicleInsuranceScreen(
             Spacer(modifier = Modifier.height(18.dp))
 
             // Agent Phone
-            CommonTextField(
+            PhoneInputField(
                 label = "AGENCY/INSURANCE TELEPHONE",
-                placeholder = "",
-                text = agentPhone,
-                onValueChange = {
+                phone = agentPhone,
+                onPhoneChange = {
                     agentPhone = it
-                    agentPhoneError = validateField("agentPhone", it)
+                    agentPhoneError = if (it.isEmpty()) "Agent phone number is required" else null
                     apiError = null
+                },
+                selectedCountry = selectedAgentCountry,
+                onCountryChange = { country ->
+                    selectedAgentCountry = country
                 },
                 isRequired = true,
                 errorMessage = agentPhoneError
@@ -550,7 +561,7 @@ fun VehicleInsuranceScreen(
                     if (agentPhone.trim().isEmpty()) {
                         agentPhoneError = "Agent phone number is required"
                         hasErrors = true
-                    } else if (!agentPhone.matches(Regex("^\\+?[0-9\\s\\-\\(\\)]{10,}$"))) {
+                    } else if (agentPhone.trim().length < 10) {
                         agentPhoneError = "Please enter a valid phone number"
                         hasErrors = true
                     }
@@ -582,8 +593,8 @@ fun VehicleInsuranceScreen(
                             agencyName = agencyName.trim().takeIf { it.isNotEmpty() },
                             insurancePolicyNumber = policyNumber.trim(),
                             agentTelephoneNumber = agentPhone.trim(),
-                            agentTelephoneIsd = defaultAgentIsd,
-                            agentTelephoneCountry = defaultAgentCountry,
+                            agentTelephoneIsd = selectedAgentCountry.code,
+                            agentTelephoneCountry = selectedAgentCountry.shortCode,
                             agentEmail = agentEmail.trim().takeIf { it.isNotEmpty() },
                             insuranceLimit = insuranceLimit ?: "",
                             policyExpiryDate = expiryDate,

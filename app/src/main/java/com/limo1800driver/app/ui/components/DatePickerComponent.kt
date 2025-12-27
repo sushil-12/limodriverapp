@@ -182,7 +182,7 @@ private fun DateDropdownField(
     onClick: () -> Unit
 ) {
     val borderColor = if (isError) Color(0xFFEF4444) else Color(0xFFE5E7EB)
-    val backgroundColor = Color.White // Cleaner white background
+    val backgroundColor = Color(0xFFF5F5F5)// Cleaner white background
     val textColor = if (value.isNullOrBlank()) Color(0xFF9CA3AF) else AppColors.LimoBlack
 
     Box(

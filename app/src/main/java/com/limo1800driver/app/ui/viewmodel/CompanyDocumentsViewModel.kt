@@ -189,6 +189,13 @@ class CompanyDocumentsViewModel @Inject constructor(
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
+
+    /**
+     * Reset success state (important for back navigation)
+     */
+    fun resetSuccessState() {
+        _uiState.value = _uiState.value.copy(success = false, nextStep = null)
+    }
 }
 
 data class CompanyDocumentsUiState(

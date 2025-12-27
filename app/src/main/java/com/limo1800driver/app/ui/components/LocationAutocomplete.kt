@@ -136,7 +136,7 @@ fun LocationAutocomplete(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(50.dp),
                 singleLine = true,
                 textStyle = AppTextStyles.bodyMedium.copy(
                     fontSize = 16.sp,
@@ -147,8 +147,8 @@ fun LocationAutocomplete(
                 shape = RoundedCornerShape(8.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     // Background Colors (Light Gray filled look)
-                    focusedContainerColor = Color(0xFFF3F4F6),
-                    unfocusedContainerColor = Color(0xFFF3F4F6),
+                    focusedContainerColor = Color(0xFFF5F5F5),
+                    unfocusedContainerColor = Color(0xFFF5F5F5),
 
                     // Border Colors - red for error, black for focused, light gray otherwise
                     focusedBorderColor = if (errorMessage != null) Color(0xFFEF4444) else AppColors.LimoBlack.copy(alpha = 0.5f),

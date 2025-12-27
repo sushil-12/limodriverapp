@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.registration.BankDetailsRequest
 import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
+import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.components.LocationAutocomplete
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.RegistrationTopBar
@@ -149,6 +150,7 @@ fun BankDetailsScreen(
     var einError by remember { mutableStateOf<String?>(null) }
     var badgeCityError by remember { mutableStateOf<String?>(null) }
     var apiError by remember { mutableStateOf<String?>(null) }
+    var showErrorDialog by remember { mutableStateOf(false) }
 
     // Validation function
     fun validateField(fieldName: String, value: String): String? {
@@ -184,6 +186,7 @@ fun BankDetailsScreen(
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             apiError = error
+            showErrorDialog = true
             // Clear field-specific errors when we have an API error
             accHolderFirstNameError = null
             accHolderLastNameError = null
@@ -228,41 +231,6 @@ fun BankDetailsScreen(
                 )
             )
             Spacer(modifier = Modifier.height(24.dp))
-
-            // API Error Display
-            apiError?.let { error ->
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFF2F2)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = "Error",
-                            tint = Color(0xFFDC2626),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = error,
-                            style = TextStyle(
-                                fontSize = 14.sp,
-                                color = Color(0xFFDC2626),
-                                fontWeight = FontWeight.Medium
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
 
             // Account Holder Name
             Row(
@@ -715,6 +683,7 @@ fun BankDetailsScreen(
                                 routingNumber = routing,
                                 accountType = acctType,
                                 currency = currencyCode,
+                                country = currencyCountryCode ?: "",
                                 socialSecurityNumber = ssnValue,
                                 badgeCity = badge,
                                 businessId = businessId
@@ -922,4 +891,16 @@ fun BankDetailsScreen(
         }
     }
 
+    // Error Dialog
+    ErrorAlertDialog(
+        isVisible = showErrorDialog,
+        onDismiss = {
+            showErrorDialog = false
+            apiError = null
+            viewModel.clearError()
+        },
+        title = "Bank Details Error",
+        message = apiError ?: "An error occurred while saving bank details",
+        confirmText = "OK"
+    )
 }

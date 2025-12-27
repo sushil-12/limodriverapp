@@ -112,14 +112,16 @@ fun CompanyInfoScreen(
         }
     }
 
-    // Fetch step data on load
+    // Initial Data Fetch
     LaunchedEffect(Unit) {
+        // Reset success state when screen loads (important for back navigation)
+        viewModel.resetSuccessState()
         viewModel.fetchCompanyInfoStep()
     }
 
     // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
-        if (uiState.success) {
+        if (uiState.success && uiState.nextStep != null) {
             onNext(uiState.nextStep)
         }
     }

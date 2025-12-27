@@ -32,9 +32,11 @@ import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.state.OtpUiEvent
 import com.limo1800driver.app.ui.theme.GoogleSansFamily
-import com.limo1800driver.app.ui.theme.LimoRed
 import com.limo1800driver.app.ui.viewmodel.OtpViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+private const val RESEND_INTERVAL_SECONDS = 30
 
 @Composable
 fun OtpScreen(
@@ -47,19 +49,34 @@ fun OtpScreen(
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
 
-    // Single source of truth for the OTP
+    // OTP
     var otpValue by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
-    // Error dialog state
+    // Error dialog
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorDialogTitle by remember { mutableStateOf("") }
     var errorDialogMessage by remember { mutableStateOf("") }
 
+    // 🔹 RESEND TIMER STATE
+    var resendCooldown by remember { mutableIntStateOf(RESEND_INTERVAL_SECONDS) }
+    var canResend by remember { mutableStateOf(false) }
+
+    // 🔹 Start resend timer immediately on screen load
+    LaunchedEffect(Unit) {
+        resendCooldown = RESEND_INTERVAL_SECONDS
+        canResend = false
+        while (resendCooldown > 0) {
+            delay(1_000)
+            resendCooldown--
+        }
+        canResend = true
+    }
+
     LaunchedEffect(tempUserId, phoneNumber) {
         viewModel.setInitialData(tempUserId, phoneNumber)
-        // Request focus immediately on load
         delay(300)
         focusRequester.requestFocus()
         keyboardController?.show()
@@ -76,13 +93,12 @@ fun OtpScreen(
             errorDialogTitle = "Error"
             errorDialogMessage = error
             showErrorDialog = true
-            // Clear OTP on error so user can retry easily
             otpValue = ""
             focusRequester.requestFocus()
         }
     }
 
-    // Auto-submit when length reaches 6
+    // Auto-submit OTP
     LaunchedEffect(otpValue) {
         if (otpValue.length == 6) {
             focusManager.clearFocus()
@@ -101,7 +117,6 @@ fun OtpScreen(
     ) {
         Spacer(Modifier.height(50.dp))
 
-        // --- Header ---
         Text(
             text = buildAnnotatedString {
                 append("Enter the 6-digit code sent via SMS at ")
@@ -121,12 +136,10 @@ fun OtpScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // --- Change Number Link ---
         Text(
             text = "Change your mobile number?",
             style = TextStyle(
                 fontFamily = GoogleSansFamily,
-                fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
                 color = Color.Black.copy(alpha = 0.6f),
                 textDecoration = TextDecoration.Underline
@@ -139,41 +152,30 @@ fun OtpScreen(
 
         Spacer(Modifier.height(40.dp))
 
-        // --- OPTIMIZED OTP INPUT ---
-        // This box holds the invisible TextField and the visible boxes
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
-            // 1. The Invisible TextField (Handles all input logic)
+        // OTP Input
+        Box(Modifier.fillMaxWidth()) {
             BasicTextField(
                 value = otpValue,
                 onValueChange = {
-                    if (it.length <= 6 && it.all { char -> char.isDigit() }) {
+                    if (it.length <= 6 && it.all(Char::isDigit)) {
                         otpValue = it
                     }
                 },
                 modifier = Modifier
-                    .matchParentSize() // Fill the box so clicks anywhere trigger keyboard
+                    .matchParentSize()
                     .focusRequester(focusRequester),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                cursorBrush = SolidColor(Color.Transparent), // Hide default cursor
-                textStyle = TextStyle(color = Color.Transparent), // Hide typed text
-                decorationBox = { innerTextField -> innerTextField() }
+                cursorBrush = SolidColor(Color.Transparent),
+                textStyle = TextStyle(color = Color.Transparent),
+                decorationBox = { it() }
             )
 
-            // 2. The Visual Boxes (Drawn based on otpValue state)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 repeat(6) { index ->
-                    val char = if (index < otpValue.length) otpValue[index].toString() else ""
-                    val isFocused = index == otpValue.length
-
+                    val char = otpValue.getOrNull(index)?.toString() ?: ""
                     OtpDigitVisual(
                         char = char,
-                        isFocused = isFocused
+                        isFocused = index == otpValue.length
                     )
                 }
             }
@@ -181,42 +183,48 @@ fun OtpScreen(
 
         Spacer(Modifier.height(32.dp))
 
-        // --- Resend Code Pill ---
-        val timerString = if (uiState.resendCooldown > 0) {
-            "(0:${String.format("%02d", uiState.resendCooldown)})"
-        } else {
-            ""
-        }
+        val timerText = if (!canResend) {
+            "(0:${String.format("%02d", resendCooldown)})"
+        } else ""
 
+        // 🔹 RESEND BUTTON
         Surface(
             onClick = {
-                if (uiState.canResend) viewModel.onEvent(OtpUiEvent.ResendOtp)
+                if (canResend) {
+                    viewModel.onEvent(OtpUiEvent.ResendOtp)
+
+                    resendCooldown = RESEND_INTERVAL_SECONDS
+                    canResend = false
+
+                    scope.launch {
+                        while (resendCooldown > 0) {
+                            delay(1_000)
+                            resendCooldown--
+                        }
+                        canResend = true
+                    }
+                }
             },
             shape = RoundedCornerShape(12.dp),
             color = Color(0xFFF3F4F6),
-            enabled = uiState.canResend || uiState.resendCooldown > 0
+            enabled = canResend || resendCooldown > 0
         ) {
             Text(
-                text = "Resend code via SMS $timerString",
+                text = "Resend code via SMS $timerText",
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                 style = TextStyle(
                     fontSize = 16.sp,
-                    color = if (uiState.canResend) Color.Black else Color.Gray,
+                    color = if (canResend) Color.Black else Color.Gray,
                     fontWeight = FontWeight.Medium,
                     fontFamily = GoogleSansFamily
                 )
             )
         }
 
-        // --- Loading ---
         if (uiState.isLoading) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                ShimmerCircle(
-                    size = 32.dp,
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp
-                )
+                ShimmerCircle(size = 32.dp)
             }
         }
     }
@@ -229,15 +237,8 @@ fun OtpScreen(
     )
 }
 
-/**
- * Purely visual component for a single OTP box.
- * It does NOT handle input events.
- */
 @Composable
-private fun OtpDigitVisual(
-    char: String,
-    isFocused: Boolean
-) {
+private fun OtpDigitVisual(char: String, isFocused: Boolean) {
     val borderColor = if (isFocused) Color.Black else Color(0xFFE5E7EB)
     val containerColor = if (isFocused) Color.White else Color(0xFFF9FAFB)
 
@@ -262,11 +263,5 @@ private fun OtpDigitVisual(
                 textAlign = TextAlign.Center
             )
         )
-
-        // Optional: Blinking cursor for the active empty box
-        if (isFocused && char.isEmpty()) {
-            // We can add a simple blinking cursor here if desired
-            // For now, the focused border is usually sufficient
-        }
     }
 }
