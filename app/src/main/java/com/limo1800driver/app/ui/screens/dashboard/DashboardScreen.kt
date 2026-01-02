@@ -208,7 +208,8 @@ fun DashboardScreen(
             bookings = bookingsState.bookings,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = with(density) { (screenHeightPx * minHeight).toDp() - 20.dp }) // Adjust map padding so logo isn't hidden
+                .padding(bottom = with(density) { (screenHeightPx * minHeight).toDp() - 20.dp }), // Adjust map padding so logo isn't hidden
+            hasLocationPermission = hasLocationPermission // Pass permission status to prevent crash
         )
 
         // 2. Menu Button

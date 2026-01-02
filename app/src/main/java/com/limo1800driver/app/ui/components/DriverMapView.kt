@@ -22,15 +22,18 @@ fun DriverMapView(
     bookings: List<DriverBooking>,
     // Pass padding values to respect BottomSheets/TopBars (Uber-like centering)
     contentPadding: androidx.compose.foundation.layout.PaddingValues = androidx.compose.foundation.layout.PaddingValues(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Only enable my location if permissions are granted
+    hasLocationPermission: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     // 1. Map Styling: Load the minimal JSON style for that "clean" look
-    val mapProperties = remember {
+    // Only enable my location if permissions are granted to prevent SecurityException
+    val mapProperties = remember(hasLocationPermission) {
         MapProperties(
-            isMyLocationEnabled = true, // Usually required for driver apps
+            isMyLocationEnabled = hasLocationPermission, // Only enable if permissions are granted
             mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_minimal)
         )
     }
@@ -96,8 +99,8 @@ fun DriverMapView(
             if (position != null) {
                 // Use a stable key if possible to prevent unnecessary marker recomposition
                 key(booking.bookingId) {
-                    Marker(
-                        state = MarkerState(position = position),
+                Marker(
+                    state = MarkerState(position = position),
                         title = "Booking #${booking.bookingId}",
                         snippet = booking.pickupAddress,
                         // For true Uber polish, use a custom Drawable resource, not the default HUE

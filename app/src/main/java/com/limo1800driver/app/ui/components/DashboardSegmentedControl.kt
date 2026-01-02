@@ -1,23 +1,25 @@
 package com.limo1800driver.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.*
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,28 +34,35 @@ fun DashboardSegmentedControl(
     val haptic = LocalHapticFeedback.current
     val items = DashboardTab.values().toList()
 
-    // Uber-like Styling: High Contrast
-    val containerColor = Color(0xFFF3F3F3) // Very subtle light grey
-    val indicatorColor = Color.Black       // Bold Black Indicator
+    // --- STYLING CONSTANTS (Matched to Image) ---
+    val activeColor = Color(0xFF2B1A16) // The Dark Brown/Black from the image
+    val containerColor = Color.White
     val activeTextColor = Color.White
-    val inactiveTextColor = Color(0xFF5E5E5E) // Dark Grey
+    val inactiveTextColor = Color(0xFF2B1A16) // Match the dark text to the brand color
+    val borderColor = Color(0xFFEEEEEE) // Subtle border for definition
 
     BoxWithConstraints(
         modifier = modifier
-            .height(44.dp) // Compact height (was 52dp)
-            .clip(CircleShape) // Fully rounded pill shape
+            .height(54.dp) // Taller height to match the pill shape in image
+            .shadow(
+                elevation = 6.dp,
+                shape = CircleShape,
+                spotColor = Color(0x20000000) // Soft shadow
+            )
+            .clip(CircleShape)
             .background(containerColor)
-            .padding(4.dp) // Tight padding for the floating effect
+            .border(1.dp, borderColor, CircleShape)
+            .padding(4.dp) // Padding between container edge and the moving indicator
     ) {
         val maxWidth = maxWidth
         val tabWidth = maxWidth / items.size
 
-        // --- 1. The Sliding Black Indicator ---
+        // --- 1. The Sliding Dark Indicator ---
         val indicatorOffset by animateDpAsState(
             targetValue = tabWidth * items.indexOf(selectedTab),
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMedium
+                stiffness = Spring.StiffnessLow
             ),
             label = "indicatorOffset"
         )
@@ -64,7 +73,7 @@ fun DashboardSegmentedControl(
                 .width(tabWidth)
                 .fillMaxHeight()
                 .clip(CircleShape)
-                .background(indicatorColor)
+                .background(activeColor)
                 .zIndex(0f)
         )
 
@@ -98,12 +107,13 @@ fun DashboardSegmentedControl(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (tab == DashboardTab.DRIVE) "Drive" else "Earnings",
-                        fontSize = 14.sp, // Slightly smaller, crisper font
-                        fontWeight = FontWeight.SemiBold,
+                        // Uppercase to match "PICKUP / DELIVERY" style
+                        text = (if (tab == DashboardTab.DRIVE) "Drive" else "Earnings").uppercase(),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
                         color = textColor,
                         maxLines = 1,
-                        letterSpacing = (-0.5).sp // Tighter tracking looks more premium
+                        letterSpacing = 1.sp // Wider spacing for that premium look
                     )
                 }
             }

@@ -1,11 +1,12 @@
 package com.limo1800driver.app.ui.screens.booking
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -16,17 +17,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.maps.android.compose.*
 import com.limo1800driver.app.data.model.dashboard.AdminBookingPreviewData
 import com.limo1800driver.app.data.model.dashboard.AdminBookingPreviewExtraStop
 import com.limo1800driver.app.ui.components.ShimmerCircle
@@ -41,6 +38,7 @@ import com.limo1800driver.app.ui.viewmodel.BookingPreviewViewModel
 private val LabelGray = Color(0xFF757575)
 private val DividerColor = Color(0xFFEEEEEE)
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun BookingPreviewScreen(
     bookingId: Int,
@@ -137,7 +135,6 @@ fun BookingPreviewScreen(
                     PassengerInformationSection(preview)
                     SpecialInstructionsSection(preview)
                     MeetAndGreetSection(preview)
-                    RatesDistributionSection(preview)
                     CancellationPeriodSection(preview)
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -174,7 +171,8 @@ private fun PreviewBookingHeader(
 ) {
     Surface(
         color = Color.White,
-        shadowElevation = 2.dp
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
@@ -214,11 +212,13 @@ private fun PreviewBottomBar(
 ) {
     Surface(
         color = Color.White,
-        shadowElevation = 16.dp
+        shadowElevation = 16.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(16.dp)
         ) {
             if (isPending) {
@@ -226,7 +226,7 @@ private fun PreviewBottomBar(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // REJECT Button (Left Side)
+                    // REJECT Button
                     Button(
                         onClick = onReject,
                         enabled = !isAccepting && !isRejecting,
@@ -245,10 +245,14 @@ private fun PreviewBottomBar(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
-                        Text(text = if (isRejecting) "Rejecting..." else "Reject")
+                        Text(
+                            text = if (isRejecting) "Rejecting..." else "Reject",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
-                    // ACCEPT Button (Right Side)
+                    // ACCEPT Button
                     Button(
                         onClick = onAccept,
                         enabled = !isAccepting && !isRejecting,
@@ -267,7 +271,11 @@ private fun PreviewBottomBar(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
-                        Text(text = if (isAccepting) "Accepting..." else "Accept")
+                        Text(
+                            text = if (isAccepting) "Accepting..." else "Accept",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             } else {
@@ -293,6 +301,7 @@ private fun PreviewBottomBar(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun TravelInformationSection(p: AdminBookingPreviewData) {
     Column(
@@ -303,15 +312,11 @@ private fun TravelInformationSection(p: AdminBookingPreviewData) {
         SectionTitle("Travel Information")
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "PICKUP DETAILS",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(modifier = Modifier.fillMaxWidth()) {
+        // DATE & TIME (Side by Side)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             Box(modifier = Modifier.weight(1f)) {
                 InlineDetail(label = "DATE", value = formatPickupDate(p.pickupDate))
             }
@@ -324,72 +329,28 @@ private fun TravelInformationSection(p: AdminBookingPreviewData) {
         Divider(color = DividerColor)
         Spacer(modifier = Modifier.height(12.dp))
 
+        // COMPACT ADDRESSES
         if (p.isAirportTransfer()) {
-            DetailRow(label = "AIRPORT", value = p.getPickupLocationName())
+            DetailRow(label = "PICKUP", value = p.getPickupLocationName())
             val airline = p.getPickupAirlineInfo()
             if (airline.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
                 DetailRow(label = "AIRLINE", value = "$airline (Update Arrival Time)")
             }
         } else {
-            DetailRow(label = "ADDRESS", value = p.pickupAddress.orEmpty().ifBlank { "N/A" })
+            DetailRow(label = "PICKUP", value = p.pickupAddress.orEmpty().ifBlank { "N/A" })
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        DetailRow(label = "DROP OFF", value = p.getDropoffLocationName())
 
-        Text(
-            text = "DROP OFF DETAILS",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        DetailRow(label = "ADDRESS", value = p.getDropoffLocationName())
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         Divider(color = DividerColor)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        Text(
-            text = "VEHICLE DETAILS",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
+        // VEHICLE
         DetailRow(
-            label = "Vehicle Type",
+            label = "VEHICLE",
             value = p.vehicleTypeName.orEmpty().ifBlank { "N/A" }
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Trip Information",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.Black
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-
-        Text(
-            text = "Trip Information",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.Black
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Box(modifier = Modifier.weight(1f)) {
-                InlineDetail(label = "TOTAL TIME", value = formatDuration(p.duration))
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                InlineDetail(label = "TOTAL DISTANCE", value = formatDistance(p.distance))
-            }
-        }
     }
 }
 
@@ -401,18 +362,18 @@ private fun MapSection(p: AdminBookingPreviewData) {
             .padding(horizontal = 16.dp)
             .padding(bottom = 16.dp)
     ) {
-        SectionTitle("Map")
-        Spacer(modifier = Modifier.height(12.dp))
-
         val pickup = p.getFinalPickupLatLng()
         val dropoff = p.getFinalDropoffLatLng()
         val stops = p.getExtraStopLatLngs()
 
         if (pickup != null && dropoff != null) {
+            // MAP SURFACE
             Surface(
                 shadowElevation = 2.dp,
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth().height(200.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
             ) {
                 BookingRouteMap(
                     pickup = pickup,
@@ -421,6 +382,22 @@ private fun MapSection(p: AdminBookingPreviewData) {
                     modifier = Modifier.fillMaxSize()
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // TRIP INFO (Duration / Distance) - Moved under map
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    InlineDetail(label = "DURATION", value = formatDuration(p.duration))
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    InlineDetail(label = "DISTANCE", value = formatDistance(p.distance))
+                }
+            }
+
         } else {
             Box(
                 modifier = Modifier
@@ -442,15 +419,17 @@ private fun PassengerInformationSection(p: AdminBookingPreviewData) {
         SectionTitle("Passenger Information")
         Spacer(modifier = Modifier.height(16.dp))
 
+
+
+        // Row 2+: Contact Details
         DetailRow(label = "NAME", value = p.passengerName.orEmpty().ifBlank { "N/A" })
-        Spacer(modifier = Modifier.height(8.dp))
         DetailRow(label = "PHONE", value = p.getPassengerPhone())
-        Spacer(modifier = Modifier.height(8.dp))
         DetailRow(label = "EMAIL", value = p.passengerEmail.orEmpty().ifBlank { "N/A" })
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Row(modifier = Modifier.fillMaxWidth()) {
+        // Row 1: Passengers and Luggage grouped side-by-side
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             Box(modifier = Modifier.weight(1f)) {
                 InlineDetail(label = "PASSENGERS", value = (p.totalPassengers ?: 0).toString())
             }
@@ -471,7 +450,8 @@ private fun SpecialInstructionsSection(p: AdminBookingPreviewData) {
         Text(
             text = if (instructions.isBlank()) "N/A" else instructions,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Black
+            color = Color.Black,
+            lineHeight = 20.sp
         )
     }
     SectionDivider()
@@ -487,48 +467,6 @@ private fun MeetAndGreetSection(p: AdminBookingPreviewData) {
             style = MaterialTheme.typography.bodyMedium,
             color = Color.Black
         )
-    }
-    SectionDivider()
-}
-
-@Composable
-private fun VehicleTypeSection(p: AdminBookingPreviewData) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        SectionTitle("Vehicle Type")
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = p.vehicleTypeName.orEmpty().ifBlank { "N/A" },
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = Color.Black
-        )
-    }
-    SectionDivider()
-}
-
-@Composable
-private fun RatesDistributionSection(p: AdminBookingPreviewData) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        SectionTitle("Rates Distribution")
-        Spacer(modifier = Modifier.height(16.dp))
-
-        val symbol = p.currencySymbol.orEmpty()
-        val rates = p.ratesPreview
-        
-        // Use fallbacks to grandTotal if ratesPreview is missing
-        val baseRate = rates?.baseRate?.toDoubleOrNull() ?: 0.0
-        val adminShare = rates?.adminShare?.toDoubleOrNull() ?: 0.0
-        val stripeFee = rates?.stripeFee?.toDoubleOrNull() ?: 0.0
-        val affiliateShare = rates?.affiliateShare?.toDoubleOrNull() ?: 0.0
-        val totalClient = rates?.grandTotal?.toDoubleOrNull() ?: (p.grandTotal ?: 0.0)
-
-        RatesRow(label = "BASE RATE", value = formatCurrency(symbol, baseRate), subText = "Fare Base Rate")
-        Spacer(modifier = Modifier.height(10.dp))
-        
-        RatesRow(label = "TOTAL CLIENT COST", value = formatCurrency(symbol, totalClient), subText = "Actual Cost To Customer")
-        Spacer(modifier = Modifier.height(10.dp))
-
-        RatesRow(label = "AFFILIATE PAYOUT", value = formatCurrency(symbol, affiliateShare), subText = "Net Payout", isGreen = true)
     }
     SectionDivider()
 }
@@ -557,7 +495,7 @@ private fun CancellationPeriodSection(p: AdminBookingPreviewData) {
     }
 }
 
-// ---------------- UI Helpers (Fixed Layout Issues) ----------------
+// ---------------- UI Helpers (Compact & Aligned) ----------------
 
 @Composable
 private fun SectionTitle(title: String) {
@@ -575,157 +513,67 @@ private fun SectionDivider() {
 }
 
 @Composable
-private fun InlineDetail(label: String, value: String) {
-    Column {
+private fun InlineDetail(
+    label: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
         Text(
-            text = label,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = LabelGray
+            text = label.uppercase(),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = LabelGray,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(2.dp))
+
         Text(
             text = value,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color.Black
+            color = Color.Black,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
 
+
 @Composable
 private fun DetailRow(label: String, value: String) {
-    // Using a Row with weights to ensure alignment on different screen sizes
-    // instead of fixed width which causes layout issues.
-    Row(modifier = Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        // Label Column (Fixed ratio for alignment)
         Text(
-            text = "$label:",
-            fontSize = 13.sp,
+            text = label.uppercase(),
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = LabelGray,
-            modifier = Modifier.width(140.dp) // Slightly reduced from 170dp for better fit
+            modifier = Modifier
+                .fillMaxWidth(0.35f)
+                .padding(top = 2.dp) // Optical alignment
         )
+        // Value Column
         Text(
             text = value.ifBlank { "N/A" },
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = Color.Black,
-            modifier = Modifier.weight(1f) // Takes remaining space
+            lineHeight = 20.sp,
+            modifier = Modifier.weight(1f)
         )
     }
 }
 
-@Composable
-private fun RatesRow(
-    label: String, 
-    value: String, 
-    subText: String? = null, 
-    isGreen: Boolean = false
-) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.width(140.dp)) {
-            Text(
-                text = "$label:",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isGreen) LimoGreen else LabelGray
-            )
-        }
-        
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = value,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isGreen) LimoGreen else Color.Black
-            )
-            if (subText != null) {
-                Text(
-                    text = "($subText)",
-                    fontSize = 11.sp,
-                    color = LabelGray,
-                    lineHeight = 14.sp
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BookingRouteMap(
-    pickup: LatLng,
-    dropoff: LatLng,
-    extraStops: List<LatLng>,
-    modifier: Modifier = Modifier
-) {
-    val cameraPositionState = rememberCameraPositionState()
-    val mapUiSettings = remember {
-        MapUiSettings(zoomControlsEnabled = false, compassEnabled = false, myLocationButtonEnabled = false, rotationGesturesEnabled = false, tiltGesturesEnabled = false)
-    }
-
-    LaunchedEffect(pickup, dropoff, extraStops) {
-        fitCameraToPoints(
-            cameraPositionState = cameraPositionState,
-            points = listOf(pickup) + extraStops + listOf(dropoff)
-        )
-    }
-
-    GoogleMap(
-        modifier = modifier,
-        cameraPositionState = cameraPositionState,
-        uiSettings = mapUiSettings
-    ) {
-        Marker(
-            state = MarkerState(position = pickup),
-            title = "Pickup",
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-        )
-
-        extraStops.forEachIndexed { index, stop ->
-            Marker(
-                state = MarkerState(position = stop),
-                title = "Stop ${index + 1}",
-                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)
-            )
-        }
-
-        Marker(
-            state = MarkerState(position = dropoff),
-            title = "Dropoff",
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
-        )
-
-        val routePoints = listOf(pickup) + extraStops + listOf(dropoff)
-        if (routePoints.size >= 2) {
-            Polyline(
-                points = routePoints,
-                color = Color(0xFF2196F3),
-                width = 8f
-            )
-        }
-    }
-}
-
-private suspend fun fitCameraToPoints(
-    cameraPositionState: CameraPositionState,
-    points: List<LatLng>
-) {
-    if (points.isEmpty()) return
-    val builder = LatLngBounds.Builder()
-    points.forEach { builder.include(it) }
-    
-    try {
-        val bounds = builder.build()
-        cameraPositionState.animate(
-            update = CameraUpdateFactory.newLatLngBounds(bounds, 100), // Increased padding
-            durationMs = 700
-        )
-    } catch (e: Exception) {
-        // Handle edge cases where map isn't laid out yet
-    }
-}
-
-// ---------------- Helpers (Identical logic to before) ----------------
+// ---------------- Helpers ----------------
 
 private fun AdminBookingPreviewData.isAirportTransfer(): Boolean =
     transferType?.contains("airport", ignoreCase = true) == true
@@ -789,6 +637,7 @@ private fun AdminBookingPreviewExtraStop.toLatLngOrNull(): LatLng? {
     return if (lat != null && lng != null) LatLng(lat, lng) else null
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 private fun formatPickupDate(date: String?): String {
     val raw = date.orEmpty().trim()
     if (raw.isBlank()) return "N/A"
@@ -799,6 +648,7 @@ private fun formatPickupDate(date: String?): String {
     } catch (_: Exception) { raw }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 private fun formatPickupTime(time: String?): String {
     val raw = time.orEmpty().trim()
     if (raw.isBlank()) return "N/A"
@@ -806,9 +656,8 @@ private fun formatPickupTime(time: String?): String {
         val t = java.time.LocalTime.parse(raw) // Assuming hh:mm:ss format
         val formatter = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
         t.format(formatter)
-    } catch (_: Exception) { 
-        // Fallback for flexible formats
-        raw 
+    } catch (_: Exception) {
+        raw
     }
 }
 
@@ -839,5 +688,33 @@ private fun formatDuration(duration: String?): String {
     return raw
 }
 
-private fun formatCurrency(symbol: String, amount: Double): String =
-    "$symbol${String.format("%.2f", amount)}"
+// ---------------- PREVIEW ----------------
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
+@Composable
+fun PreviewBookingDetail() {
+    val dummyData = AdminBookingPreviewData(
+        reservationId = 12345,
+        bookingStatus = "pending",
+        pickupDate = "2023-12-25",
+        pickupTime = "14:30:00",
+        pickupAddress = "123 Main St, New York, NY",
+        dropoffAddress = "JFK Airport Terminal 4",
+        vehicleTypeName = "SUV / Cadillac Escalade",
+        passengerName = "John Doe",
+        passengerCell = "555-0199",
+        totalPassengers = 2,
+        luggageCount = 3,
+        duration = "3600",
+        distance = "15.5",
+        currencySymbol = "$"
+    )
+
+    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        TravelInformationSection(dummyData)
+        MapSection(dummyData)
+        SectionDivider()
+        PassengerInformationSection(dummyData)
+    }
+}

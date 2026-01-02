@@ -4,7 +4,6 @@ package com.limo1800driver.app.ui.navigation
  * Navigation routes for the app
  */
 object NavRoutes {
-    const val Splash = "splash"
     const val Onboarding = "onboarding"
     const val PhoneEntry = "phone_entry"
     const val Otp = "otp"

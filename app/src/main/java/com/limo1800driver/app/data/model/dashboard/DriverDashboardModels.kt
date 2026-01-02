@@ -852,33 +852,121 @@ data class AdminReservationRateItem(
 // ==================== Booking Rates Vehicle ====================
 
 data class BookingRatesVehicleRequest(
-    @SerializedName("booking_id")
-    val bookingId: Int,
-    
     @SerializedName("vehicle_id")
-    val vehicleId: Int
+    val vehicleId: Int,
+    
+    @SerializedName("return_vehicle_id")
+    val returnVehicleId: String = "",
+    
+    @SerializedName("transfer_type")
+    val transferType: String,
+    
+    @SerializedName("service_type")
+    val serviceType: String,
+    
+    @SerializedName("numberOfVehicles")
+    val numberOfVehicles: Int,
+    
+    @SerializedName("distance")
+    val distance: Int,
+    
+    @SerializedName("return_distance")
+    val returnDistance: Int = 0,
+    
+    @SerializedName("no_of_hours")
+    val noOfHours: Int,
+    
+    @SerializedName("is_master_vehicle")
+    val isMasterVehicle: Boolean = false,
+    
+    @SerializedName("extra_stops")
+    val extraStops: List<BookingRatesExtraStopRequest> = emptyList(),
+    
+    @SerializedName("return_extra_stops")
+    val returnExtraStops: List<BookingRatesExtraStopRequest> = emptyList(),
+    
+    @SerializedName("manual_change_aff_veh")
+    val manualChangeAffVeh: Boolean = false,
+    
+    @SerializedName("pickup_time")
+    val pickupTime: String,
+    
+    @SerializedName("return_pickup_time")
+    val returnPickupTime: String = "12:00 pm",
+    
+    @SerializedName("affiliate_type")
+    val affiliateType: String = "affiliate",
+    
+    @SerializedName("return_affiliate_type")
+    val returnAffiliateType: String = "affiliate"
+)
+
+data class BookingRatesExtraStopRequest(
+    @SerializedName("address")
+    val address: String,
+    
+    @SerializedName("latitude")
+    val latitude: String,
+    
+    @SerializedName("longitude")
+    val longitude: String,
+    
+    @SerializedName("booking_instructions")
+    val bookingInstructions: String = "",
+    
+    @SerializedName("rate")
+    val rate: String
 )
 
 data class BookingRatesVehicleData(
-    @SerializedName("rates")
-    val rates: BookingRates?
+    @SerializedName("sub_total")
+    val subTotal: Double? = null,
+    
+    @SerializedName("grand_total")
+    val grandTotal: Double? = null,
+    
+    @SerializedName("min_rate_involved")
+    val minRateInvolved: Boolean? = null,
+    
+    @SerializedName("rateArray")
+    val rateArray: BookingRatesRateArray? = null
 )
 
-data class BookingRates(
-    @SerializedName("base_rate")
-    val baseRate: Double?,
+data class BookingRatesRateArray(
+    @SerializedName("all_inclusive_rates")
+    val allInclusiveRates: Map<String, BookingRatesRateItem>? = null,
     
-    @SerializedName("per_mile_rate")
-    val perMileRate: Double?,
+    @SerializedName("taxes")
+    val taxes: Map<String, BookingRatesRateItem>? = null,
     
-    @SerializedName("per_hour_rate")
-    val perHourRate: Double?,
+    @SerializedName("amenities")
+    val amenities: Map<String, BookingRatesRateItem>? = null,
     
-    @SerializedName("total")
-    val total: Double?,
+    @SerializedName("misc")
+    val misc: Map<String, BookingRatesRateItem>? = null
+)
+
+data class BookingRatesRateItem(
+    @SerializedName("rate_label")
+    val rateLabel: String? = null,
     
-    @SerializedName("currency")
-    val currency: String?
+    @SerializedName("baserate")
+    val baserate: Double? = null,
+    
+    @SerializedName("flat_baserate")
+    val flatBaserate: Double? = null,
+    
+    @SerializedName("multiple")
+    val multiple: Double? = null,
+    
+    @SerializedName("percentage")
+    val percentage: Double? = null,
+    
+    @SerializedName("amount")
+    val amount: Double? = null,
+    
+    @SerializedName("type")
+    val type: String? = null
 )
 
 // ==================== Finalize Rate Edit ====================
@@ -1185,6 +1273,30 @@ data class AdminBookingPreviewData(
     val passengerCellIsd: String? = null,
     @SerializedName("passenger_cell")
     val passengerCell: String? = null,
+    @SerializedName("passenger_cell_country")
+    val passengerCellCountry: String? = null,
+    @SerializedName("acc_id")
+    val accId: Int? = null,
+    @SerializedName("affiliate_id")
+    val affiliateId: Int? = null,
+    @SerializedName("travel_client_id")
+    val travelClientId: Int? = null,
+    @SerializedName("driver_id")
+    val driverId: Int? = null,
+    @SerializedName("driver_first_name")
+    val driverFirstName: String? = null,
+    @SerializedName("driver_last_name")
+    val driverLastName: String? = null,
+    @SerializedName("driver_cell_number")
+    val driverCellNumber: String? = null,
+    @SerializedName("driver_cell_isd")
+    val driverCellIsd: String? = null,
+    @SerializedName("driver_cell_country")
+    val driverCellCountry: String? = null,
+    @SerializedName("driver_email")
+    val driverEmail: String? = null,
+    @SerializedName("driver_gender")
+    val driverGender: String? = null,
     @SerializedName("distance")
     val distance: String? = null,
     @SerializedName("duration")
@@ -1203,95 +1315,431 @@ data class AdminBookingPreviewData(
 
 // ==================== Edit Reservation ====================
 
+// Supporting models matching iOS structure
+data class AirportOption(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("code")
+    val code: String? = null,
+    @SerializedName("name")
+    val name: String? = null,
+    @SerializedName("city")
+    val city: String? = null,
+    @SerializedName("country")
+    val country: String? = null,
+    @SerializedName("lat")
+    val lat: Double? = null,
+    @SerializedName("long")
+    val long: Double? = null,
+    @SerializedName("formatted_name")
+    val formattedName: String? = null
+)
+
+data class AirlineOption(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("code")
+    val code: String? = null,
+    @SerializedName("name")
+    val name: String? = null,
+    @SerializedName("country")
+    val country: String? = null,
+    @SerializedName("formatted_name")
+    val formattedName: String? = null
+)
+
+data class RateItem(
+    @SerializedName("rate_label")
+    val rateLabel: String,
+    @SerializedName("baserate")
+    val baserate: Double,
+    @SerializedName("multiple")
+    val multiple: Double,
+    @SerializedName("percentage")
+    val percentage: Double,
+    @SerializedName("amount")
+    val amount: Double,
+    @SerializedName("type")
+    val type: String? = null
+)
+
+data class RateArray(
+    @SerializedName("all_inclusive_rates")
+    val allInclusiveRates: Map<String, RateItem> = emptyMap(),
+    @SerializedName("direct_taxes")
+    val directTaxes: Map<String, RateItem> = emptyMap(),
+    @SerializedName("taxes")
+    val taxes: Map<String, RateItem> = emptyMap(),
+    @SerializedName("amenities")
+    val amenities: Map<String, RateItem> = emptyMap(),
+    @SerializedName("misc")
+    val misc: Map<String, RateItem> = emptyMap()
+)
+
+data class SharesArray(
+    @SerializedName("baseRate")
+    val baseRate: Double,
+    @SerializedName("grandTotal")
+    val grandTotal: Double,
+    @SerializedName("stripeFee")
+    val stripeFee: Double,
+    @SerializedName("adminShare")
+    val adminShare: Double,
+    @SerializedName("deducted_admin_share")
+    val deductedAdminShare: Double,
+    @SerializedName("affiliateShare")
+    val affiliateShare: Double,
+    @SerializedName("travelAgentShare")
+    val travelAgentShare: Double? = null,
+    @SerializedName("farmoutShare")
+    val farmoutShare: Double? = null
+)
+
+// Complete EditReservationRequest matching iOS exactly
 data class EditReservationRequest(
-    @SerializedName("booking_id")
-    val bookingId: Int,
-    
-    @SerializedName("pickup_address")
-    val pickupAddress: String?,
-    
-    @SerializedName("dropoff_address")
-    val dropoffAddress: String?,
-    
-    @SerializedName("pickup_date")
-    val pickupDate: String?,
-    
-    @SerializedName("pickup_time")
-    val pickupTime: String?,
-    
-    @SerializedName("vehicle_id")
-    val vehicleId: Int?,
-
-    // --- Optional: richer edit payload (matches iOS more closely; backend tolerates missing fields) ---
+    // Basic info
     @SerializedName("service_type")
-    val serviceType: String? = null,
-
+    val serviceType: String,
     @SerializedName("transfer_type")
-    val transferType: String? = null,
-
+    val transferType: String,
+    @SerializedName("return_transfer_type")
+    val returnTransferType: String,
     @SerializedName("number_of_hours")
-    val numberOfHours: Int? = null,
-
-    @SerializedName("number_of_vehicles")
-    val numberOfVehicles: Int? = null,
-
-    @SerializedName("meet_greet_choices_name")
-    val meetGreetChoiceName: String? = null,
-
-    @SerializedName("booking_instructions")
-    val bookingInstructions: String? = null,
-
-    // --- Passenger fields (iOS edit flow includes these) ---
+    val numberOfHours: Int,
+    @SerializedName("acc_id")
+    val accId: Int,
+    @SerializedName("account_type")
+    val accountType: String,
+    @SerializedName("travel_client_id")
+    val travelClientId: Int,
+    
+    // Passenger info
     @SerializedName("passenger_name")
-    val passengerName: String? = null,
-
+    val passengerName: String,
     @SerializedName("passenger_email")
-    val passengerEmail: String? = null,
-
-    @SerializedName("passenger_cell_isd")
-    val passengerCellIsd: String? = null,
-
+    val passengerEmail: String,
     @SerializedName("passenger_cell")
-    val passengerCell: String? = null,
-
+    val passengerCell: String,
+    @SerializedName("passenger_cell_isd")
+    val passengerCellIsd: String,
+    @SerializedName("passenger_cell_country")
+    val passengerCellCountry: String,
+    @SerializedName("total_passengers")
+    val totalPassengers: Int,
+    @SerializedName("luggage_count")
+    val luggageCount: Int,
+    
+    // Booking instructions
+    @SerializedName("booking_instructions")
+    val bookingInstructions: String,
+    @SerializedName("return_booking_instructions")
+    val returnBookingInstructions: String,
+    
+    // Affiliate info
+    @SerializedName("affiliate_type")
+    val affiliateType: String,
+    @SerializedName("affiliate_id")
+    val affiliateId: Int,
+    @SerializedName("return_affiliate_type")
+    val returnAffiliateType: String,
+    @SerializedName("return_affiliate_id")
+    val returnAffiliateId: String,
+    @SerializedName("loose_affiliate_id")
+    val looseAffiliateId: String,
+    @SerializedName("is_old_loose_affiliate")
+    val isOldLooseAffiliate: Boolean,
+    @SerializedName("return_loose_affiliate_id")
+    val returnLooseAffiliateId: String,
+    @SerializedName("return_is_old_loose_affiliate")
+    val returnIsOldLooseAffiliate: Boolean,
+    @SerializedName("cancellation_hours")
+    val cancellationHours: String,
+    
+    // Driver info
+    @SerializedName("driver_id")
+    val driverId: Int,
+    @SerializedName("driver_name")
+    val driverName: String,
+    @SerializedName("driver_gender")
+    val driverGender: String,
+    @SerializedName("driver_cell")
+    val driverCell: String,
+    @SerializedName("driver_cell_isd")
+    val driverCellIsd: String,
+    @SerializedName("driver_cell_country")
+    val driverCellCountry: String,
+    @SerializedName("driver_email")
+    val driverEmail: String,
+    
+    // Return vehicle info
+    @SerializedName("return_vehicle_type")
+    val returnVehicleType: String,
+    @SerializedName("return_vehicle_type_name")
+    val returnVehicleTypeName: String,
+    @SerializedName("return_vehicle_id")
+    val returnVehicleId: String,
+    @SerializedName("return_vehicle_make")
+    val returnVehicleMake: String,
+    @SerializedName("return_vehicle_make_name")
+    val returnVehicleMakeName: String,
+    @SerializedName("return_vehicle_model")
+    val returnVehicleModel: String,
+    @SerializedName("return_vehicle_model_name")
+    val returnVehicleModelName: String,
+    @SerializedName("return_vehicle_year")
+    val returnVehicleYear: String,
+    @SerializedName("return_vehicle_year_name")
+    val returnVehicleYearName: String,
+    @SerializedName("return_vehicle_color")
+    val returnVehicleColor: String,
+    @SerializedName("return_vehicle_color_name")
+    val returnVehicleColorName: String,
+    @SerializedName("return_vehicle_license_plate")
+    val returnVehicleLicensePlate: String,
+    @SerializedName("return_vehicle_seats")
+    val returnVehicleSeats: String,
+    
+    // Return driver info
+    @SerializedName("return_driver_id")
+    val returnDriverId: String,
+    @SerializedName("return_driver_name")
+    val returnDriverName: String,
+    @SerializedName("return_driver_gender")
+    val returnDriverGender: String,
+    @SerializedName("return_driver_cell")
+    val returnDriverCell: String,
+    @SerializedName("return_driver_cell_isd")
+    val returnDriverCellIsd: String,
+    @SerializedName("return_driver_cell_country")
+    val returnDriverCellCountry: String,
+    @SerializedName("return_driver_email")
+    val returnDriverEmail: String,
+    @SerializedName("driver_phone_type")
+    val driverPhoneType: String,
+    @SerializedName("return_driver_phone_type")
+    val returnDriverPhoneType: String,
+    @SerializedName("driver_image_id")
+    val driverImageId: String,
+    @SerializedName("vehicle_image_id")
+    val vehicleImageId: String,
+    
+    // Meet & greet
+    @SerializedName("meet_greet_choices")
+    val meetGreetChoices: Int,
+    @SerializedName("meet_greet_choices_name")
+    val meetGreetChoicesName: String,
+    @SerializedName("number_of_vehicles")
+    val numberOfVehicles: Int,
+    @SerializedName("pickup_date")
+    val pickupDate: String,
+    @SerializedName("pickup_time")
+    val pickupTime: String,
+    @SerializedName("extra_stops")
+    val extraStops: List<EditReservationExtraStopRequest>,
+    
+    // Pickup location
+    @SerializedName("pickup")
+    val pickup: String,
+    @SerializedName("pickup_latitude")
+    val pickupLatitude: String,
+    @SerializedName("pickup_longitude")
+    val pickupLongitude: String,
+    @SerializedName("pickup_airport_option")
+    val pickupAirportOption: AirportOption? = null,
+    @SerializedName("pickup_airport")
+    val pickupAirport: Int? = null,
     @SerializedName("pickup_airport_name")
     val pickupAirportName: String? = null,
-
+    @SerializedName("pickup_airport_latitude")
+    val pickupAirportLatitude: String? = null,
+    @SerializedName("pickup_airport_longitude")
+    val pickupAirportLongitude: String? = null,
+    @SerializedName("pickup_airline_option")
+    val pickupAirlineOption: AirlineOption? = null,
+    @SerializedName("pickup_airline")
+    val pickupAirline: Int? = null,
     @SerializedName("pickup_airline_name")
     val pickupAirlineName: String? = null,
-
     @SerializedName("pickup_flight")
     val pickupFlight: String? = null,
-
     @SerializedName("origin_airport_city")
     val originAirportCity: String? = null,
-
-    @SerializedName("cruise_port")
-    val cruisePort: String? = null,
-
-    @SerializedName("cruise_name")
-    val cruiseName: String? = null,
-
-    @SerializedName("cruise_time")
-    val cruiseTime: String? = null,
-
-    @SerializedName("dropoff_airport_name")
-    val dropoffAirportName: String? = null,
-
-    @SerializedName("dropoff_airline_name")
-    val dropoffAirlineName: String? = null,
-
-    @SerializedName("dropoff_flight")
-    val dropoffFlight: String? = null,
-
     @SerializedName("departing_airport_city")
     val departingAirportCity: String? = null,
-
-    @SerializedName("extra_stops")
-    val extraStops: List<EditReservationExtraStopRequest>? = null,
     
-    @SerializedName("rates")
-    val rates: Map<String, Any>?
+    // Cruise info
+    @SerializedName("cruise_port")
+    val cruisePort: String,
+    @SerializedName("cruise_name")
+    val cruiseName: String,
+    @SerializedName("cruise_time")
+    val cruiseTime: String,
+    
+    // Dropoff location
+    @SerializedName("dropoff")
+    val dropoff: String,
+    @SerializedName("dropoff_latitude")
+    val dropoffLatitude: String,
+    @SerializedName("dropoff_longitude")
+    val dropoffLongitude: String,
+    @SerializedName("dropoff_airport_option")
+    val dropoffAirportOption: AirportOption? = null,
+    @SerializedName("dropoff_airport")
+    val dropoffAirport: Int? = null,
+    @SerializedName("dropoff_airport_name")
+    val dropoffAirportName: String? = null,
+    @SerializedName("dropoff_airport_latitude")
+    val dropoffAirportLatitude: String? = null,
+    @SerializedName("dropoff_airport_longitude")
+    val dropoffAirportLongitude: String? = null,
+    @SerializedName("dropoff_airline_option")
+    val dropoffAirlineOption: AirlineOption? = null,
+    @SerializedName("dropoff_airline")
+    val dropoffAirline: Int? = null,
+    @SerializedName("dropoff_airline_name")
+    val dropoffAirlineName: String? = null,
+    @SerializedName("dropoff_flight")
+    val dropoffFlight: String? = null,
+    
+    // Return trip info
+    @SerializedName("return_meet_greet_choices")
+    val returnMeetGreetChoices: Int,
+    @SerializedName("return_meet_greet_choices_name")
+    val returnMeetGreetChoicesName: String,
+    @SerializedName("return_pickup_date")
+    val returnPickupDate: String,
+    @SerializedName("return_pickup_time")
+    val returnPickupTime: String,
+    @SerializedName("return_extra_stops")
+    val returnExtraStops: List<EditReservationExtraStopRequest>,
+    @SerializedName("return_pickup")
+    val returnPickup: String,
+    @SerializedName("return_pickup_latitude")
+    val returnPickupLatitude: String,
+    @SerializedName("return_pickup_longitude")
+    val returnPickupLongitude: String,
+    @SerializedName("return_pickup_airport_option")
+    val returnPickupAirportOption: AirportOption? = null,
+    @SerializedName("return_pickup_airport")
+    val returnPickupAirport: Int? = null,
+    @SerializedName("return_pickup_airport_name")
+    val returnPickupAirportName: String? = null,
+    @SerializedName("return_pickup_airport_latitude")
+    val returnPickupAirportLatitude: String? = null,
+    @SerializedName("return_pickup_airport_longitude")
+    val returnPickupAirportLongitude: String? = null,
+    @SerializedName("return_pickup_airline_option")
+    val returnPickupAirlineOption: AirlineOption? = null,
+    @SerializedName("return_pickup_airline")
+    val returnPickupAirline: Int? = null,
+    @SerializedName("return_pickup_airline_name")
+    val returnPickupAirlineName: String? = null,
+    @SerializedName("return_pickup_flight")
+    val returnPickupFlight: String,
+    @SerializedName("return_cruise_port")
+    val returnCruisePort: String,
+    @SerializedName("return_cruise_name")
+    val returnCruiseName: String,
+    @SerializedName("return_cruise_time")
+    val returnCruiseTime: String,
+    @SerializedName("return_dropoff")
+    val returnDropoff: String,
+    @SerializedName("return_dropoff_latitude")
+    val returnDropoffLatitude: String,
+    @SerializedName("return_dropoff_longitude")
+    val returnDropoffLongitude: String,
+    @SerializedName("return_dropoff_airport_option")
+    val returnDropoffAirportOption: AirportOption? = null,
+    @SerializedName("return_dropoff_airport")
+    val returnDropoffAirport: Int? = null,
+    @SerializedName("return_dropoff_airport_name")
+    val returnDropoffAirportName: String? = null,
+    @SerializedName("return_dropoff_airport_latitude")
+    val returnDropoffAirportLatitude: String? = null,
+    @SerializedName("return_dropoff_airport_longitude")
+    val returnDropoffAirportLongitude: String? = null,
+    @SerializedName("return_dropoff_airline_option")
+    val returnDropoffAirlineOption: AirlineOption? = null,
+    @SerializedName("return_dropoff_airline")
+    val returnDropoffAirline: Int? = null,
+    @SerializedName("return_dropoff_airline_name")
+    val returnDropoffAirlineName: String? = null,
+    @SerializedName("return_dropoff_flight")
+    val returnDropoffFlight: String? = null,
+    
+    // Journey info
+    @SerializedName("driver_languages")
+    val driverLanguages: List<Int>,
+    @SerializedName("driver_dresses")
+    val driverDresses: List<String>,
+    @SerializedName("amenities")
+    val amenities: List<String>,
+    @SerializedName("chargedAmenities")
+    val chargedAmenities: List<String>,
+    @SerializedName("journeyDistance")
+    val journeyDistance: Int,
+    @SerializedName("journeyTime")
+    val journeyTime: Int,
+    @SerializedName("returnJourneyDistance")
+    val returnJourneyDistance: String,
+    @SerializedName("returnJourneyTime")
+    val returnJourneyTime: String,
+    
+    // Reservation info
+    @SerializedName("reservation_id")
+    val reservationId: Int,
+    @SerializedName("updateType")
+    val updateType: String,
+    @SerializedName("susbcriber_name")
+    val susbcriberName: String,
+    @SerializedName("return_susbcriber_name")
+    val returnSusbcriberName: String,
+    @SerializedName("booking_created_from")
+    val bookingCreatedFrom: String,
+    @SerializedName("proceed")
+    val proceed: Boolean,
+    @SerializedName("currency")
+    val currency: String,
+    @SerializedName("rateArray")
+    val rateArray: RateArray,
+    @SerializedName("grand_total")
+    val grandTotal: Double,
+    @SerializedName("sub_total")
+    val subTotal: Double,
+    @SerializedName("min_rate_involved")
+    val minRateInvolved: Boolean,
+    @SerializedName("shares_array")
+    val sharesArray: SharesArray,
+    @SerializedName("change_individual_data")
+    val changeIndividualData: Boolean,
+    
+    // Vehicle info
+    @SerializedName("vehicle_color")
+    val vehicleColor: String,
+    @SerializedName("vehicle_color_name")
+    val vehicleColorName: String,
+    @SerializedName("vehicle_id")
+    val vehicleId: String,
+    @SerializedName("vehicle_license_plate")
+    val vehicleLicensePlate: String,
+    @SerializedName("vehicle_make")
+    val vehicleMake: String,
+    @SerializedName("vehicle_make_name")
+    val vehicleMakeName: String,
+    @SerializedName("vehicle_model")
+    val vehicleModel: String,
+    @SerializedName("vehicle_model_name")
+    val vehicleModelName: String,
+    @SerializedName("vehicle_seats")
+    val vehicleSeats: String,
+    @SerializedName("vehicle_type")
+    val vehicleType: String,
+    @SerializedName("vehicle_type_name")
+    val vehicleTypeName: String,
+    @SerializedName("vehicle_year")
+    val vehicleYear: String,
+    @SerializedName("vehicle_year_name")
+    val vehicleYearName: String
 )
 
 data class EditReservationExtraStopRequest(

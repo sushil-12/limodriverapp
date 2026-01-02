@@ -78,8 +78,15 @@ class DriverRegistrationRepository @Inject constructor(
                 if (response.success && response.data != null) {
                     val nextStep = response.data.nextStep
                     val isCompleted = response.data.isCompleted
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
                     updateRegistrationState("basic_info", nextStep, isCompleted)
                     Timber.tag(TAG).d("Basic info completed successfully, next_step: $nextStep")
+                    } else {
+                        Timber.tag(TAG).d("Basic info updated (edit mode), profile already completed - skipping registration state update")
+                    }
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -110,7 +117,17 @@ class DriverRegistrationRepository @Inject constructor(
                 Timber.tag(TAG).d("Completing company info")
                 val response = registrationApi.completeCompanyInfo(request)
                 if (response.success && response.data != null) {
-                    updateRegistrationState("company_info", response.data.nextStep, response.data.isCompleted)
+                    val nextStep = response.data.nextStep
+                    val isCompleted = response.data.isCompleted
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
+                        updateRegistrationState("company_info", nextStep, isCompleted)
+                        Timber.tag(TAG).d("Company info completed successfully, next_step: $nextStep")
+                    } else {
+                        Timber.tag(TAG).d("Company info updated (edit mode), profile already completed - skipping registration state update")
+                    }
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -141,7 +158,14 @@ class DriverRegistrationRepository @Inject constructor(
                 Timber.tag(TAG).d("Completing company documents")
                 val response = registrationApi.completeCompanyDocuments(request)
                 if (response.success && response.data != null) {
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
                     updateRegistrationState("company_documents", response.data.nextStep, response.data.isCompleted)
+                    } else {
+                        Timber.tag(TAG).d("Company documents updated (edit mode), profile already completed - skipping registration state update")
+                    }
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -172,7 +196,14 @@ class DriverRegistrationRepository @Inject constructor(
                 Timber.tag(TAG).d("Completing privacy & terms")
                 val response = registrationApi.completePrivacyTerms(request)
                 if (response.success && response.data != null) {
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
                     updateRegistrationState("privacy_terms", response.data.nextStep, response.data.isCompleted)
+                    } else {
+                        Timber.tag(TAG).d("Privacy & terms updated (edit mode), profile already completed - skipping registration state update")
+                    }
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -190,7 +221,14 @@ class DriverRegistrationRepository @Inject constructor(
                 Timber.tag(TAG).d("Completing driving license")
                 val response = registrationApi.completeDrivingLicense(request)
                 if (response.success && response.data != null) {
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
                     updateRegistrationState("driving_license", response.data.nextStep, response.data.isCompleted)
+                    } else {
+                        Timber.tag(TAG).d("Driving license updated (edit mode), profile already completed - skipping registration state update")
+                    }
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -221,7 +259,14 @@ class DriverRegistrationRepository @Inject constructor(
                 Timber.tag(TAG).d("Completing bank details")
                 val response = registrationApi.completeBankDetails(request)
                 if (response.success && response.data != null) {
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
                     updateRegistrationState("bank_details", response.data.nextStep, response.data.isCompleted)
+                    } else {
+                        Timber.tag(TAG).d("Bank details updated (edit mode), profile already completed - skipping registration state update")
+                    }
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -252,7 +297,14 @@ class DriverRegistrationRepository @Inject constructor(
                 Timber.tag(TAG).d("Completing profile picture")
                 val response = registrationApi.completeProfilePicture(request)
                 if (response.success && response.data != null) {
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
                     updateRegistrationState("profile_picture", response.data.nextStep, response.data.isCompleted)
+                    } else {
+                        Timber.tag(TAG).d("Profile picture updated (edit mode), profile already completed - skipping registration state update")
+                    }
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -283,7 +335,14 @@ class DriverRegistrationRepository @Inject constructor(
                 Timber.tag(TAG).d("Completing vehicle insurance")
                 val response = registrationApi.completeVehicleInsurance(request)
                 if (response.success && response.data != null) {
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
                     updateRegistrationState("vehicle_insurance", response.data.nextStep, response.data.isCompleted)
+                    } else {
+                        Timber.tag(TAG).d("Vehicle insurance updated (edit mode), profile already completed - skipping registration state update")
+                    }
                 }
                 Result.success(response)
             } catch (e: Exception) {
@@ -361,7 +420,14 @@ class DriverRegistrationRepository @Inject constructor(
                     response.data.nextStep?.let { tokenManager.saveNextStep(it) }
                     // Persist vehicle id when provided in request (edit) so downstream steps can use it
                     request.vehicleId?.let { tokenManager.saveSelectedVehicleId(it.toString()) }
+                    // Only update registration state if profile is not already completed
+                    // This prevents resetting registration state when editing after completion
+                    val isProfileCompleted = tokenManager.isProfileCompleted()
+                    if (!isProfileCompleted) {
                     updateRegistrationState("vehicle_details", response.data.nextStep, response.data.isCompleted)
+                    } else {
+                        Timber.tag(TAG).d("Vehicle details updated (edit mode), profile already completed - skipping registration state update")
+                    }
                     // Refresh cached VehicleDetailsStepResponse after completion to get updated vehicle_id
                     getVehicleDetailsStep()
                 }

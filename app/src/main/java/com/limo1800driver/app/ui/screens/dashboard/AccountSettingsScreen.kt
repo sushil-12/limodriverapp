@@ -13,7 +13,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -53,6 +55,15 @@ fun AccountSettingsScreen(
     viewModel: AccountSettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Extract profile data reactively so screen recomposes when profile updates
+    // Using remember with profile as key ensures recomposition when profile changes
+    val profile = uiState.profile
+    val driverName = remember(profile) {
+        profile?.let { "${it.driverFirstName ?: ""} ${it.driverLastName ?: ""}".trim() }
+            .takeIf { it?.isNotEmpty() == true } ?: "Driver"
+    }
+    val driverImageURL = remember(profile) { profile?.driverImage }
 
     // Interaction source for Logout button
     val logoutInteractionSource = remember { MutableInteractionSource() }
@@ -75,8 +86,8 @@ fun AccountSettingsScreen(
             // Profile Section
             item {
                 ProfileSection(
-                    driverName = viewModel.getFullName(),
-                    driverImageURL = viewModel.getDriverImageURL(),
+                    driverName = driverName,
+                    driverImageURL = driverImageURL,
                     isLoading = uiState.isLoading,
                     onViewProfile = onNavigateToProfile,
                     onEditProfilePicture = onNavigateToProfilePicture
@@ -340,6 +351,7 @@ private fun ProfileSection(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(driverImageURL)
                             .crossfade(true)
+                            .memoryCacheKey(driverImageURL) // Force reload if URL changes
                             .build(),
                         contentDescription = "Driver Profile",
                         modifier = Modifier

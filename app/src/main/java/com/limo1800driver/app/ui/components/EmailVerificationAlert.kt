@@ -56,9 +56,11 @@ fun EmailVerificationAlert(
         }
     }
 
+    // Only refresh if user is authenticated (ViewModel will check internally, but we can skip the loop if not needed)
     LaunchedEffect(Unit) {
         while (true) {
             delay(30_000L)
+            // ViewModel will check authentication internally before making API call
             viewModel.refreshEmailVerificationStatus()
         }
     }

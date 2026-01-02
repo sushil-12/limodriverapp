@@ -74,9 +74,18 @@ class SplashViewModel @Inject constructor(
                             val allStepsCompleted = nextStep == null
 
                             // If all steps are completed, mark profile as completed
+                            // Also check if profile was already marked as completed (trust API over local state)
                             if (allStepsCompleted) {
                                 tokenManager.saveProfileCompleted(true)
                                 Timber.tag("SplashVM").d("All registration steps completed - marking profile as completed")
+                            } else {
+                                // If API says steps are incomplete, ensure local flag is also false
+                                // This prevents stale completion flags from causing navigation issues
+                                val currentIsCompleted = tokenManager.isProfileCompleted()
+                                if (currentIsCompleted) {
+                                    Timber.tag("SplashVM").w("API indicates incomplete steps but local flag is true - resetting to false")
+                                    tokenManager.saveProfileCompleted(false)
+                                }
                             }
 
                             // Create a minimal registration state

@@ -13,7 +13,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -49,6 +51,7 @@ fun ProfileViewScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val statsState by statsViewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
 
     // Ensure profile data is loaded when screen opens
     LaunchedEffect(key1 = uiState.profile, key2 = uiState.error) {
@@ -130,7 +133,11 @@ fun ProfileViewScreen(
                         textAlign = TextAlign.Center
                     )
                     Button(
-                        onClick = { viewModel.refreshProfileData() },
+                        onClick = { 
+                            scope.launch {
+                                viewModel.refreshProfileData()
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = LimoOrange)
                     ) {
                         Text("Retry")

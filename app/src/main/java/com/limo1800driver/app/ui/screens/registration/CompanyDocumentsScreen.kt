@@ -120,26 +120,26 @@ fun CompanyDocumentsScreen(
 
             // Languages - parse JSON array string (only if languages are loaded)
             if (uiState.languages.isNotEmpty()) {
-                prefill.language?.let { languageJson ->
+            prefill.language?.let { languageJson ->
                     android.util.Log.d("CompanyDocumentsScreen", "Processing language JSON: $languageJson")
-                    try {
-                        // Parse JSON array like "[\"1\"]" to get IDs
-                        val languageIds = languageJson
-                            .removeSurrounding("[", "]")
-                            .split(",")
-                            .map { it.trim().removeSurrounding("\"") }
-                            .filter { it.isNotEmpty() }
+                try {
+                    // Parse JSON array like "[\"1\"]" to get IDs
+                    val languageIds = languageJson
+                        .removeSurrounding("[", "]")
+                        .split(",")
+                        .map { it.trim().removeSurrounding("\"") }
+                        .filter { it.isNotEmpty() }
 
                         android.util.Log.d("CompanyDocumentsScreen", "Parsed language IDs: $languageIds")
 
-                        // Only set if we don't already have selections (to avoid overriding user changes)
+                    // Only set if we don't already have selections (to avoid overriding user changes)
                         if (selectedLanguages.isEmpty()) {
-                            val prefillLanguages = uiState.languages.filter { lang ->
-                                languageIds.contains(lang.id.toString())
-                            }
+                        val prefillLanguages = uiState.languages.filter { lang ->
+                            languageIds.contains(lang.id.toString())
+                        }
                             android.util.Log.d("CompanyDocumentsScreen", "Found matching languages: ${prefillLanguages.map { it.id }}")
-                            if (prefillLanguages.isNotEmpty()) {
-                                selectedLanguages = prefillLanguages
+                        if (prefillLanguages.isNotEmpty()) {
+                            selectedLanguages = prefillLanguages
                                 android.util.Log.d("CompanyDocumentsScreen", "Set selectedLanguages to: ${selectedLanguages.map { it.id }}")
                             }
                         } else {
@@ -250,8 +250,13 @@ fun CompanyDocumentsScreen(
 
     // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
-        if (uiState.success && uiState.nextStep != null) {
+        if (uiState.success) {
+            if (isEditMode) {
+                // In edit mode, call onUpdateComplete callback to refresh and navigate back
+                onUpdateComplete?.invoke()
+            } else if (uiState.nextStep != null) {
             onNext(uiState.nextStep)
+            }
         }
     }
 
@@ -538,14 +543,8 @@ fun CompanyDocumentsScreen(
             onBack = onBack,
             onReset = { onReset() },
             onNext = {
-                if (isEditMode) {
-                    // In edit mode, just call onUpdateComplete and return to AccountSettings
-                    onUpdateComplete?.invoke()
-                    return@BottomActionBar
-                }
-
                 // DEBUG: Log that onNext was called
-                android.util.Log.d("CompanyDocumentsScreen", "onNext called - isCompleted: ${uiState.isCompleted}")
+                android.util.Log.d("CompanyDocumentsScreen", "onNext called - isCompleted: ${uiState.isCompleted}, isEditMode: $isEditMode")
 
                 // Clear previous errors
                 languagesError = null
@@ -576,7 +575,7 @@ fun CompanyDocumentsScreen(
                     return@BottomActionBar
                 }
 
-                // Always make API call to save/update data, regardless of completion status
+                // Always make API call to save/update data, regardless of completion status or edit mode
                 // This ensures data is saved even if step was previously completed
                 android.util.Log.d("CompanyDocumentsScreen", "Making API call to save company documents")
 
@@ -591,6 +590,9 @@ fun CompanyDocumentsScreen(
                 )
 
                 viewModel.completeCompanyDocuments(request)
+                
+                // In edit mode, navigation is handled by onUpdateComplete callback in LaunchedEffect
+                // Don't navigate automatically - let the success handler manage it
             },
             isLoading = uiState.isLoading || isUploadingFront || isUploadingBack || isUploadingPermit,
             isEditMode = isEditMode

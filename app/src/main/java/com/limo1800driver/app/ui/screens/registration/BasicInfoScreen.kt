@@ -51,6 +51,7 @@ fun BasicInfoScreen(
     onNext: (String?) -> Unit,
     onBack: (() -> Unit)? = null,
     isEditMode: Boolean = false,
+    onUpdateComplete: (() -> Unit)? = null,
     viewModel: BasicInfoViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -218,8 +219,13 @@ fun BasicInfoScreen(
 
     // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
-        if (uiState.success && uiState.nextStep != null) {
-            onNext(uiState.nextStep)
+        if (uiState.success) {
+            if (isEditMode) {
+                // In edit mode, call onUpdateComplete callback to refresh and navigate back
+                onUpdateComplete?.invoke()
+            } else if (uiState.nextStep != null) {
+                onNext(uiState.nextStep)
+            }
         }
     }
 

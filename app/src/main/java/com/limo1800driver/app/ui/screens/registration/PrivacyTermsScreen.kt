@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.theme.*
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.viewmodel.PrivacyTermsViewModel
 
@@ -38,6 +39,18 @@ fun PrivacyTermsScreen(
     viewModel: PrivacyTermsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val tokenManager = remember { com.limo1800driver.app.data.storage.TokenManager(context) }
+    
+    // Check if profile is completed - if so, redirect to Dashboard
+    // This prevents users from accessing registration screens after profile completion
+    // (e.g., when navigating from Firebase notifications or deep links)
+    LaunchedEffect(Unit) {
+        if (tokenManager.isProfileCompleted()) {
+            // Profile is completed, navigate to Dashboard instead
+            onNext("dashboard")
+        }
+    }
 
     // Checkbox State
     var agreed by remember { mutableStateOf(false) }

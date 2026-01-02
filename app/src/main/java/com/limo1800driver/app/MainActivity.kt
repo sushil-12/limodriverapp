@@ -20,6 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -53,6 +57,7 @@ import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.data.storage.TokenManager
 import com.limo1800driver.app.ui.components.EmailVerificationAlert
 import com.limo1800driver.app.ui.screens.registration.VehicleDetailsStepScreen
+import com.limo1800driver.app.ui.viewmodel.SplashViewModel
 import com.limo1800driver.app.ui.screens.dashboard.MyActivityScreen
 import com.limo1800driver.app.ui.screens.dashboard.WalletScreen
 import com.limo1800driver.app.ui.screens.dashboard.PreArrangedRidesScreen
@@ -68,6 +73,7 @@ import com.limo1800driver.app.ui.screens.ride.RideInProgressScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.limo1800driver.app.ui.theme.LimoDriverAppTheme
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @AndroidEntryPoint
@@ -130,7 +136,13 @@ fun DriverAppNavigation(
     val navController = rememberNavController()
     val registrationNavigationState = remember { RegistrationNavigationState() }
 
-    // Determine initial destination based on authentication state
+    // Sync registration state with API before determining initial destination
+    // This ensures we have the latest profile completion status from the server
+    val splashViewModel: com.limo1800driver.app.ui.viewmodel.SplashViewModel = hiltViewModel()
+    var hasSynced by remember { mutableStateOf(false) }
+    
+    // Determine initial destination based on authentication state (using local state initially)
+    // Will be updated after API sync completes
     val initialDestination = remember {
         val isAuthenticated = tokenManager.isAuthenticated()
         val hasSeenOnboarding = tokenManager.hasSeenOnboarding()
@@ -151,6 +163,40 @@ fun DriverAppNavigation(
             }
             hasSeenOnboarding -> NavRoutes.PhoneEntry
             else -> NavRoutes.Onboarding
+        }
+    }
+    
+    // Sync with API if authenticated (only once on app start)
+    // After sync completes, navigate to correct destination if it differs from initial
+    LaunchedEffect(Unit) {
+        if (tokenManager.isAuthenticated() && !hasSynced) {
+            splashViewModel.syncRegistrationState { nextStep ->
+                hasSynced = true
+                // Profile completion status is updated in TokenManager by syncRegistrationState
+                val isProfileCompleted = tokenManager.isProfileCompleted()
+                val currentRoute = navController.currentBackStackEntry?.destination?.route
+                
+                // Determine correct destination after sync
+                val correctDestination = if (isProfileCompleted) {
+                    NavRoutes.Dashboard
+                } else {
+                    val finalNextStep = nextStep ?: tokenManager.getDriverRegistrationState()?.nextStep ?: tokenManager.getNextStep()
+                    when {
+                        finalNextStep == null || finalNextStep == "dashboard" -> NavRoutes.Dashboard
+                        else -> registrationNavigationState.getRouteForStep(finalNextStep)
+                    }
+                }
+                
+                // Navigate to correct destination if it differs from current
+                if (currentRoute != correctDestination) {
+                    navController.navigate(correctDestination) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            }
+        } else {
+            hasSynced = true
         }
     }
 
@@ -219,6 +265,39 @@ fun DriverAppNavigation(
 
     // --- LAYOUT FIX: WRAP EVERYTHING IN A BOX ---
     Box(modifier = Modifier.fillMaxSize()) {
+        
+        // Check profile completion status and redirect if on registration screens
+        // This ensures users with completed profiles are redirected even if they land on registration screens
+        // (e.g., from Firebase notifications, deep links, or app restart)
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        
+        // Check on every route change - always check fresh value from TokenManager
+        LaunchedEffect(currentRoute) {
+            // Check profile completion status fresh (not cached)
+            val isProfileCompleted = tokenManager.isProfileCompleted()
+            
+            if (isProfileCompleted && currentRoute != null && currentRoute != NavRoutes.Dashboard) {
+                val registrationRoutes = setOf(
+                    NavRoutes.PrivacyTerms,
+                    NavRoutes.DrivingLicense,
+                    NavRoutes.BankDetails,
+                    NavRoutes.ProfilePicture,
+                    NavRoutes.CompanyInfo,
+                    NavRoutes.CompanyDocuments,
+                    NavRoutes.BasicInfo,
+                    NavRoutes.VehicleSelection,
+                    NavRoutes.VehicleDetailsStep,
+                    NavRoutes.UserProfileDetails
+                )
+                if (currentRoute in registrationRoutes) {
+                    // Redirect to Dashboard immediately
+                    navController.navigate(NavRoutes.Dashboard) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            }
+        }
 
         // 1. Navigation Host (Background)
         NavHost(
@@ -312,14 +391,41 @@ fun DriverAppNavigation(
             }
 
             composable(NavRoutes.PrivacyTerms) {
+                // Check if profile is completed before showing the screen
+                // If completed, redirect to Dashboard (handled in PrivacyTermsScreen LaunchedEffect)
+                if (tokenManager.isProfileCompleted()) {
+                    LaunchedEffect(Unit) {
+                        navController.navigate(NavRoutes.Dashboard) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                } else {
                 PrivacyTermsScreen(
-                    onNext = { nextStep -> navigateToRegistrationStep(nextStep, false, forceDirect = false) },
+                        onNext = { nextStep -> 
+                            if (nextStep == "dashboard") {
+                                navController.navigate(NavRoutes.Dashboard) {
+                                    popUpTo(navController.graph.id) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                navigateToRegistrationStep(nextStep, false, forceDirect = false)
+                            }
+                        },
                     onBack = {
+                            // If profile is completed, go to Dashboard instead
+                            if (tokenManager.isProfileCompleted()) {
+                                navController.navigate(NavRoutes.Dashboard) {
+                                    popUpTo(navController.graph.id) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            } else {
                         val popped = navController.popBackStack()
                         if (!popped) {
                             navController.navigate(NavRoutes.CompanyDocuments) {
                                 launchSingleTop = true
                                 popUpTo(NavRoutes.PrivacyTerms) { inclusive = true }
+                                    }
                             }
                         }
                     },
@@ -327,6 +433,7 @@ fun DriverAppNavigation(
                         navController.navigate("${NavRoutes.WebView}?url=${url}&title=${title}")
                     }
                 )
+                }
             }
 
             composable(NavRoutes.DrivingLicense) {
@@ -367,38 +474,103 @@ fun DriverAppNavigation(
 
             composable(NavRoutes.ProfilePictureFromAccountSettings) {
                 val profileViewModel: com.limo1800driver.app.ui.viewmodel.DriverProfileViewModel = hiltViewModel()
+                val accountSettingsViewModel: com.limo1800driver.app.ui.viewmodel.AccountSettingsViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
                 ProfilePictureScreen(
-                    onNext = { _ ->
+                    onNext = { _ -> },
+                    onBack = { navController.popBackStack() },
+                    isEditMode = true,
+                    onUpdateComplete = {
+                        scope.launch {
+                            // Wait for both refreshes to complete before navigating
+                            // This ensures the AccountSettingsScreen shows updated data immediately
+                            kotlinx.coroutines.coroutineScope {
+                                launch { 
                         profileViewModel.refreshDriverProfile()
+                                    Timber.d("ProfileVM: Refresh completed")
+                                }
+                                launch { 
+                                    accountSettingsViewModel.refreshProfileData()
+                                    Timber.d("AccountSettingsVM: Refresh completed")
+                                }
+                            }
+                            // Small delay to ensure state updates are propagated
+                            kotlinx.coroutines.delay(50)
                         navController.popBackStack()
-                    },
-                    onBack = { navController.popBackStack() }
+                        }
+                    }
                 )
             }
 
             composable(NavRoutes.CompanyInfoFromAccountSettings) {
+                val profileViewModel: com.limo1800driver.app.ui.viewmodel.DriverProfileViewModel = hiltViewModel()
+                val accountSettingsViewModel: com.limo1800driver.app.ui.viewmodel.AccountSettingsViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
                 CompanyInfoScreen(
-                    onNext = { _ -> navController.popBackStack() },
+                    onNext = { _ -> },
                     onBack = { navController.popBackStack() },
                     isEditMode = true,
-                    onUpdateComplete = { navController.popBackStack() }
+                    onUpdateComplete = {
+                        scope.launch {
+                            // Wait for both refreshes to complete before navigating
+                            kotlinx.coroutines.coroutineScope {
+                                launch { profileViewModel.refreshDriverProfile() }
+                                launch { accountSettingsViewModel.refreshProfileData() }
+                            }
+                            navController.popBackStack()
+                        }
+                    }
                 )
             }
 
             composable(NavRoutes.CompanyDocumentsFromAccountSettings) {
+                val profileViewModel: com.limo1800driver.app.ui.viewmodel.DriverProfileViewModel = hiltViewModel()
+                val accountSettingsViewModel: com.limo1800driver.app.ui.viewmodel.AccountSettingsViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
                 CompanyDocumentsScreen(
                     onNext = { _ -> navController.popBackStack() },
                     onBack = { navController.popBackStack() },
                     isEditMode = true,
-                    onUpdateComplete = { navController.popBackStack() }
+                    onUpdateComplete = {
+                        scope.launch {
+                            // Wait for both refreshes to complete before navigating
+                            kotlinx.coroutines.coroutineScope {
+                                launch { profileViewModel.refreshDriverProfile() }
+                                launch { accountSettingsViewModel.refreshProfileData() }
+                            }
+                            navController.popBackStack()
+                        }
+                    }
                 )
             }
 
             composable(NavRoutes.BasicInfoFromAccountSettings) {
+                val profileViewModel: com.limo1800driver.app.ui.viewmodel.DriverProfileViewModel = hiltViewModel()
+                val accountSettingsViewModel: com.limo1800driver.app.ui.viewmodel.AccountSettingsViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
                 BasicInfoScreen(
                     onNext = { _ -> navController.popBackStack() },
                     onBack = { navController.popBackStack() },
-                    isEditMode = true
+                    isEditMode = true,
+                    onUpdateComplete = {
+                        scope.launch {
+                            // Wait for both refreshes to complete before navigating
+                            // This ensures the AccountSettingsScreen shows updated data immediately
+                            kotlinx.coroutines.coroutineScope {
+                                launch { 
+                                    profileViewModel.refreshDriverProfile()
+                                    Timber.d("ProfileVM: Refresh completed")
+                                }
+                                launch { 
+                                    accountSettingsViewModel.refreshProfileData()
+                                    Timber.d("AccountSettingsVM: Refresh completed")
+                                }
+                            }
+                            // Small delay to ensure state updates are propagated
+                            kotlinx.coroutines.delay(50)
+                            navController.popBackStack()
+                        }
+                    }
                 )
             }
 
@@ -434,9 +606,19 @@ fun DriverAppNavigation(
 
             composable(NavRoutes.VehicleDetailsCoordinatorFromAccountSettings) {
                 val profileViewModel: com.limo1800driver.app.ui.viewmodel.DriverProfileViewModel = hiltViewModel()
+                val accountSettingsViewModel: com.limo1800driver.app.ui.viewmodel.AccountSettingsViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
                 VehicleDetailsCoordinatorFromAccountSettings(
                     onClose = { navController.popBackStack() },
-                    onProfileUpdated = { profileViewModel.refreshDriverProfile() }
+                    onProfileUpdated = {
+                        scope.launch {
+                            // Wait for both refreshes to complete
+                            kotlinx.coroutines.coroutineScope {
+                                launch { profileViewModel.refreshDriverProfile() }
+                                launch { accountSettingsViewModel.refreshProfileData() }
+                            }
+                        }
+                    }
                 )
             }
 
@@ -745,6 +927,9 @@ fun DriverAppNavigation(
 
         // 2. Alert Overlay (Foreground)
         // This sits on top of the NavHost
+        // Only show EmailVerificationAlert when user is authenticated
+        val isAuthenticated = tokenManager.isAuthenticated()
+        if (isAuthenticated) {
         EmailVerificationAlert(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -754,5 +939,6 @@ fun DriverAppNavigation(
                 // Navigate to email verification screen (to be implemented)
             }
         )
+        }
     } // End of Box
 }

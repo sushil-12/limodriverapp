@@ -103,11 +103,60 @@ class DriverProfileViewModel @Inject constructor(
     /**
      * Force refresh driver profile (clears cache and fetches from API)
      * Call this when profile/vehicle details are updated from account settings
+     * This is a suspend function that can be awaited to ensure refresh completes
      */
-    fun refreshDriverProfile() {
+    suspend fun refreshDriverProfile() {
         Timber.d("Force refreshing driver profile - clearing cache")
         tokenManager.clearDriverProfileCache()
-        fetchDriverProfile(forceRefresh = true)
+        
+        // Update loading state on main thread
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        }
+        
+        // Fetch from API and wait for completion
+        dashboardRepository.getDriverProfile()
+            .onSuccess { response ->
+                if (response.success && response.data != null) {
+                    // Save to cache
+                    tokenManager.saveDriverProfileData(response.data)
+                    
+                    // Update state on main thread to ensure UI updates immediately
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            profile = response.data,
+                            error = null
+                        )
+                    }
+                    Timber.d("Driver profile loaded from API and cached - name: ${response.data.driverFirstName} ${response.data.driverLastName}, image: ${response.data.driverImage}")
+                    
+                    // iOS parity: subscribe to topic == userId (string)
+                    val topicUserId = response.data.userId ?: response.data.driverId
+                    if (topicUserId != null) {
+                        firebaseSubscriptionManager.subscribeToUserTopic(topicUserId.toString())
+                    } else {
+                        Timber.tag("DriverFCM").w("Cannot subscribe to topic: userId/driverId missing in profile")
+                    }
+                } else {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = response.message
+                        )
+                    }
+                    Timber.e("Driver profile API error: ${response.message}")
+                }
+            }
+            .onFailure { exception ->
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = exception.message ?: "Failed to load driver profile"
+                    )
+                }
+                Timber.e(exception, "Failed to fetch driver profile")
+            }
     }
     
     /**

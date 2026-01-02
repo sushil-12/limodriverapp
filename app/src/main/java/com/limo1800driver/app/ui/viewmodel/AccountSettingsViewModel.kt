@@ -20,7 +20,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AccountSettingsViewModel @Inject constructor(
     private val dashboardRepository: DriverDashboardRepository,
-    private val registrationRepository: DriverRegistrationRepository
+    private val registrationRepository: DriverRegistrationRepository,
+    private val tokenManager: com.limo1800driver.app.data.storage.TokenManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(AccountSettingsUiState())
@@ -32,20 +33,30 @@ class AccountSettingsViewModel @Inject constructor(
     
     /**
      * Fetch profile data
+     * @param forceRefresh If true, clears cache before fetching
      */
-    fun fetchProfileData() {
+    fun fetchProfileData(forceRefresh: Boolean = false) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            // Clear cache if force refresh is requested
+            if (forceRefresh) {
+                tokenManager.clearDriverProfileCache()
+                Timber.d("AccountSettingsVM: Cleared profile cache for force refresh")
+            }
             
             // Fetch driver profile
             dashboardRepository.getDriverProfile()
                 .onSuccess { response ->
                     if (response.success && response.data != null) {
                         val profile = response.data
+                        // Save to cache for consistency with DriverProfileViewModel
+                        tokenManager.saveDriverProfileData(profile)
                         _uiState.value = _uiState.value.copy(
                             profile = profile,
                             affiliateType = profile.affiliateType
                         )
+                        Timber.d("AccountSettingsVM: Profile data updated")
                     }
                 }
                 .onFailure { exception ->
@@ -106,9 +117,66 @@ class AccountSettingsViewModel @Inject constructor(
     
     /**
      * Refresh profile data - public method for manual refresh
+     * Clears cache to ensure fresh data is fetched
+     * This is a suspend function that can be awaited to ensure refresh completes
      */
-    fun refreshProfileData() {
-        fetchProfileData()
+    suspend fun refreshProfileData() {
+        Timber.d("AccountSettingsVM: Refreshing profile data")
+        
+        // Clear cache
+        tokenManager.clearDriverProfileCache()
+        Timber.d("AccountSettingsVM: Cleared profile cache for force refresh")
+        
+        // Update loading state on main thread
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        }
+        
+        // Fetch driver profile and wait for completion
+        dashboardRepository.getDriverProfile()
+            .onSuccess { response ->
+                if (response.success && response.data != null) {
+                    val profile = response.data
+                    // Save to cache for consistency with DriverProfileViewModel
+                    tokenManager.saveDriverProfileData(profile)
+                    
+                    // Update state on main thread to ensure UI updates immediately
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.value = _uiState.value.copy(
+                            profile = profile,
+                            affiliateType = profile.affiliateType,
+                            isLoading = false
+                        )
+                    }
+                    Timber.d("AccountSettingsVM: Profile data updated - name: ${profile.driverFirstName} ${profile.driverLastName}, image: ${profile.driverImage}")
+                } else {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                    }
+                }
+            }
+            .onFailure { exception ->
+                Timber.e(exception, "Failed to fetch driver profile")
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                }
+            }
+        
+        // Fetch basic info to get affiliate type (don't wait for this, run in background)
+        viewModelScope.launch {
+            registrationRepository.getBasicInfoStep()
+                .onSuccess { response ->
+                    if (response.success && response.data != null) {
+                        val prefillData = response.data.data
+                        _uiState.value = _uiState.value.copy(
+                            affiliateType = prefillData?.affiliateType ?: _uiState.value.affiliateType
+                        )
+                    }
+                }
+                .onFailure { exception ->
+                    Timber.e(exception, "Failed to fetch basic info")
+                }
+        }
     }
 
     /**

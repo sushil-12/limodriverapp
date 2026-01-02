@@ -37,6 +37,8 @@ import kotlinx.coroutines.launch
 fun ProfilePictureScreen(
     onNext: (String?) -> Unit,
     onBack: (() -> Unit)? = null,
+    isEditMode: Boolean = false,
+    onUpdateComplete: (() -> Unit)? = null,
     viewModel: ProfilePictureViewModel = hiltViewModel()
 ) {
     val registrationNavigationState = remember { RegistrationNavigationState() }
@@ -65,8 +67,13 @@ fun ProfilePictureScreen(
 
     LaunchedEffect(uiState.success) {
         if (uiState.success) {
-            registrationNavigationState.setNextStep(uiState.nextStep)
-            onNext(uiState.nextStep)
+            if (isEditMode) {
+                // In edit mode, just call the update complete callback
+                onUpdateComplete?.invoke()
+            } else {
+                registrationNavigationState.setNextStep(uiState.nextStep)
+                onNext(uiState.nextStep)
+            }
         }
     }
 
@@ -159,7 +166,11 @@ fun ProfilePictureScreen(
                             // Submit button
                             Button(
                                 onClick = {
-                                    if (uiState.isCompleted) {
+                                    if (isEditMode) {
+                                        // In edit mode, always update the profile picture
+                                        val request = ProfilePictureRequest(profileImage = profileImageId!!)
+                                        viewModel.completeProfilePicture(request)
+                                    } else if (uiState.isCompleted) {
                                         registrationNavigationState.setNextStep("vehicle_details")
                                         onNext("vehicle_details")
                                     } else {

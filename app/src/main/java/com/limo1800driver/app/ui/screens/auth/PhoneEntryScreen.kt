@@ -96,7 +96,7 @@ fun PhoneEntryScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(horizontal = 24.dp) // Adjusted padding to match screenshot
     ) {
-        Spacer(Modifier.height(60.dp)) // Top spacing
+        Spacer(Modifier.height(40.dp)) // Top spacing
 
         // --- Header Section ---
         Text(

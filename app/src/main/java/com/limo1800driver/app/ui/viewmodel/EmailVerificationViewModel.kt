@@ -16,20 +16,51 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class EmailVerificationViewModel @Inject constructor(
-    private val registrationRepository: DriverRegistrationRepository
+    private val registrationRepository: DriverRegistrationRepository,
+    private val tokenManager: com.limo1800driver.app.data.storage.TokenManager
 ) : ViewModel() {
 
     private val _emailVerificationState = MutableStateFlow<EmailVerificationState>(EmailVerificationState.Loading)
     val emailVerificationState: StateFlow<EmailVerificationState> = _emailVerificationState
 
     init {
+        // Only check email verification status if user is authenticated
+        if (tokenManager.isAuthenticated()) {
         checkEmailVerificationStatus()
+        } else {
+            // Set to a non-loading state when not authenticated
+            // This prevents the component from showing and making API calls
+            _emailVerificationState.value = EmailVerificationState.Success(
+                com.limo1800driver.app.data.model.registration.EmailVerificationData(
+                    mainEmail = com.limo1800driver.app.data.model.registration.EmailStatus(
+                        email = null,
+                        isVerified = true,
+                        verificationRequired = false
+                    ),
+                    dispatchEmail = com.limo1800driver.app.data.model.registration.DispatchEmailStatus(
+                        email = null,
+                        isVerified = true,
+                        verificationRequired = false,
+                        exists = false
+                    ),
+                    emailsMatch = false,
+                    autoVerificationApplied = false
+                )
+            )
+        }
     }
 
     /**
      * Check email verification status
+     * Only makes API call if user is authenticated
      */
     fun checkEmailVerificationStatus() {
+        // Don't make API call if user is not authenticated
+        if (!tokenManager.isAuthenticated()) {
+            Timber.d("EmailVerificationVM: User not authenticated, skipping email verification check")
+            return
+        }
+
         viewModelScope.launch {
             _emailVerificationState.value = EmailVerificationState.Loading
 

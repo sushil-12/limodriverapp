@@ -118,7 +118,7 @@ interface DriverDashboardApi {
     ): BaseResponse<AdminBookingPreviewData>
     
     // Edit Reservation
-    @POST("api/affiliate/edit-reservation")
+    @PUT("api/affiliate/edit-reservation")
     suspend fun editReservation(
         @Body request: EditReservationRequest
     ): BaseResponse<EditReservationData>

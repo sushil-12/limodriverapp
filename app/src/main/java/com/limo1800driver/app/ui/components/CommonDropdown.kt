@@ -1,5 +1,7 @@
 package com.limo1800driver.app.ui.components
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -268,6 +270,7 @@ fun CommonDropdown(
 }
 
 // Calendar-style Year Picker
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun YearPicker(
     selectedYear: String?,

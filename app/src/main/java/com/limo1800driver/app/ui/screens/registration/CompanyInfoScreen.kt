@@ -121,8 +121,14 @@ fun CompanyInfoScreen(
 
     // Success Navigation - Only for API completion calls (when step wasn't already completed)
     LaunchedEffect(uiState.success) {
-        if (uiState.success && uiState.nextStep != null) {
-            onNext(uiState.nextStep)
+        if (uiState.success) {
+            if (isEditMode) {
+                // In edit mode, call onUpdateComplete callback to refresh and navigate back
+                onUpdateComplete?.invoke()
+            } else if (uiState.nextStep != null) {
+                // In registration flow, navigate to next step
+                onNext(uiState.nextStep)
+            }
         }
     }
 
@@ -302,17 +308,18 @@ fun CompanyInfoScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Business Telephone (No Asterisk per screenshot)
+            // Business Telephone (Required per iOS reference)
             PhoneInputField(
                 label = "BUSINESS TELEPHONE",
                 phone = businessPhone,
                 onPhoneChange = {
                     businessPhone = it
+                    businessPhoneError = null
                     apiError = null
                 },
                 selectedCountry = selectedCountryBusinessPhone,
                 onCountryChange = { selectedCountryBusinessPhone = it },
-                isRequired = false, // Matches design
+                isRequired = true, // Required per iOS reference
                 errorMessage = businessPhoneError
             )
 
@@ -341,12 +348,6 @@ fun CompanyInfoScreen(
             onBack = onBack,
             onReset = { onReset() },
             onNext = {
-                if (isEditMode) {
-                    // In edit mode, just call onUpdateComplete and return to AccountSettings
-                    onUpdateComplete?.invoke()
-                    return@BottomActionBar
-                }
-
                 // Clear previous errors
                 companyNameError = null
                 dispatchEmailError = null
@@ -373,19 +374,36 @@ fun CompanyInfoScreen(
                 }
 
                 // Validate Dispatch Phone (Required)
-                val dispatchDigits = cellDispatch.filter { it.isDigit() }
-                if (dispatchDigits.length != selectedCountryCellDispatch.phoneLength) {
-                    cellDispatchError = "Please enter a valid phone number"
+                if (cellDispatch.isBlank()) {
+                    cellDispatchError = "24 HR CELL DISPATCH is required"
                     hasErrors = true
-                }
-
-                // Validate Business Phone (If entered)
-                if (businessPhone.isNotBlank()) {
-                    val busDigits = businessPhone.filter { it.isDigit() }
-                    if (busDigits.length != selectedCountryBusinessPhone.phoneLength) {
-                        businessPhoneError = "Please enter a valid phone number"
+                } else {
+                    val dispatchDigits = cellDispatch.filter { it.isDigit() }
+                    if (dispatchDigits.length != selectedCountryCellDispatch.phoneLength) {
+                        cellDispatchError = "24 HR CELL DISPATCH must be ${selectedCountryCellDispatch.phoneLength} digits for ${selectedCountryCellDispatch.name}"
                         hasErrors = true
                     }
+                }
+
+                // Validate Business Phone (Required per iOS reference)
+                if (businessPhone.isBlank()) {
+                    businessPhoneError = "Business telephone is required"
+                    hasErrors = true
+                } else {
+                    val busDigits = businessPhone.filter { it.isDigit() }
+                    if (busDigits.length != selectedCountryBusinessPhone.phoneLength) {
+                        businessPhoneError = "BUSINESS TELEPHONE must be ${selectedCountryBusinessPhone.phoneLength} digits for ${selectedCountryBusinessPhone.name}"
+                        hasErrors = true
+                    }
+                }
+                
+                // Validate Business Phone ISD and Country (Required per iOS reference)
+                if (selectedCountryBusinessPhone.code.isEmpty()) {
+                    businessPhoneError = "Business telephone ISD is required"
+                    hasErrors = true
+                } else if (selectedCountryBusinessPhone.shortCode.isEmpty()) {
+                    businessPhoneError = "Business telephone country is required"
+                    hasErrors = true
                 }
 
                 // Validate Fax (If entered)
@@ -420,6 +438,9 @@ fun CompanyInfoScreen(
                 )
 
                 viewModel.completeCompanyInfo(request)
+                
+                // In edit mode, navigation is handled by onUpdateComplete callback
+                // Don't navigate automatically - let the success handler manage it
             },
             isLoading = uiState.isLoading,
             isEditMode = isEditMode
