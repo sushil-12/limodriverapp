@@ -727,7 +727,7 @@ fun DarkDropdown(
         }
 
         if (errorMessage != null) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = errorMessage,
                 style = TextStyle(

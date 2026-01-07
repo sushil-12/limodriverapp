@@ -116,6 +116,7 @@ class PhoneEntryViewModel @Inject constructor(
             isFormValid = validationResult is ValidationResult.Success,
             error = if (validationResult is ValidationResult.Error) validationResult.message else null
         )
+        clearError()
     }
 
     /**

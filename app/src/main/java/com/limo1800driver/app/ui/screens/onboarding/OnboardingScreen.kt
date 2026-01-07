@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,6 +62,7 @@ fun OnboardingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(AppColors.LimoBlack)
+            .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier
@@ -134,9 +137,10 @@ fun OnboardingScreen(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
             // Add padding for Android gesture navigation to prevent button underlapping
-            Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars))
+            Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing))
+            Spacer(modifier = Modifier.height(16.dp))
+
         }
     }
 }
