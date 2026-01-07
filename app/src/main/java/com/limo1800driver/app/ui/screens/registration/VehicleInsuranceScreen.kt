@@ -50,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalFocusManager
 import com.limo1800driver.app.ui.components.BottomActionBar
 import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ErrorAlertDialog
@@ -68,6 +69,7 @@ fun VehicleInsuranceScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val registrationNavigationState = remember { RegistrationNavigationState() }
+    val focusManager = LocalFocusManager.current
 
     var insuranceCompanyName by remember { mutableStateOf("") }
     var agencyName by remember { mutableStateOf("") }
@@ -386,7 +388,10 @@ fun VehicleInsuranceScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showCamera = true },
+                        .clickable { 
+                            focusManager.clearFocus()
+                            showCamera = true 
+                        },
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray.copy(alpha = 0.25f))
@@ -479,7 +484,10 @@ fun VehicleInsuranceScreen(
 
                             // Change action
                             TextButton(
-                                onClick = { showCamera = true },
+                                onClick = { 
+                                    focusManager.clearFocus()
+                                    showCamera = true 
+                                },
                                 enabled = !isUploading
                             ) {
                                 Text(

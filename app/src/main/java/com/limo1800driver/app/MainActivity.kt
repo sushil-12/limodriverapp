@@ -1,6 +1,7 @@
 package com.limo1800driver.app
 
 import com.limo1800driver.app.ui.screens.registration.DriverLicenseFormScreen
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -8,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -36,7 +38,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.limo1800driver.app.ui.navigation.NavRoutes
 import com.limo1800driver.app.ui.screens.auth.OtpScreen
-import com.limo1800driver.app.ui.screens.auth.PhoneEntryScreen
 import com.limo1800driver.app.ui.screens.onboarding.OnboardingScreen
 import com.limo1800driver.app.ui.screens.registration.BasicInfoScreen
 import com.limo1800driver.app.ui.screens.registration.CompanyInfoScreen
@@ -53,9 +54,9 @@ import com.limo1800driver.app.ui.screens.registration.VehicleInsuranceScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleRatesScreen
 import com.limo1800driver.app.ui.screens.registration.UserProfileDetailsScreen
 import com.limo1800driver.app.ui.screens.registration.VehicleDetailsCoordinatorFromAccountSettings
+import com.limo1800driver.app.ui.screens.registration.WelcomeBannerScreen
 import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.data.storage.TokenManager
-import com.limo1800driver.app.ui.components.EmailVerificationAlert
 import com.limo1800driver.app.ui.screens.registration.VehicleDetailsStepScreen
 import com.limo1800driver.app.ui.viewmodel.SplashViewModel
 import com.limo1800driver.app.ui.screens.dashboard.MyActivityScreen
@@ -68,11 +69,14 @@ import com.limo1800driver.app.ui.screens.booking.BookingPreviewScreen
 import com.limo1800driver.app.ui.screens.booking.EditBookingDetailsAndRatesScreen
 import com.limo1800driver.app.ui.screens.booking.FinalizeBookingScreen
 import com.limo1800driver.app.ui.screens.booking.FinalizeRatesScreen
+import com.limo1800driver.app.ui.screens.map.BookingMapView
 import com.limo1800driver.app.ui.screens.chat.ChatScreen
 import com.limo1800driver.app.ui.screens.ride.RideInProgressScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.limo1800driver.app.ui.theme.LimoDriverAppTheme
+import com.limo1800driver.app.data.notification.DriverBookingReminderData
+import com.limo1800driver.app.ui.screens.PhoneEntryScreen
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -126,13 +130,152 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        // Process notification intent if app was launched from notification
+        processNotificationIntent(intent)
+
+        // Handle foreground reminder dialog trigger
+        if (intent.action == "SHOW_REMINDER_DIALOG") {
+            handleForegroundReminderIntent(intent)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Process notification intent if app was already running
+        processNotificationIntent(intent)
+
+        // Handle foreground reminder dialog trigger
+        if (intent.action == "SHOW_REMINDER_DIALOG") {
+            handleForegroundReminderIntent(intent)
+        }
+    }
+
+    /**
+     * Process notification intent and extract booking data for navigation
+     */
+    private fun processNotificationIntent(intent: Intent?): NotificationNavigationData? {
+        intent ?: return null
+
+        Timber.d("🔍 Processing notification intent: ${intent.action} - extras: ${intent.extras}")
+
+        // Extract notification data from intent extras
+        val extras = intent.extras ?: return null
+
+        // Check if this is a notification tap
+        val isFromNotification = extras.containsKey("booking_id") ||
+                               extras.containsKey("bookingId") ||
+                               extras.containsKey("event") ||
+                               extras.containsKey("title") ||
+                               extras.containsKey("message")
+
+        if (!isFromNotification) {
+            Timber.d("📱 Not a notification intent")
+            return null
+        }
+
+        Timber.i("╔════════════════════════════════════════╗")
+        Timber.i("║  NOTIFICATION INTENT RECEIVED         ║")
+        Timber.i("╚════════════════════════════════════════╝")
+
+        // Extract booking data from notification payload
+        val bookingData = extractBookingDataFromIntent(intent)
+
+        if (bookingData != null) {
+            Timber.i("📋 Extracted booking data: ${bookingData.bookingId}")
+
+            // Create navigation data
+            val navigationData = NotificationNavigationData(
+                bookingId = bookingData.bookingId,
+                event = extras.getString("event"),
+                isReminder = bookingData.requiresDriverEnRouteAction(),
+                bookingData = bookingData
+            )
+
+            Timber.i("🎯 Navigation data: bookingId=${navigationData.bookingId}, isReminder=${navigationData.isReminder}")
+
+            // Store for navigation (will be processed by DriverAppNavigation)
+            currentNotificationData = navigationData
+
+            return navigationData
+        } else {
+            Timber.w("⚠️ Could not extract booking data from notification intent")
+            return null
+        }
+    }
+
+    /**
+     * Extract booking data from notification intent
+     */
+    private fun extractBookingDataFromIntent(intent: Intent): DriverBookingReminderData? {
+        val extras = intent.extras ?: return null
+
+        Timber.d("🔧 Extracting booking data from intent extras")
+
+        // Convert Bundle to Map for DriverBookingReminderData.fromFcmDataMap
+        val dataMap = mutableMapOf<String, String>()
+        for (key in extras.keySet()) {
+            val value = extras.get(key)
+            if (value != null) {
+                dataMap[key] = value.toString()
+            }
+        }
+
+        // Try to extract booking data using the same logic as FCM service
+        return DriverBookingReminderData.fromFcmDataMap(dataMap)
+    }
+
+    /**
+     * Handle foreground reminder dialog trigger from FCM service
+     */
+    private fun handleForegroundReminderIntent(intent: Intent) {
+        Timber.i("🚨 Handling foreground reminder intent")
+
+        val bookingData = extractBookingDataFromIntent(intent)
+        if (bookingData != null && bookingData.requiresDriverEnRouteAction()) {
+            // Store in a way that DashboardScreen can pick it up immediately
+            // We'll use the same mechanism as notification navigation but trigger it immediately
+            val navigationData = NotificationNavigationData(
+                bookingId = bookingData.bookingId,
+                event = "booking_reminder",
+                isReminder = true,
+                bookingData = bookingData
+            )
+
+            // Since we're already in MainActivity, we need to trigger the reminder through navigation
+            // This will be handled by the DriverAppNavigation composable
+            currentNotificationData = navigationData
+
+            Timber.i("✅ Prepared foreground reminder data for booking ${bookingData.bookingId}")
+        } else {
+            Timber.w("⚠️ Could not extract valid reminder data from foreground intent")
+        }
+    }
+
+    /**
+     * Data class to hold notification navigation information
+     */
+    data class NotificationNavigationData(
+        val bookingId: Int,
+        val event: String? = null,
+        val isReminder: Boolean = false,
+        val bookingData: DriverBookingReminderData? = null
+    )
+
+    companion object {
+        // Store current notification data for navigation
+        var currentNotificationData: NotificationNavigationData? = null
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun DriverAppNavigation(
-    tokenManager: TokenManager
+    tokenManager: TokenManager,
+    notificationData: MainActivity.NotificationNavigationData? = null
 ) {
+    // Check for notification data from various sources
+    val effectiveNotificationData = notificationData ?: MainActivity.currentNotificationData
     val navController = rememberNavController()
     val registrationNavigationState = remember { RegistrationNavigationState() }
 
@@ -151,12 +294,26 @@ fun DriverAppNavigation(
             isAuthenticated -> {
                 val isProfileCompleted = tokenManager.isProfileCompleted()
                 if (isProfileCompleted) {
-                    NavRoutes.Dashboard
+                    // Check if welcome screen has been seen
+                    val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                    if (!hasSeenWelcome) {
+                        NavRoutes.WelcomeBanner
+                    } else {
+                        NavRoutes.Dashboard
+                    }
                 } else {
                     val registrationState = tokenManager.getDriverRegistrationState()
                     val nextStep = registrationState?.nextStep ?: tokenManager.getNextStep()
                     when {
-                        nextStep == null || nextStep == "dashboard" -> NavRoutes.Dashboard
+                        nextStep == null || nextStep == "dashboard" -> {
+                            // Check if welcome screen has been seen
+                            val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                            if (!hasSeenWelcome) {
+                                NavRoutes.WelcomeBanner
+                            } else {
+                                NavRoutes.Dashboard
+                            }
+                        }
                         else -> registrationNavigationState.getRouteForStep(nextStep)
                     }
                 }
@@ -178,11 +335,25 @@ fun DriverAppNavigation(
                 
                 // Determine correct destination after sync
                 val correctDestination = if (isProfileCompleted) {
-                    NavRoutes.Dashboard
+                    // Check if welcome screen has been seen
+                    val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                    if (!hasSeenWelcome) {
+                        NavRoutes.WelcomeBanner
+                    } else {
+                        NavRoutes.Dashboard
+                    }
                 } else {
                     val finalNextStep = nextStep ?: tokenManager.getDriverRegistrationState()?.nextStep ?: tokenManager.getNextStep()
                     when {
-                        finalNextStep == null || finalNextStep == "dashboard" -> NavRoutes.Dashboard
+                        finalNextStep == null || finalNextStep == "dashboard" -> {
+                            // Check if welcome screen has been seen
+                            val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                            if (!hasSeenWelcome) {
+                                NavRoutes.WelcomeBanner
+                            } else {
+                                NavRoutes.Dashboard
+                            }
+                        }
                         else -> registrationNavigationState.getRouteForStep(finalNextStep)
                     }
                 }
@@ -197,6 +368,41 @@ fun DriverAppNavigation(
             }
         } else {
             hasSynced = true
+        }
+    }
+
+    // Handle notification navigation after app is ready
+    LaunchedEffect(effectiveNotificationData, hasSynced) {
+        if (effectiveNotificationData != null && hasSynced && tokenManager.isAuthenticated() && tokenManager.isProfileCompleted()) {
+            Timber.i("🔔 Processing notification navigation: ${effectiveNotificationData.bookingId}, isReminder=${effectiveNotificationData.isReminder}")
+
+            if (effectiveNotificationData.isReminder) {
+                // For booking reminders, navigate to dashboard and show reminder dialog
+                Timber.i("📱 Booking reminder notification - navigating to dashboard")
+                navController.navigate(NavRoutes.Dashboard) {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                    launchSingleTop = true
+                }
+
+                // Trigger reminder dialog after a short delay to ensure dashboard is loaded
+                kotlinx.coroutines.delay(1000)
+                runCatching {
+                    navController.getBackStackEntry(NavRoutes.Dashboard)
+                        .savedStateHandle["showNotificationReminder"] = effectiveNotificationData.bookingData
+                }.onFailure { error ->
+                    Timber.e("Failed to trigger reminder dialog: $error")
+                }
+            } else {
+                // For booking notifications, navigate to booking preview
+                Timber.i("📱 Booking notification - navigating to booking preview: ${effectiveNotificationData.bookingId}")
+                navController.navigate("${NavRoutes.BookingPreview}/${effectiveNotificationData.bookingId}") {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+
+            // Clear the notification data after processing
+            MainActivity.currentNotificationData = null
         }
     }
 
@@ -238,7 +444,14 @@ fun DriverAppNavigation(
     ) {
         val isProfileCompleted = tokenManager.isProfileCompleted()
         if (isProfileCompleted) {
-            navController.navigate(NavRoutes.Dashboard) {
+            // Check if welcome screen has been seen
+            val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+            val targetRoute = if (!hasSeenWelcome) {
+                NavRoutes.WelcomeBanner
+            } else {
+                NavRoutes.Dashboard
+            }
+            navController.navigate(targetRoute) {
                 launchSingleTop = true
                 if (clearBackStack) {
                     popUpTo(navController.graph.id) { inclusive = true }
@@ -250,7 +463,15 @@ fun DriverAppNavigation(
         val isComplete = registrationNavigationState.isRegistrationComplete(nextStep)
         val profileSteps = setOf("driving_license", "bank_details", "profile_picture")
         val targetRoute = when {
-            isComplete -> NavRoutes.Dashboard
+            isComplete -> {
+                // Check if welcome screen has been seen when registration completes
+                val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                if (!hasSeenWelcome) {
+                    NavRoutes.WelcomeBanner
+                } else {
+                    NavRoutes.Dashboard
+                }
+            }
             !forceDirect && nextStep in profileSteps -> NavRoutes.UserProfileDetails
             else -> registrationNavigationState.getRouteForStep(nextStep)
         }
@@ -276,7 +497,7 @@ fun DriverAppNavigation(
             // Check profile completion status fresh (not cached)
             val isProfileCompleted = tokenManager.isProfileCompleted()
             
-            if (isProfileCompleted && currentRoute != null && currentRoute != NavRoutes.Dashboard) {
+            if (isProfileCompleted && currentRoute != null && currentRoute != NavRoutes.Dashboard && currentRoute != NavRoutes.WelcomeBanner) {
                 val registrationRoutes = setOf(
                     NavRoutes.PrivacyTerms,
                     NavRoutes.DrivingLicense,
@@ -290,8 +511,14 @@ fun DriverAppNavigation(
                     NavRoutes.UserProfileDetails
                 )
                 if (currentRoute in registrationRoutes) {
-                    // Redirect to Dashboard immediately
-                    navController.navigate(NavRoutes.Dashboard) {
+                    // Check if welcome screen has been seen
+                    val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                    val targetRoute = if (!hasSeenWelcome) {
+                        NavRoutes.WelcomeBanner
+                    } else {
+                        NavRoutes.Dashboard
+                    }
+                    navController.navigate(targetRoute) {
                         popUpTo(navController.graph.id) { inclusive = true }
                         launchSingleTop = true
                     }
@@ -392,10 +619,16 @@ fun DriverAppNavigation(
 
             composable(NavRoutes.PrivacyTerms) {
                 // Check if profile is completed before showing the screen
-                // If completed, redirect to Dashboard (handled in PrivacyTermsScreen LaunchedEffect)
+                // If completed, redirect to WelcomeBanner or Dashboard (handled in PrivacyTermsScreen LaunchedEffect)
                 if (tokenManager.isProfileCompleted()) {
                     LaunchedEffect(Unit) {
-                        navController.navigate(NavRoutes.Dashboard) {
+                        val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                        val targetRoute = if (!hasSeenWelcome) {
+                            NavRoutes.WelcomeBanner
+                        } else {
+                            NavRoutes.Dashboard
+                        }
+                        navController.navigate(targetRoute) {
                             popUpTo(navController.graph.id) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -404,7 +637,14 @@ fun DriverAppNavigation(
                 PrivacyTermsScreen(
                         onNext = { nextStep -> 
                             if (nextStep == "dashboard") {
-                                navController.navigate(NavRoutes.Dashboard) {
+                                // Check if welcome screen has been seen
+                                val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                                val targetRoute = if (!hasSeenWelcome) {
+                                    NavRoutes.WelcomeBanner
+                                } else {
+                                    NavRoutes.Dashboard
+                                }
+                                navController.navigate(targetRoute) {
                                     popUpTo(navController.graph.id) { inclusive = true }
                                     launchSingleTop = true
                                 }
@@ -413,9 +653,15 @@ fun DriverAppNavigation(
                             }
                         },
                     onBack = {
-                            // If profile is completed, go to Dashboard instead
+                            // If profile is completed, go to WelcomeBanner or Dashboard instead
                             if (tokenManager.isProfileCompleted()) {
-                                navController.navigate(NavRoutes.Dashboard) {
+                                val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
+                                val targetRoute = if (!hasSeenWelcome) {
+                                    NavRoutes.WelcomeBanner
+                                } else {
+                                    NavRoutes.Dashboard
+                                }
+                                navController.navigate(targetRoute) {
                                     popUpTo(navController.graph.id) { inclusive = true }
                                     launchSingleTop = true
                                 }
@@ -679,10 +925,48 @@ fun DriverAppNavigation(
                 )
             }
 
+            composable(NavRoutes.WelcomeBanner) {
+                WelcomeBannerScreen(
+                    onContinue = {
+                        tokenManager.saveWelcomeScreenSeen(true)
+                        navController.navigate(NavRoutes.Dashboard) {
+                            popUpTo(NavRoutes.WelcomeBanner) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+
             composable(NavRoutes.Dashboard) {
                 val openDrawer by it.savedStateHandle
                     .getStateFlow("openDrawer", false)
                     .collectAsStateWithLifecycle()
+
+                // Watch for navigation triggers from email verification dialog
+                val navigateToBasicInfo by it.savedStateHandle
+                    .getStateFlow("navigateToBasicInfo", false)
+                    .collectAsStateWithLifecycle()
+                val navigateToCompanyInfo by it.savedStateHandle
+                    .getStateFlow("navigateToCompanyInfo", false)
+                    .collectAsStateWithLifecycle()
+
+                LaunchedEffect(navigateToBasicInfo) {
+                    if (navigateToBasicInfo) {
+                        it.savedStateHandle["navigateToBasicInfo"] = false
+                        navController.navigate(NavRoutes.BasicInfoFromAccountSettings) {
+                            launchSingleTop = true
+                        }
+                    }
+                }
+
+                LaunchedEffect(navigateToCompanyInfo) {
+                    if (navigateToCompanyInfo) {
+                        it.savedStateHandle["navigateToCompanyInfo"] = false
+                        navController.navigate(NavRoutes.CompanyInfoFromAccountSettings) {
+                            launchSingleTop = true
+                        }
+                    }
+                }
 
                 com.limo1800driver.app.ui.screens.dashboard.DashboardScreen(
                     navBackStackEntry = it,
@@ -744,7 +1028,7 @@ fun DriverAppNavigation(
                         navController.navigate("${NavRoutes.EditBooking}/$bookingId/$source")
                     },
                     onNavigateToMap = { bookingId ->
-                        android.util.Log.d("BookingNav", "Map requested for bookingId=$bookingId")
+                        navController.navigate("${NavRoutes.BookingMap}/$bookingId")
                     },
                     refreshRequested = refreshBookings,
                     onRefreshConsumed = { it.savedStateHandle["refreshBookings"] = false }
@@ -767,6 +1051,14 @@ fun DriverAppNavigation(
                         navController.navigate("${NavRoutes.FinalizeRates}/$id/$mode/$source")
                     },
                     source = "prearranged"
+                )
+            }
+
+            composable("${NavRoutes.BookingMap}/{bookingId}") { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId")?.toIntOrNull() ?: 0
+                BookingMapView(
+                    bookingId = bookingId,
+                    onBack = { navController.popBackStack() }
                 )
             }
 
@@ -924,21 +1216,5 @@ fun DriverAppNavigation(
                 )
             }
         } // End of NavHost
-
-        // 2. Alert Overlay (Foreground)
-        // This sits on top of the NavHost
-        // Only show EmailVerificationAlert when user is authenticated
-        val isAuthenticated = tokenManager.isAuthenticated()
-        if (isAuthenticated) {
-        EmailVerificationAlert(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(top = 8.dp),
-            onVerifyEmailClick = {
-                // Navigate to email verification screen (to be implemented)
-            }
-        )
-        }
     } // End of Box
 }

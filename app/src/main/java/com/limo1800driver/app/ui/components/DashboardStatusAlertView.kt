@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +37,7 @@ fun DashboardStatusAlertCarousel(
     alerts: List<DashboardStatusAlert>,
     isLoading: Boolean,
     onAlertClick: (DashboardStatusAlert) -> Unit,
+    onActionLinkClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // FILTER: Ignore INFO alerts, keep only WARNING and ERROR
@@ -68,6 +70,8 @@ fun DashboardStatusAlertCarousel(
                 DashboardStatusAlertView(
                     alert = alert,
                     onTap = { onAlertClick(alert) },
+                    onActionLinkClick = onActionLinkClick,
+                    hasMultipleAlerts = visibleAlerts.size > 1,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -105,79 +109,111 @@ fun DashboardStatusAlertCarousel(
 fun DashboardStatusAlertView(
     alert: DashboardStatusAlert,
     onTap: (() -> Unit)? = null,
+    onActionLinkClick: ((String) -> Unit)? = null,
+    hasMultipleAlerts: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val backgroundColor = alert.type.backgroundColor
     val iconColor = alert.type.iconColor
 
-    Row(
+    Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(backgroundColor)
-            .then(if (onTap != null) Modifier.noRippleClickable { onTap() } else Modifier)
-            .padding(16.dp),
-        verticalAlignment = Alignment.Top
+            .then(if (onTap != null && alert.actionLinks.isEmpty()) Modifier.noRippleClickable { onTap() } else Modifier)
+            .padding(16.dp)
     ) {
-        // Icon
-        Box(
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .size(24.dp)
-                .background(iconColor, CircleShape),
-            contentAlignment = Alignment.Center
+        Row(
+            verticalAlignment = Alignment.Top
         ) {
-            val iconVector = when (alert.type) {
-                DashboardAlertType.ERROR -> Icons.Default.Info
-                DashboardAlertType.WARNING -> Icons.Default.Warning
-                else -> Icons.Default.Info
+            // Icon
+            Box(
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .size(24.dp)
+                    .background(iconColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                val iconVector = when (alert.type) {
+                    DashboardAlertType.ERROR -> Icons.Default.Info
+                    DashboardAlertType.WARNING -> Icons.Default.Warning
+                    else -> Icons.Default.Info
+                }
+
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
             }
 
-            Icon(
-                imageVector = iconVector,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(16.dp)
-            )
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Text Content
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = alert.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF1F1F1F)
+                    ),
+                    lineHeight = 20.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = alert.message,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 13.sp,
+                        color = Color(0xFF484848),
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                // Action Links
+                if (alert.actionLinks.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        alert.actionLinks.forEach { actionLink ->
+                            Text(
+                                text = actionLink.label,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF1976D2),
+                                    fontWeight = FontWeight.Medium,
+                                    textDecoration = TextDecoration.Underline
+                                ),
+                                modifier = Modifier
+                                    .noRippleClickable {
+                                        onActionLinkClick?.invoke(actionLink.route)
+                                    }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Chevron (show if multiple alerts to scroll, or if no action links, or if there's a general onTap)
+            if (hasMultipleAlerts || alert.actionLinks.isEmpty() || onTap != null) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "View Details",
+                    tint = Color.Black,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.CenterVertically)
+                )
+            }
         }
-
-        Spacer(modifier = Modifier.width(14.dp))
-
-        // Text Content
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = alert.title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color(0xFF1F1F1F)
-                ),
-                lineHeight = 20.sp
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = alert.message,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 13.sp,
-                    color = Color(0xFF484848),
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Normal
-                ),
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Chevron
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = "View Details",
-            tint = Color.Black,
-            modifier = Modifier
-                .size(24.dp)
-                .align(Alignment.CenterVertically)
-        )
     }
 }
 

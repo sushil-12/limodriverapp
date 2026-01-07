@@ -3,6 +3,7 @@ package com.limo1800driver.app.ui.screens.registration
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,6 +28,7 @@ import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ShimmerBox
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.camera.ProfileCameraScreen
+import com.limo1800driver.app.ui.components.FullScreenImagePreview
 import com.limo1800driver.app.ui.navigation.RegistrationNavigationState
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.ProfilePictureViewModel
@@ -52,6 +54,11 @@ fun ProfilePictureScreen(
     var showCamera by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
+
+    // Image Preview State
+    var showImagePreview by remember { mutableStateOf(false) }
+    var previewImageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var previewImageUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.fetchProfilePictureStep()
@@ -144,7 +151,9 @@ fun ProfilePictureScreen(
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     containerColor = Color.Transparent,
-                                    contentColor = Color(0xFFE89148)
+                                    contentColor = Color(0xFFE89148),
+                                    disabledContainerColor = Color.Transparent,
+                                    disabledContentColor = Color(0xFFE89148).copy(alpha = 0.5f)
                                 ),
                                 border = ButtonDefaults.outlinedButtonBorder.copy(
                                     width = 1.5.dp
@@ -158,7 +167,8 @@ fun ProfilePictureScreen(
                                     text = "Retake",
                                     style = TextStyle(
                                         fontSize = 16.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFE89148)
                                     )
                                 )
                             }
@@ -260,7 +270,12 @@ fun ProfilePictureScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(CircleShape)
-                                .background(Color.Gray.copy(alpha = 0.1f)),
+                                .background(Color.Gray.copy(alpha = 0.1f))
+                                .clickable {
+                                    previewImageBitmap = profileImage
+                                    previewImageUrl = null
+                                    showImagePreview = true
+                                },
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -271,7 +286,12 @@ fun ProfilePictureScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(CircleShape)
-                                .background(Color.Gray.copy(alpha = 0.1f)),
+                                .background(Color.Gray.copy(alpha = 0.1f))
+                                .clickable {
+                                    previewImageBitmap = null
+                                    previewImageUrl = existingProfileImageUrl
+                                    showImagePreview = true
+                                },
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -319,6 +339,19 @@ fun ProfilePictureScreen(
             onDismiss = { showCamera = false }
         )
     }
+
+    // Full Screen Image Preview
+    FullScreenImagePreview(
+        isVisible = showImagePreview,
+        onDismiss = {
+            showImagePreview = false
+            previewImageBitmap = null
+            previewImageUrl = null
+        },
+        imageBitmap = previewImageBitmap,
+        imageUrl = previewImageUrl,
+        contentDescription = "Full screen profile picture preview"
+    )
 
     // Error Dialog
     ErrorAlertDialog(

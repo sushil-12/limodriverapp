@@ -70,7 +70,7 @@ fun VehicleDetailsStepScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         RegistrationTopBar(
             onBack = onBack
@@ -81,7 +81,7 @@ fun VehicleDetailsStepScreen(
                 .weight(1f)
                 .padding(horizontal = 16.dp)
         ) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Location header
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -89,7 +89,7 @@ fun VehicleDetailsStepScreen(
                     text = "Signing up for",
                     style = AppTextStyles.bodyMedium.copy(
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
                 Row(
@@ -100,13 +100,14 @@ fun VehicleDetailsStepScreen(
                         text = userLocation.ifEmpty { "Select location" },
                         style = AppTextStyles.bodyLarge.copy(
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     )
                     Icon(
                         imageVector = Icons.Default.CheckCircle, // Use car icon if available
                         contentDescription = null,
-                        tint = Color.Black
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -114,7 +115,7 @@ fun VehicleDetailsStepScreen(
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
                 thickness = DividerDefaults.Thickness,
-                color = DividerDefaults.color
+                color = MaterialTheme.colorScheme.outlineVariant
             )
 
             // Welcome message
@@ -122,7 +123,8 @@ fun VehicleDetailsStepScreen(
                 text = "Welcome $userName!",
                 style = AppTextStyles.phoneEntryHeadline.copy(
                     fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 ),
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -139,7 +141,7 @@ fun VehicleDetailsStepScreen(
                         .weight(1f)
                         .height(8.dp)
                         .background(
-                            if (isVehicleInsuranceCompleted) LimoGreen else Color(0xFFE5E5E5),
+                            if (isVehicleInsuranceCompleted) LimoGreen else MaterialTheme.colorScheme.surfaceVariant,
                             RoundedCornerShape(2.dp)
                         )
                 )
@@ -148,7 +150,7 @@ fun VehicleDetailsStepScreen(
                         .weight(1f)
                         .height(8.dp)
                         .background(
-                            if (isVehicleDetailsCompleted) LimoGreen else Color(0xFFE5E5E5),
+                            if (isVehicleDetailsCompleted) LimoGreen else MaterialTheme.colorScheme.surfaceVariant,
                             RoundedCornerShape(2.dp)
                         )
                 )
@@ -157,7 +159,7 @@ fun VehicleDetailsStepScreen(
                         .weight(1f)
                         .height(8.dp)
                         .background(
-                            if (isVehicleRatesCompleted) LimoGreen else Color(0xFFE5E5E5),
+                            if (isVehicleRatesCompleted) LimoGreen else MaterialTheme.colorScheme.surfaceVariant,
                             RoundedCornerShape(2.dp)
                         )
                 )
@@ -169,7 +171,7 @@ fun VehicleDetailsStepScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
                 Column {
                     // Vehicle Insurance
@@ -182,7 +184,7 @@ fun VehicleDetailsStepScreen(
 
                     HorizontalDivider(
                         thickness = 1.dp,
-                        color = Color(0xFF121212).copy(alpha = 0.05f)
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
 
                     // Vehicle Details
@@ -195,7 +197,7 @@ fun VehicleDetailsStepScreen(
 
                     HorizontalDivider(
                         thickness = 1.dp,
-                        color = Color(0xFF121212).copy(alpha = 0.05f)
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
 
                     // Vehicle Rate Settings
@@ -213,7 +215,7 @@ fun VehicleDetailsStepScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 16.dp)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(bottom = 16.dp, top = 16.dp)

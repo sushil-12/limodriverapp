@@ -33,6 +33,7 @@ class TokenManager @Inject constructor(
         private const val KEY_AFFILIATE_TYPE = "affiliate_type"
         private const val KEY_NEXT_STEP = "registration_next_step"
         private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
+        private const val KEY_WELCOME_SCREEN_SEEN = "welcome_screen_seen"
         private const val KEY_IS_PROFILE_COMPLETED = "is_profile_completed"
         private const val KEY_DRIVER_REGISTRATION_STATE = "driver_registration_state"
         private const val KEY_VEHICLE_DETAILS_STEP_RESPONSE = "vehicle_details_step_response"
@@ -186,6 +187,22 @@ class TokenManager @Inject constructor(
      */
     fun hasSeenOnboarding(): Boolean {
         return sharedPreferences.getBoolean(KEY_ONBOARDING_SEEN, false)
+    }
+    
+    /**
+     * Persist welcome screen seen flag
+     */
+    fun saveWelcomeScreenSeen(seen: Boolean) {
+        sharedPreferences.edit()
+            .putBoolean(KEY_WELCOME_SCREEN_SEEN, seen)
+            .apply()
+    }
+
+    /**
+     * Check if welcome screen already seen
+     */
+    fun hasSeenWelcomeScreen(): Boolean {
+        return sharedPreferences.getBoolean(KEY_WELCOME_SCREEN_SEEN, false)
     }
     
     /**
@@ -371,6 +388,35 @@ class TokenManager @Inject constructor(
             .remove(KEY_DRIVER_PROFILE_DATA)
             .remove(KEY_DRIVER_PROFILE_CACHE_TIME)
             .apply()
+    }
+
+    /**
+     * Update cached driver profile data with new firstName and lastName
+     * This ensures the profile screen shows updated data immediately
+     */
+    fun updateCachedProfileName(firstName: String, lastName: String) {
+        val cachedProfile = getCachedDriverProfileData()
+        if (cachedProfile != null) {
+            val updatedProfile = cachedProfile.copy(
+                driverFirstName = firstName,
+                driverLastName = lastName
+            )
+            saveDriverProfileData(updatedProfile)
+        }
+    }
+
+    /**
+     * Update cached driver profile data with new driverImage URL
+     * This ensures the profile screen shows updated image immediately
+     */
+    fun updateCachedProfileImage(driverImage: String?) {
+        val cachedProfile = getCachedDriverProfileData()
+        if (cachedProfile != null) {
+            val updatedProfile = cachedProfile.copy(
+                driverImage = driverImage
+            )
+            saveDriverProfileData(updatedProfile)
+        }
     }
 
     /**

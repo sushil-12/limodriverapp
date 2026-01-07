@@ -228,7 +228,7 @@ class DriverSocketService @Inject constructor(
         val s = socket ?: return
 
         s.on(Socket.EVENT_CONNECT) {
-            Timber.tag(TAG).d("Socket.IO connected")
+            Timber.tag(TAG).d("Socket.IO connected - socket.id=${s.id()}, connected()=${s.connected()}")
             connectionAttempts = 0
             isReconnecting = false
             updateConnectionStatus(true)
@@ -462,9 +462,31 @@ class DriverSocketService @Inject constructor(
         heading: Int,
         speed: Int
     ) {
-        val s = socket ?: return
-        if (!s.connected()) return
+        val s = socket
+        if (s == null) {
+            Timber.tag(TAG).w("emitDriverLocationUpdate: socket is null, cannot emit")
+            return
+        }
+        
+        val isConnected = s.connected()
+        val socketId = s.id()
+        val connectionStatus = _connectionStatus.value
+        Timber.tag(TAG).d("emitDriverLocationUpdate: socket.connected()=$isConnected, socket.id()=$socketId, connectionStatus.isConnected=${connectionStatus.isConnected}, connectionStatus.error=${connectionStatus.error}")
+        
+        if (!isConnected) {
+            Timber.tag(TAG).w("emitDriverLocationUpdate: socket not connected (connected()=$isConnected, id=$socketId), cannot emit. Attempting reconnect...")
+            // Try to reconnect if not manually disconnected
+            if (!isManualDisconnect) {
+                connect()
+            }
+            return
+        }
+        
+        if (socketId == null || socketId.isEmpty()) {
+            Timber.tag(TAG).w("emitDriverLocationUpdate: socket ID is null/empty, connection may not be fully established")
+        }
 
+        // Try both JSONObject and Map formats to ensure compatibility
         val payload = JSONObject().apply {
             put("latitude", latitude)
             put("longitude", longitude)
@@ -475,7 +497,32 @@ class DriverSocketService @Inject constructor(
             put("speed", speed.coerceAtLeast(0))
         }
 
-        s.emit("driver.location.update", payload)
+        // Also create a Map version (some Socket.IO versions prefer this)
+        val payloadMap = mapOf(
+            "latitude" to latitude,
+            "longitude" to longitude,
+            "bookingId" to bookingId.toString(),
+            "customerId" to customerId.toString(),
+            "accuracy" to 10,
+            "heading" to heading,
+            "speed" to speed.coerceAtLeast(0)
+        )
+
+        try {
+            Timber.tag(TAG).d("About to emit driver.location.update: bookingId=$bookingId lat=$latitude lng=$longitude")
+            // Try with Map first (more compatible with Socket.IO Java client)
+            s.emit("driver.location.update", payloadMap)
+            Timber.tag(TAG).d("✅ Successfully called emit() for driver.location.update bookingId=$bookingId lat=$latitude lng=$longitude heading=$heading speed=$speed")
+            Timber.tag(TAG).d("Payload (Map): $payloadMap")
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "❌ Exception while emitting driver.location.update with Map, trying JSONObject: ${e.message}")
+            try {
+                s.emit("driver.location.update", payload)
+                Timber.tag(TAG).d("✅ Successfully called emit() with JSONObject fallback")
+            } catch (e2: Exception) {
+                Timber.tag(TAG).e(e2, "❌ Exception while emitting driver.location.update with JSONObject: ${e2.message}")
+            }
+        }
     }
 
     fun emitBookingStatusUpdate(

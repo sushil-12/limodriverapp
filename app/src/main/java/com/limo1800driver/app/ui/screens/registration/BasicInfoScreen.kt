@@ -39,6 +39,7 @@ import com.limo1800driver.app.ui.components.CommonDropdown
 import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.DatePickerComponent
 import com.limo1800driver.app.ui.components.DatePickerConfig
+import com.limo1800driver.app.ui.components.EmailVerificationHelper
 import com.limo1800driver.app.ui.components.LocationAutocomplete
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.*
@@ -385,7 +386,7 @@ fun BasicInfoScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 CommonTextField(
-                    label = "First name",
+                    label = "Legal First name",
                     placeholder = "John",
                     text = firstName,
                     onValueChange = {
@@ -399,7 +400,7 @@ fun BasicInfoScreen(
                     focusRequester = firstNameFocusRequester
                 )
                 CommonTextField(
-                    label = "Last name",
+                    label = "Legal Last name",
                     placeholder = "Smith",
                     text = lastName,
                     onValueChange = {
@@ -450,6 +451,15 @@ fun BasicInfoScreen(
                 focusRequester = emailFocusRequester
             )
 
+            // Email Verification Helper
+            if (email.isNotBlank()) {
+                EmailVerificationHelper(
+                    email = email,
+                    emailType = com.limo1800driver.app.ui.components.EmailType.MAIN,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(18.dp))
 
             // --- DATE OF BIRTH SECTION ---
@@ -472,7 +482,8 @@ fun BasicInfoScreen(
                     yearRange = 1900..Calendar.getInstance().get(Calendar.YEAR) // Reasonable range for DOB
                 ),
                 errorMessage = dobError,
-                isRequired = true
+                isRequired = true,
+                onFieldFocused = { focusManager.clearFocus() }
             )
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -742,7 +753,8 @@ fun BottomNavigationRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .padding(bottom = 16.dp),
+            .padding(bottom = 16.dp)
+            .windowInsetsPadding(WindowInsets.navigationBars), // Prevent button underlapping with Android gesture navigation
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {

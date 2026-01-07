@@ -385,7 +385,9 @@ object EditReservationPayloadBuilder {
         userInput: EditReservationUserInput,
         airports: List<com.limo1800driver.app.data.model.dashboard.MobileDataAirport> = emptyList(),
         airlines: List<com.limo1800driver.app.data.model.dashboard.MobileDataAirline> = emptyList(),
-        calculatedShares: ReservationShareData? = null
+        calculatedShares: ReservationShareData? = null,
+        calculatedDistance: Int? = null,
+        calculatedDuration: Int? = null
     ): EditReservationRequest {
         Timber.tag("BookingService").d("=== Building EditReservationRequest ===")
         Timber.tag("BookingService").d("Preview data: reservationId=${preview.reservationId}, accId=${preview.accId}, affiliateId=${preview.affiliateId}, driverId=${preview.driverId}")
@@ -415,6 +417,14 @@ object EditReservationPayloadBuilder {
         val rateArray = rates?.rateArray?.let { convertToRateArray(it) } ?: RateArray()
         val grandTotal = rates?.grandTotal ?: preview.grandTotal ?: 0.0
         val subTotal = rates?.subTotal ?: (grandTotal * 0.9) // Estimate if not available
+        
+        // Log final payload rateArray values
+        rateArray.allInclusiveRates["Base_Rate"]?.let {
+            Timber.tag("BookingService").d("Payload Base_Rate: baserate=${it.baserate}, amount=${it.amount}")
+        }
+        rateArray.allInclusiveRates["Stops"]?.let {
+            Timber.tag("BookingService").d("Payload Stops: baserate=${it.baserate}, amount=${it.amount}")
+        }
 
         // Build shares array (matching iOS buildSharesArray)
         val sharesArray = buildSharesArray(
@@ -431,18 +441,16 @@ object EditReservationPayloadBuilder {
         val journeyDistance: Int
         val journeyTime: Int
 
-        if (hasLocationChanged) {
-            // User changed locations - use calculated distance/time
-            // Note: We need coordinates from user input for calculation
-            // For now, parse from preview but this should be calculated from coordinates
-            journeyDistance = parseDistanceToMeters(preview.distance)
-            journeyTime = parseDurationToSeconds(preview.duration)
-            Timber.tag("BookingService").d("Location changed - using calculated distance/time")
+        if (hasLocationChanged && calculatedDistance != null && calculatedDuration != null) {
+            // User changed locations - use calculated distance/time from Directions API
+            journeyDistance = calculatedDistance
+            journeyTime = calculatedDuration
+            Timber.tag("BookingService").d("Location changed - using calculated distance: ${journeyDistance}m, duration: ${journeyTime}s")
         } else {
             // User didn't change locations - use original API distance/time
             journeyDistance = parseDistanceToMeters(preview.distance)
             journeyTime = parseDurationToSeconds(preview.duration)
-            Timber.tag("BookingService").d("Location unchanged - using original API distance/time")
+            Timber.tag("BookingService").d("Location unchanged - using original API distance: ${journeyDistance}m, duration: ${journeyTime}s")
         }
 
         // Build extra stops from user input (matching iOS buildBasicInfo logic)

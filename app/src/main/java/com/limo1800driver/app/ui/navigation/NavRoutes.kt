@@ -25,6 +25,9 @@ object NavRoutes {
     const val VehicleInsurance = "vehicle_insurance"
     const val VehicleRates = "vehicle_rates"
     
+    // Welcome Banner (shown after registration completion)
+    const val WelcomeBanner = "welcome_banner"
+    
     // Dashboard
     const val Dashboard = "dashboard"
     
@@ -41,6 +44,7 @@ object NavRoutes {
     const val FinalizeBooking = "finalize_booking"
     const val FinalizeRates = "finalize_rates"
     const val EditBooking = "edit_booking"
+    const val BookingMap = "booking_map"
 
     // Live ride flow
     const val RideInProgress = "ride_in_progress"

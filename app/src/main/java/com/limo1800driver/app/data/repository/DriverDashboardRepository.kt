@@ -56,6 +56,23 @@ class DriverDashboardRepository @Inject constructor(
             }
         }
     }
+
+    suspend fun getScheduledPickups(
+        page: Int? = null,
+        perPage: Int? = null,
+        startDate: String? = null,
+        endDate: String? = null,
+        search: String? = null
+    ): Result<BaseResponse<DriverBookingsData>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = dashboardApi.getScheduledPickups(page, perPage, startDate, endDate, search)
+                Result.success(response)
+            } catch (e: Exception) {
+                Result.failure(Exception(errorHandler.handleError(e)))
+            }
+        }
+    }
     
     // ==================== Driver All Activity ====================
     
@@ -170,6 +187,7 @@ class DriverDashboardRepository @Inject constructor(
             try {
                 Timber.tag(TAG).d("Fetching reservation for booking: $bookingId")
                 val response = dashboardApi.getReservation(bookingId)
+                Timber.tag(TAG).e("Bookin DAta, ${response.toString()}")
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch reservation")
@@ -252,6 +270,19 @@ class DriverDashboardRepository @Inject constructor(
                 Result.success(response)
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to fetch booking preview")
+                Result.failure(Exception(errorHandler.handleError(e)))
+            }
+        }
+    }
+
+    suspend fun getAffiliateBookingPreview(bookingId: Int): Result<BaseResponse<AffiliateBookingPreviewData>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Timber.tag(TAG).d("Fetching affiliate booking preview for booking: $bookingId")
+                val response = dashboardApi.getAffiliateBookingPreview(bookingId)
+                Result.success(response)
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to fetch affiliate booking preview")
                 Result.failure(Exception(errorHandler.handleError(e)))
             }
         }

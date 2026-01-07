@@ -1528,3 +1528,24 @@ data class DispatchEmailStatus(
     val exists: Boolean
 )
 
+// ==================== Resend Verification Email ====================
+
+data class ResendVerificationEmailRequest(
+    @SerializedName("email_type")
+    val emailType: String // "primary" or "dispatch"
+)
+
+data class ResendVerificationEmailResponse(
+    @SerializedName("message")
+    val message: String,
+
+    @SerializedName("email")
+    val email: String,
+
+    @SerializedName("email_type")
+    val emailType: String,
+
+    @SerializedName("auto_verified")
+    val autoVerified: Boolean? = null
+)
+

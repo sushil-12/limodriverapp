@@ -424,10 +424,17 @@ object LocationValidationHelper {
                 )
             }
             
+            // Check if response is null
+            if (response == null) {
+                Timber.tag("LocationValidation").w("Directions API returned null response")
+                return "Unable to validate route between the selected locations. Please verify the addresses are correct and try again."
+            }
+            
             // Check if route was successfully calculated
-            when (response.status?.uppercase()) {
+            val status = response.status?.uppercase() ?: "UNKNOWN"
+            when (status) {
                 "OK" -> {
-                    if (response.routes.isEmpty()) {
+                    if (response.routes == null || response.routes.isEmpty()) {
                         Timber.tag("LocationValidation").w("Directions API returned OK but no routes")
                         "Unable to calculate route between the selected locations. Please verify the addresses are correct."
                     } else {
@@ -435,24 +442,39 @@ object LocationValidationHelper {
                     }
                 }
                 "ZERO_RESULTS" -> {
+                    Timber.tag("LocationValidation").w("Directions API: ZERO_RESULTS - No route found")
                     "No route found between the selected locations. Please verify the addresses are correct and routable."
                 }
                 "NOT_FOUND" -> {
+                    Timber.tag("LocationValidation").w("Directions API: NOT_FOUND - Location not found")
                     "One or more locations could not be found. Please select valid addresses from the suggestions."
                 }
                 "INVALID_REQUEST" -> {
+                    Timber.tag("LocationValidation").w("Directions API: INVALID_REQUEST")
                     "Invalid route request. Please verify the addresses are correct."
+                }
+                "OVER_QUERY_LIMIT" -> {
+                    Timber.tag("LocationValidation").w("Directions API: OVER_QUERY_LIMIT")
+                    "Service temporarily unavailable. Please try again later."
+                }
+                "REQUEST_DENIED" -> {
+                    Timber.tag("LocationValidation").w("Directions API: REQUEST_DENIED")
+                    "Unable to validate route. Please verify the addresses are correct."
+                }
+                "UNKNOWN_ERROR" -> {
+                    Timber.tag("LocationValidation").w("Directions API: UNKNOWN_ERROR")
+                    "Unable to validate route. Please verify the addresses are correct and try again."
                 }
                 else -> {
                     val errorMsg = response.errorMessage ?: "Unknown error"
-                    Timber.tag("LocationValidation").w("Directions API error: ${response.status} - $errorMsg")
-                    "Unable to validate route: ${response.status}. Please verify the addresses are correct."
+                    Timber.tag("LocationValidation").w("Directions API error: $status - $errorMsg")
+                    "Unable to validate route ($status). Please verify the addresses are correct."
                 }
             }
         } catch (e: Exception) {
             Timber.tag("LocationValidation").e(e, "Error validating route with Directions API")
-            // Don't block user if API call fails - this is a validation enhancement
-            null
+            // Return error message for API failures to inform user
+            "Unable to validate route between the selected locations. Please verify the addresses are correct and routable."
         }
     }
     

@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.limo1800driver.app.data.model.Countries
 import com.limo1800driver.app.data.model.Country
 import com.limo1800driver.app.ui.theme.*
@@ -38,6 +40,7 @@ fun PhoneInputField(
     errorMessage: String? = null
 ) {
     var showCountryPicker by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     // Theme Colors (Local definitions to ensure match without importing external vars)
     val inputBackground = Color(0xFFF3F4F6)
@@ -90,7 +93,10 @@ fun PhoneInputField(
                         color = if (errorMessage != null) Color(0xFFEF4444) else inputBorder,
                         shape = RoundedCornerShape(8.dp)
                     )
-                    .clickable(enabled = enabled) { showCountryPicker = true },
+                    .clickable(enabled = enabled) { 
+                        focusManager.clearFocus()
+                        showCountryPicker = true 
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Row(
@@ -197,11 +203,13 @@ fun CountryPickerBottomSheet(
     onCountrySelected: (Country) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val listState = rememberLazyListState()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White
+        containerColor = Color.White,
+        dragHandle = null
     ) {
         Column(
             modifier = Modifier
@@ -227,9 +235,13 @@ fun CountryPickerBottomSheet(
             HorizontalDivider(Modifier, DividerDefaults.Thickness, color = Color(0xFFE5E7EB))
 
             LazyColumn(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                state = listState
             ) {
-                items(Countries.list) { country ->
+                items(
+                    items = Countries.list,
+                    key = { it.shortCode }
+                ) { country ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

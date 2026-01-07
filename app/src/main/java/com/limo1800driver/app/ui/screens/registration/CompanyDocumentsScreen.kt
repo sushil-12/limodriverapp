@@ -39,6 +39,7 @@ import com.limo1800driver.app.ui.components.CommonTextField
 import com.limo1800driver.app.ui.components.CustomMultiSelectDropdown
 import com.limo1800driver.app.ui.components.ShimmerBox
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
+import com.limo1800driver.app.ui.components.FullScreenImagePreview
 import com.limo1800driver.app.ui.components.camera.DocumentSide
 import com.limo1800driver.app.ui.components.camera.DocumentType
 import com.limo1800driver.app.ui.theme.*
@@ -96,6 +97,11 @@ fun CompanyDocumentsScreen(
     var isUploadingFront by remember { mutableStateOf(false) }
     var isUploadingBack by remember { mutableStateOf(false) }
     var isUploadingPermit by remember { mutableStateOf(false) }
+
+    // Image Preview State
+    var showImagePreview by remember { mutableStateOf(false) }
+    var previewImageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var previewImageUrl by remember { mutableStateOf<String?>(null) }
 
     // API Error state
     var apiError by remember { mutableStateOf<String?>(null) }
@@ -457,7 +463,14 @@ fun CompanyDocumentsScreen(
                         imageBitmap = frontImage,
                         placeholderResId = R.drawable.back_image,
                         isUploading = isUploadingFront,
-                        onAddClick = { showFrontCamera = true }
+                        onAddClick = { showFrontCamera = true },
+                        onImageClick = if (frontImage != null) {
+                            {
+                                previewImageBitmap = frontImage
+                                previewImageUrl = null
+                                showImagePreview = true
+                            }
+                        } else null
                     )
 
                     // Front Image Error Message
@@ -493,7 +506,14 @@ fun CompanyDocumentsScreen(
                         imageBitmap = backImage,
                         placeholderResId = R.drawable.back_image,
                         isUploading = isUploadingBack,
-                        onAddClick = { showBackCamera = true }
+                        onAddClick = { showBackCamera = true },
+                        onImageClick = if (backImage != null) {
+                            {
+                                previewImageBitmap = backImage
+                                previewImageUrl = null
+                                showImagePreview = true
+                            }
+                        } else null
                     )
                 }
             }
@@ -530,7 +550,14 @@ fun CompanyDocumentsScreen(
                     placeholderResId = R.drawable.back_image,
                     isUploading = isUploadingPermit,
                     onAddClick = { showPermitCamera = true },
-                    modifier = Modifier.width(160.dp) // Maintain consistent width
+                    modifier = Modifier.width(160.dp), // Maintain consistent width
+                    onImageClick = if (permitImage != null) {
+                        {
+                            previewImageBitmap = permitImage
+                            previewImageUrl = null
+                            showImagePreview = true
+                        }
+                    } else null
                 )
             }
 
@@ -600,6 +627,19 @@ fun CompanyDocumentsScreen(
     }
 
     // --- Camera Screens ---
+    // Full Screen Image Preview
+    FullScreenImagePreview(
+        isVisible = showImagePreview,
+        onDismiss = {
+            showImagePreview = false
+            previewImageBitmap = null
+            previewImageUrl = null
+        },
+        imageBitmap = previewImageBitmap,
+        imageUrl = previewImageUrl,
+        contentDescription = "Full screen document image preview"
+    )
+
     if (showFrontCamera) {
         DocumentCameraScreen(
             documentType = DocumentType.BUSINESS_CARD,
@@ -676,7 +716,8 @@ fun ImageUploadCard(
     placeholderResId: Int,
     isUploading: Boolean,
     onAddClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onImageClick: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -689,7 +730,14 @@ fun ImageUploadCard(
                 .height(100.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFFF3F4F6)) // Light Gray Background
-                .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(8.dp)),
+                .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(8.dp))
+                .then(
+                    if (imageBitmap != null && onImageClick != null) {
+                        Modifier.clickable { onImageClick() }
+                    } else {
+                        Modifier
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (isUploading) {
@@ -719,7 +767,12 @@ fun ImageUploadCard(
         // Add Button (Black Pill)
         Button(
             onClick = onAddClick,
-            colors = ButtonDefaults.buttonColors(containerColor = AppColors.LimoBlack),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppColors.LimoBlack,
+                contentColor = Color.White,
+                disabledContainerColor = AppColors.LimoBlack.copy(alpha = 0.5f),
+                disabledContentColor = Color.White
+            ),
             shape = RoundedCornerShape(50),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
             modifier = Modifier.height(36.dp)
@@ -734,7 +787,8 @@ fun ImageUploadCard(
             Text(
                 text = "Add",
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                color = Color.White
             )
         }
     }

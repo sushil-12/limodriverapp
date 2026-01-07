@@ -103,6 +103,12 @@ class BasicInfoViewModel @Inject constructor(
                             tokenManager.saveBasicInfoEmail(request.email)
                             // Save affiliate type for proper navigation logic
                             tokenManager.saveAffiliateType(request.affiliateType)
+                            // Update cached profile data with new firstName and lastName
+                            // This ensures the profile screen shows updated data immediately
+                            tokenManager.updateCachedProfileName(
+                                firstName = request.firstName,
+                                lastName = request.lastName
+                            )
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 success = true,

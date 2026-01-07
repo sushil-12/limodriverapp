@@ -85,6 +85,21 @@ class EmailVerificationViewModel @Inject constructor(
     }
 
     /**
+     * Resend verification email
+     */
+    fun resendVerificationEmail(emailType: String, onResult: (Result<com.limo1800driver.app.data.model.registration.ResendVerificationEmailResponse>) -> Unit) {
+        viewModelScope.launch {
+            val result = registrationRepository.resendVerificationEmail(emailType)
+            onResult(result)
+
+            // Refresh verification status after resend attempt
+            if (result.isSuccess) {
+                checkEmailVerificationStatus()
+            }
+        }
+    }
+
+    /**
      * Check if email verification is needed
      */
     fun needsEmailVerification(): Boolean {

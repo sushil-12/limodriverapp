@@ -11,6 +11,7 @@ import com.limo1800driver.app.data.model.registration.ProfilePictureStepResponse
 import com.limo1800driver.app.data.network.ImageUploadService
 import com.limo1800driver.app.data.network.error.ErrorHandler
 import com.limo1800driver.app.data.repository.DriverRegistrationRepository
+import com.limo1800driver.app.data.storage.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,8 @@ import javax.inject.Inject
 class ProfilePictureViewModel @Inject constructor(
     private val registrationRepository: DriverRegistrationRepository,
     private val imageUploadService: ImageUploadService,
-    private val errorHandler: ErrorHandler
+    private val errorHandler: ErrorHandler,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfilePictureUiState())
@@ -87,6 +89,11 @@ class ProfilePictureViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { response ->
                         if (response.success && response.data != null) {
+                            // Clear cached profile data so profile screen fetches fresh data with updated image
+                            // This ensures the profile screen shows the updated image immediately
+                            tokenManager.clearDriverProfileCache()
+                            Timber.tag("ProfilePictureVM").d("Cleared profile cache after profile picture update")
+                            
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 success = true,

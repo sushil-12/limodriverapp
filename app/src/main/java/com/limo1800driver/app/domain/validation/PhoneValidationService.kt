@@ -15,6 +15,14 @@ class PhoneValidationService @Inject constructor() {
      * Returns smart, contextual error messages
      */
     fun validatePhoneNumber(phoneNumber: String, countryCode: CountryCode): ValidationResult {
+        return validatePhoneNumber(phoneNumber, countryCode, countryCode.phoneLength)
+    }
+    
+    /**
+     * Validate phone number with custom phone length
+     * Useful when country is not in CountryCode enum but we know the phone length
+     */
+    fun validatePhoneNumber(phoneNumber: String, countryCode: CountryCode, phoneLength: Int): ValidationResult {
         // Clean the phone number - remove all non-digit characters
         val cleanNumber = phoneNumber.replace(Regex("[^0-9]"), "")
         
@@ -25,8 +33,8 @@ class PhoneValidationService @Inject constructor() {
             !cleanNumber.all { it.isDigit() } -> ValidationResult.Error("Phone number should only contain numbers")
             
             // Check length - provide helpful messages based on how close they are
-            cleanNumber.length < countryCode.phoneLength -> {
-                val digitsNeeded = countryCode.phoneLength - cleanNumber.length
+            cleanNumber.length < phoneLength -> {
+                val digitsNeeded = phoneLength - cleanNumber.length
                 ValidationResult.Error(
                     if (digitsNeeded == 1) {
                         "Please add 1 more digit"
@@ -36,8 +44,8 @@ class PhoneValidationService @Inject constructor() {
                 )
             }
             
-            cleanNumber.length > countryCode.phoneLength -> ValidationResult.Error(
-                "Phone number should be ${countryCode.phoneLength} digits. Remove ${cleanNumber.length - countryCode.phoneLength} digit${if (cleanNumber.length - countryCode.phoneLength > 1) "s" else ""}"
+            cleanNumber.length > phoneLength -> ValidationResult.Error(
+                "Phone number should be $phoneLength digits. Remove ${cleanNumber.length - phoneLength} digit${if (cleanNumber.length - phoneLength > 1) "s" else ""}"
             )
             
             // Check format validity

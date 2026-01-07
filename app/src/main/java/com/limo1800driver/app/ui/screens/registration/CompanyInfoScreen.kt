@@ -26,6 +26,7 @@ import com.limo1800driver.app.data.model.Countries
 import com.limo1800driver.app.data.model.Country
 import com.limo1800driver.app.data.model.registration.CompanyInfoRequest
 import com.limo1800driver.app.ui.components.CommonTextField
+import com.limo1800driver.app.ui.components.EmailVerificationHelper
 import com.limo1800driver.app.ui.components.PhoneInputField
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.*
@@ -275,6 +276,15 @@ fun CompanyInfoScreen(
                 keyboardType = KeyboardType.Email,
                 errorMessage = dispatchEmailError
             )
+
+            // Email Verification Helper
+            if (dispatchEmail.isNotBlank()) {
+                EmailVerificationHelper(
+                    email = dispatchEmail,
+                    emailType = com.limo1800driver.app.ui.components.EmailType.DISPATCH,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(18.dp))
 

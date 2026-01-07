@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -25,9 +26,10 @@ import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.components.SelectionMode
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.TextStyle
+import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommonDropdown(
@@ -54,15 +56,14 @@ fun CommonDropdown(
 
     Column(
         modifier = modifier,
-        // Reduced to 4dp for a tighter, professional look
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // --- Label Section ---
+        // --- Label Section --- (matches user app: 12sp, Gray, SemiBold, uppercase)
         if (label.isNotBlank()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = label.uppercase(),
-                    style = MaterialTheme.typography.bodyMedium.copy(
+                    style = TextStyle(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Gray
@@ -72,7 +73,7 @@ fun CommonDropdown(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "*",
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        style = TextStyle(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFEF4444)
@@ -82,7 +83,7 @@ fun CommonDropdown(
             }
         }
 
-        // --- Custom Input Container ---
+        // --- Custom Input Container --- (matches user app: 50dp height, F5F5F5 background, 8dp corners)
         val shape = RoundedCornerShape(8.dp)
         val borderColor = when {
             errorMessage != null -> Color(0xFFEF4444)
@@ -111,7 +112,7 @@ fun CommonDropdown(
                 Box(modifier = Modifier.weight(1f)) {
                     Text(
                         text = selectedValue ?: placeholder,
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        style = TextStyle(
                             color = if (selectedValue.isNullOrBlank()) Color(0xFF9CA3AF) else AppColors.LimoBlack,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Normal
@@ -124,16 +125,17 @@ fun CommonDropdown(
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = "Select",
-                    tint = AppColors.LimoBlack.copy(alpha = 0.6f)
+                    tint = Color.Gray
                 )
             }
         }
 
-        // --- Error Message Section ---
+        // --- Error Message Section --- (matches user app: 12sp, Red, 4dp spacing)
         if (!errorMessage.isNullOrEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = errorMessage,
-                style = MaterialTheme.typography.bodyMedium.copy(
+                style = TextStyle(
                     fontSize = 12.sp,
                     color = Color(0xFFEF4444),
                     fontWeight = FontWeight.Normal
@@ -167,9 +169,11 @@ fun CommonDropdown(
             ) {
                 Text(
                     text = label.ifBlank { "Select Option" }.lowercase().replaceFirstChar { it.uppercase() },
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AppColors.LimoBlack
+                    style = TextStyle(
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AppColors.LimoBlack
+                    )
                 )
 
                 if (searchable) {
@@ -311,6 +315,7 @@ private fun YearPicker(
 }
 
 // Calendar-style Month Picker
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun MonthPicker(
     selectedYear: String?,
@@ -319,7 +324,7 @@ private fun MonthPicker(
 ) {
     val months = (1..12).map { monthNum ->
         val month = java.time.Month.of(monthNum)
-        monthNum.toString().padStart(2, '0') to month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+        monthNum.toString().padStart(2, '0') to month.getDisplayName(JavaTextStyle.FULL, Locale.getDefault())
     }
 
     Column(
@@ -381,6 +386,7 @@ private fun MonthPicker(
 }
 
 // Calendar-style Day Picker
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun DayPicker(
     selectedYear: String?,
@@ -407,7 +413,7 @@ private fun DayPicker(
     ) {
         // Header with month/year
         Text(
-            text = "${java.time.Month.of(month).getDisplayName(TextStyle.FULL, Locale.getDefault())} $year",
+            text = "${java.time.Month.of(month).getDisplayName(JavaTextStyle.FULL, Locale.getDefault())} $year",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = AppColors.LimoBlack,

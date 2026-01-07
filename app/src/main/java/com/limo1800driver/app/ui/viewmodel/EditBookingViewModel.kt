@@ -13,6 +13,7 @@ import com.limo1800driver.app.data.model.dashboard.MobileDataAirport
 import com.limo1800driver.app.data.model.dashboard.EditReservationExtraStopRequest
 import com.limo1800driver.app.data.repository.DriverDashboardRepository
 import com.limo1800driver.app.rideinprogress.GoogleDirectionsApi
+import com.limo1800driver.app.data.network.NetworkConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +51,8 @@ data class EditBookingUiState(
     val airportsError: String? = null,
     val isSaving: Boolean = false,
     val successMessage: String? = null,
-    val error: String? = null,
+    val error: String? = null, // Critical errors that should replace the screen
+    val validationErrors: List<String> = emptyList(), // Validation errors that should show inline on fields
     // Location validation state
     val locationValidationError: String? = null,
     val showLocationErrorBanner: Boolean = false,
@@ -70,11 +72,15 @@ data class EditBookingUiState(
     // Extra stops tracking
     val lastExtraStopCoordinates: List<Pair<Double, Double>> = emptyList(),
     val lastExtraStopAddresses: List<String> = emptyList(),
+    val extraStopsChangeTrigger: Long = 0, // Increments when extra stops are added/removed to force recalculation
     val isInitialLoad: Boolean = true,
     // Distance/time tracking
     val originalApiDistance: String = "",
     val originalApiDuration: String = "",
     val hasLocationChanged: Boolean = false,
+    // Calculated distance/duration from Directions API
+    val calculatedDistance: Int? = null,
+    val calculatedDuration: Int? = null,
     // --- New State Fields ---
     val autoBookingInstructions: String = "",
     val autoMeetGreetChoice: Int = 2, // Default to Airport (2)
@@ -97,6 +103,9 @@ class EditBookingViewModel @Inject constructor(
 
     fun load(bookingId: Int) {
         viewModelScope.launch {
+            Timber.tag("BookingFlow").d("EditBookingViewModel.load() - Loading booking ID: $bookingId")
+            Timber.tag("BookingFlow").d("Using API: api/affiliate/get-reservation?booking_id=$bookingId")
+            
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
                 error = null,
@@ -104,7 +113,7 @@ class EditBookingViewModel @Inject constructor(
                 isInitialLoad = true
             )
 
-            val previewResult = repository.getBookingPreview(bookingId)
+            val previewResult = repository.getReservation(bookingId)
             val ratesResult = repository.getReservationRates(bookingId)
 
             var preview: AdminBookingPreviewData? = null
@@ -112,12 +121,32 @@ class EditBookingViewModel @Inject constructor(
             var error: String? = null
 
             previewResult.onSuccess { resp ->
-                if (resp.success) preview = resp.data else error = resp.message
-            }.onFailure { e -> error = e.message }
+                if (resp.success) {
+                    // get-reservation API returns ReservationData which is now a type alias for AdminBookingPreviewData
+                    preview = resp.data
+                    Timber.tag("BookingFlow").d("EditBookingViewModel - get-reservation API success")
+                    Timber.tag("BookingFlow").d("Reservation ID: ${preview?.reservationId}, Transfer Type: ${preview?.transferType}")
+                } else {
+                    error = resp.message
+                    Timber.tag("BookingFlow").e("EditBookingViewModel - get-reservation API error: ${resp.message}")
+                }
+            }.onFailure { e ->
+                error = e.message
+                Timber.tag("BookingFlow").e(e, "EditBookingViewModel - get-reservation API failure")
+            }
 
             ratesResult.onSuccess { resp ->
-                if (resp.success) rates = resp.data else error = error ?: resp.message
-            }.onFailure { e -> error = error ?: e.message }
+                if (resp.success) {
+                    rates = resp.data
+                    Timber.tag("BookingFlow").d("EditBookingViewModel - get-reservation-rates API success")
+                } else {
+                    error = error ?: resp.message
+                    Timber.tag("BookingFlow").e("EditBookingViewModel - get-reservation-rates API error: ${resp.message}")
+                }
+            }.onFailure { e ->
+                error = error ?: e.message
+                Timber.tag("BookingFlow").e(e, "EditBookingViewModel - get-reservation-rates API failure")
+            }
 
             // Store original API distance and duration
             val originalDistance = preview?.distance ?: ""
@@ -129,6 +158,11 @@ class EditBookingViewModel @Inject constructor(
             val originalDropoffCoord = preview?.dropoffLatitude?.toDoubleOrNull()?.let { lat ->
                 preview.dropoffLongitude?.toDoubleOrNull()?.let { lon -> Pair(lat, lon) }
             }
+
+            Timber.tag("BookingFlow").d("=== Load Complete ===")
+            Timber.tag("BookingFlow").d("preview loaded: ${preview != null}, rates loaded: ${rates != null}")
+            Timber.tag("BookingFlow").d("error: $error")
+            Timber.tag("BookingFlow").d("originalDistance: $originalDistance, originalDuration: $originalDuration")
 
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
@@ -143,7 +177,10 @@ class EditBookingViewModel @Inject constructor(
             )
 
             // Initialize defaults based on loaded data
-            preview?.transferType?.let { updateTransferTypeDefaults(it) }
+            preview?.transferType?.let {
+                Timber.tag("BookingFlow").d("Initializing defaults for transferType: $it")
+                updateTransferTypeDefaults(it)
+            }
         }
     }
 
@@ -234,6 +271,21 @@ class EditBookingViewModel @Inject constructor(
         )
     }
 
+    fun resetLastKnownExtraStops() {
+        _uiState.value = _uiState.value.copy(
+            lastExtraStopCoordinates = emptyList(),
+            lastExtraStopAddresses = emptyList()
+        )
+        Timber.tag("BookingFlow").d("Reset last known extra stops to force change detection")
+    }
+
+    fun triggerExtraStopsChange() {
+        _uiState.value = _uiState.value.copy(
+            extraStopsChangeTrigger = System.currentTimeMillis()
+        )
+        Timber.tag("BookingFlow").d("Triggered extra stops change - timestamp: ${_uiState.value.extraStopsChangeTrigger}")
+    }
+
     fun markLocationChanged(hasChanged: Boolean) {
         _uiState.value = _uiState.value.copy(hasLocationChanged = hasChanged)
     }
@@ -250,40 +302,78 @@ class EditBookingViewModel @Inject constructor(
     private fun validateBookingRequirements(
         userInput: EditReservationUserInput
     ): Boolean {
+        Timber.tag("BookingFlow").d("=== validateBookingRequirements START ===")
+        Timber.tag("BookingFlow").d("transferType: ${userInput.transferType}")
+        Timber.tag("BookingFlow").d("pickupAirlineName: '${userInput.pickupAirlineName}', pickupFlight: '${userInput.pickupFlight}'")
+        Timber.tag("BookingFlow").d("dropoffAirlineName: '${userInput.dropoffAirlineName}'")
+        Timber.tag("BookingFlow").d("cruiseName: '${userInput.cruiseName}', cruisePort: '${userInput.cruisePort}'")
+        
         val transferType = userInput.transferType?.lowercase() ?: ""
+        Timber.tag("BookingFlow").d("Normalized transferType: '$transferType'")
+
+        val errors = mutableListOf<String>()
 
         // 1. Airport Validation
         if (transferType.contains("airport")) {
             val isPickupAirport = transferType.startsWith("airport_")
             val isDropoffAirport = transferType.endsWith("_airport")
+            Timber.tag("BookingFlow").d("Airport transfer detected - isPickupAirport: $isPickupAirport, isDropoffAirport: $isDropoffAirport")
 
             if (isPickupAirport) {
-                if (userInput.pickupAirlineName.isNullOrBlank() || userInput.pickupFlight.isNullOrBlank()) {
-                    _uiState.value = _uiState.value.copy(error = "Flight details are required for Airport pickups.")
-                    return false
+                val hasAirline = !userInput.pickupAirlineName.isNullOrBlank()
+                val hasFlight = !userInput.pickupFlight.isNullOrBlank()
+                Timber.tag("BookingFlow").d("Pickup airport validation - hasAirline: $hasAirline, hasFlight: $hasFlight")
+                
+                if (!hasAirline) {
+                    errors.add("pickup_airline")
+                    Timber.tag("BookingFlow").e("❌ Validation FAILED: pickup_airline is required")
+                }
+                if (!hasFlight) {
+                    errors.add("pickup_flight_number")
+                    Timber.tag("BookingFlow").e("❌ Validation FAILED: pickup_flight_number is required")
                 }
             }
             if (isDropoffAirport) {
-                // Web code suggests Dropoff flight info might be optional in some contexts,
-                // but checking based on your 'create-new-booking.ts' Logic lines 1350+:
-                if (userInput.dropoffAirlineName.isNullOrBlank()) {
-                    _uiState.value = _uiState.value.copy(error = "Airline is required for Airport drop-offs.")
-                    return false
+                val hasDropoffAirline = !userInput.dropoffAirlineName.isNullOrBlank()
+                Timber.tag("BookingFlow").d("Dropoff airport validation - hasDropoffAirline: $hasDropoffAirline")
+                
+                if (!hasDropoffAirline) {
+                    errors.add("dropoff_airline")
+                    Timber.tag("BookingFlow").e("❌ Validation FAILED: dropoff_airline is required")
                 }
             }
         }
 
         // 2. Cruise Validation
         if (transferType.contains("cruise")) {
-            if (userInput.cruiseName.isNullOrBlank() || userInput.cruisePort.isNullOrBlank()) {
-                _uiState.value = _uiState.value.copy(error = "Cruise Ship Name and Port are required.")
-                return false
+            val hasCruiseName = !userInput.cruiseName.isNullOrBlank()
+            val hasCruisePort = !userInput.cruisePort.isNullOrBlank()
+            Timber.tag("BookingFlow").d("Cruise validation - hasCruiseName: $hasCruiseName, hasCruisePort: $hasCruisePort")
+            
+            if (!hasCruiseName) {
+                errors.add("cruise_ship_name")
+                Timber.tag("BookingFlow").e("❌ Validation FAILED: cruise_ship_name is required")
+            }
+            if (!hasCruisePort) {
+                errors.add("cruise_port")
+                Timber.tag("BookingFlow").e("❌ Validation FAILED: cruise_port is required")
             }
         }
 
         // 3. Loose Customer Validation (if applicable logic exists in user input)
         // Add here if userInput has loose customer fields
 
+        if (errors.isNotEmpty()) {
+            Timber.tag("BookingFlow").e("❌ Validation FAILED with ${errors.size} errors: $errors")
+            _uiState.value = _uiState.value.copy(
+                validationErrors = errors,
+                error = null // Don't replace the whole screen
+            )
+            return false
+        }
+
+        Timber.tag("BookingFlow").d("✅ Validation PASSED")
+        _uiState.value = _uiState.value.copy(validationErrors = emptyList()) // Clear any previous validation errors
         return true
     }
 
@@ -365,13 +455,77 @@ class EditBookingViewModel @Inject constructor(
         return ReservationShareData(baseRate, grandTotal, stripeFee, adminShare, deductedAdminShare, affiliateShare)
     }
 
-    // --- Distance Calculation (Unchanged) ---
+    // --- Distance Calculation with Google Directions API ---
+    suspend fun calculateDistanceWithDirections(
+        pickupCoord: Pair<Double, Double>?,
+        dropoffCoord: Pair<Double, Double>?,
+        extraStopCoordinates: List<Pair<Double, Double>>
+    ): Pair<Int, Int>? {
+        if (pickupCoord == null || dropoffCoord == null) return null
+        
+        return try {
+            val origin = "${pickupCoord.first},${pickupCoord.second}"
+            val destination = "${dropoffCoord.first},${dropoffCoord.second}"
+            val waypoints = if (extraStopCoordinates.isNotEmpty()) {
+                extraStopCoordinates.joinToString("|") { "${it.first},${it.second}" }
+            } else null
+            
+            val response = if (waypoints != null) {
+                directionsApi.directionsWithWaypoints(
+                    origin = origin,
+                    destination = destination,
+                    waypoints = waypoints,
+                    mode = "driving",
+                    apiKey = NetworkConfig.GOOGLE_PLACES_API_KEY
+                )
+            } else {
+                directionsApi.directions(
+                    origin = origin,
+                    destination = destination,
+                    mode = "driving",
+                    apiKey = NetworkConfig.GOOGLE_PLACES_API_KEY
+                )
+            }
+            
+            // Check response status first
+            val status = response.status?.uppercase() ?: "UNKNOWN"
+            if (status != "OK") {
+                Timber.tag("EditBookingViewModel").w("Directions API returned status: $status")
+                return null
+            }
+            
+            if (response.routes.isNotEmpty()) {
+                val route = response.routes.first()
+                var totalDistance = 0L
+                var totalDuration = 0L
+                
+                route.legs.forEach { leg ->
+                    totalDistance += leg.distance?.value ?: 0L
+                    totalDuration += leg.duration?.value ?: 0L
+                }
+                
+                Pair(totalDistance.toInt(), totalDuration.toInt())
+            } else {
+                Timber.tag("EditBookingViewModel").w("Directions API returned OK but no routes")
+                null
+            }
+        } catch (e: Exception) {
+            Timber.tag("EditBookingViewModel").e(e, "Failed to calculate distance with Directions API")
+            null
+        }
+    }
+    
     fun calculateTotalDistance(
         pickupCoord: Pair<Double, Double>?,
         dropoffCoord: Pair<Double, Double>?,
         extraStopCoordinates: List<Pair<Double, Double>>
     ): Int {
         if (pickupCoord == null || dropoffCoord == null) return 0
+        
+        // Use calculated distance if available, otherwise fallback to Haversine
+        _uiState.value.calculatedDistance?.let { return it }
+        
+        // Fallback to Haversine calculation
         val earthRadius = 6371000.0
         var totalDistance = 0.0
         var previousCoord: Pair<Double, Double> = pickupCoord
@@ -404,10 +558,26 @@ class EditBookingViewModel @Inject constructor(
     }
 
     fun calculateTotalTime(distanceInMeters: Int): Int {
+        // Use calculated duration if available
+        _uiState.value.calculatedDuration?.let { return it }
+        
+        // Fallback to estimated time based on distance
         val distanceInMiles = distanceInMeters / 1609.0
         val averageSpeedMph = 45.0
         val timeInHours = distanceInMiles / averageSpeedMph
         return (timeInHours * 3600).toInt()
+    }
+    
+    fun updateCalculatedDistanceAndDuration(distance: Int?, duration: Int?) {
+        // Preserve hasLocationChanged if already true, or set it if we have calculated values and original API data
+        val shouldMarkChanged = _uiState.value.hasLocationChanged || 
+            (distance != null && _uiState.value.originalApiDistance.isNotBlank())
+        
+        _uiState.value = _uiState.value.copy(
+            calculatedDistance = distance,
+            calculatedDuration = duration,
+            hasLocationChanged = shouldMarkChanged
+        )
     }
 
     fun formatDistance(distanceInMeters: Int): String {
@@ -430,20 +600,55 @@ class EditBookingViewModel @Inject constructor(
     }
 
     fun getDisplayDistance(pickupCoord: Pair<Double, Double>?, dropoffCoord: Pair<Double, Double>?, extraStopCoordinates: List<Pair<Double, Double>>): String {
-        return if (_uiState.value.hasLocationChanged) {
-            formatDistance(calculateTotalDistance(pickupCoord, dropoffCoord, extraStopCoordinates))
+        // If location hasn't changed, use original API distance
+        if (!_uiState.value.hasLocationChanged) {
+            if (_uiState.value.originalApiDistance.isNotBlank()) {
+                return formatApiDistance(_uiState.value.originalApiDistance)
+            }
+        }
+        
+        // Location changed - use calculated distance if available
+        _uiState.value.calculatedDistance?.let {
+            return formatDistance(it)
+        }
+        
+        // Fallback: calculate distance if coordinates are available
+        if (pickupCoord != null && dropoffCoord != null) {
+            return formatDistance(calculateTotalDistance(pickupCoord, dropoffCoord, extraStopCoordinates))
+        }
+        
+        // Last resort: use original API distance even if blank
+        return if (_uiState.value.originalApiDistance.isNotBlank()) {
+            formatApiDistance(_uiState.value.originalApiDistance)
         } else {
-            if (_uiState.value.originalApiDistance.isNotBlank()) formatApiDistance(_uiState.value.originalApiDistance)
-            else formatDistance(calculateTotalDistance(pickupCoord, dropoffCoord, extraStopCoordinates))
+            "0.00 miles"
         }
     }
 
     fun getDisplayDuration(pickupCoord: Pair<Double, Double>?, dropoffCoord: Pair<Double, Double>?, extraStopCoordinates: List<Pair<Double, Double>>): String {
-        return if (_uiState.value.hasLocationChanged) {
-            formatDuration(calculateTotalTime(calculateTotalDistance(pickupCoord, dropoffCoord, extraStopCoordinates)))
+        // If location hasn't changed, use original API duration
+        if (!_uiState.value.hasLocationChanged) {
+            if (_uiState.value.originalApiDuration.isNotBlank()) {
+                return formatApiDuration(_uiState.value.originalApiDuration)
+            }
+        }
+        
+        // Location changed - use calculated duration if available
+        _uiState.value.calculatedDuration?.let {
+            return formatDuration(it)
+        }
+        
+        // Fallback: calculate duration if coordinates are available
+        if (pickupCoord != null && dropoffCoord != null) {
+            val distance = calculateTotalDistance(pickupCoord, dropoffCoord, extraStopCoordinates)
+            return formatDuration(calculateTotalTime(distance))
+        }
+        
+        // Last resort: use original API duration even if blank
+        return if (_uiState.value.originalApiDuration.isNotBlank()) {
+            formatApiDuration(_uiState.value.originalApiDuration)
         } else {
-            if (_uiState.value.originalApiDuration.isNotBlank()) formatApiDuration(_uiState.value.originalApiDuration)
-            else formatDuration(calculateTotalTime(calculateTotalDistance(pickupCoord, dropoffCoord, extraStopCoordinates)))
+            "0 hours, 0 minutes"
         }
     }
 
@@ -495,6 +700,93 @@ class EditBookingViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Updates AdminReservationRateArray baserate values from dynamicRates (user edits)
+     * and recalculates sub_total and grand_total
+     * This ensures the payload reflects the current UI state
+     */
+    private fun updateRateArrayFromDynamicRates(
+        ratesData: AdminReservationRatesData,
+        dynamicRates: Map<String, Any>,
+        preview: AdminBookingPreviewData,
+        serviceType: String?,
+        numberOfHours: Int?,
+        numberOfVehicles: Int?
+    ): AdminReservationRatesData {
+        Timber.tag("BookingFlow").d("=== updateRateArrayFromDynamicRates START ===")
+        Timber.tag("BookingFlow").d("dynamicRates keys: ${dynamicRates.keys.joinToString()}")
+        dynamicRates.forEach { (key, value) ->
+            Timber.tag("BookingFlow").d("  dynamicRates[$key] = $value (${value.javaClass.simpleName})")
+        }
+
+        fun updateMap(
+            map: Map<String, AdminReservationRateItem>,
+            sectionName: String
+        ): Map<String, AdminReservationRateItem> {
+            return map.mapValues { (key, item) ->
+                val originalBaserate = item.baserate
+                val updatedBaserate = when (val value = dynamicRates[key]) {
+                    is String -> value.toDoubleOrNull() ?: item.baserate
+                    is Number -> value.toDouble()
+                    else -> item.baserate
+                }
+                if (originalBaserate != updatedBaserate) {
+                    Timber.tag("BookingFlow").d("  [$sectionName] $key: baserate ${originalBaserate} -> ${updatedBaserate}")
+                }
+                item.copy(baserate = updatedBaserate)
+            }
+        }
+
+        val updatedRateArray = AdminReservationRateArray(
+            allInclusiveRates = updateMap(ratesData.rateArray.allInclusiveRates, "allInclusiveRates"),
+            taxes = updateMap(ratesData.rateArray.taxes, "taxes"),
+            amenities = updateMap(ratesData.rateArray.amenities, "amenities"),
+            misc = updateMap(ratesData.rateArray.misc, "misc")
+        )
+
+        // Log key rate values after update
+        updatedRateArray.allInclusiveRates["Base_Rate"]?.let {
+            Timber.tag("BookingFlow").d("Final Base_Rate: baserate=${it.baserate}, amount=${it.amount}")
+        }
+        updatedRateArray.allInclusiveRates["Stops"]?.let {
+            Timber.tag("BookingFlow").d("Final Stops: baserate=${it.baserate}, amount=${it.amount}")
+        }
+
+        // Recalculate totals using RateCalculator
+        val dynamicRatesString = dynamicRates.mapValues { (_, v) -> 
+            when (v) {
+                is String -> v
+                is Number -> v.toString()
+                else -> v.toString()
+            }
+        }
+        val taxIsPercent = updatedRateArray.taxes.mapValues { (_, item) -> 
+            item.type == "percent"
+        }
+        
+        val totals = com.limo1800driver.app.ui.utils.RateCalculator.calculate(
+            rateArray = updatedRateArray,
+            dynamicRates = dynamicRatesString,
+            taxIsPercent = taxIsPercent,
+            serviceType = serviceType,
+            numberOfHours = numberOfHours ?: 0,
+            numberOfVehicles = numberOfVehicles ?: 1,
+            accountType = preview.accountType,
+            createdBy = preview.createdBy,
+            reservationType = preview.reservationType
+        )
+        
+        Timber.tag("BookingFlow").d("Recalculated totals: subTotal=${totals.subTotal}, grandTotal=${totals.grandTotal}")
+        Timber.tag("BookingFlow").d("Original totals: subTotal=${ratesData.subTotal}, grandTotal=${ratesData.grandTotal}")
+        
+        Timber.tag("BookingFlow").d("=== updateRateArrayFromDynamicRates END ===")
+        return ratesData.copy(
+            rateArray = updatedRateArray,
+            subTotal = totals.subTotal,
+            grandTotal = totals.grandTotal
+        )
+    }
+
     // --- Save Edit Reservation (Updated) ---
     fun saveEditReservation(
         bookingId: Int,
@@ -535,15 +827,55 @@ class EditBookingViewModel @Inject constructor(
         pickupAirlineId: Int? = null,
         dropoffAirlineId: Int? = null
     ) {
+        Timber.tag("BookingFlow").d("=== saveEditReservation START ===")
+        Timber.tag("BookingFlow").d("bookingId: $bookingId")
+        Timber.tag("BookingFlow").d("pickupAddress: '$pickupAddress'")
+        Timber.tag("BookingFlow").d("dropoffAddress: '$dropoffAddress'")
+        Timber.tag("BookingFlow").d("pickupAirportName: '$pickupAirportName'")
+        Timber.tag("BookingFlow").d("pickupAirlineName: '$pickupAirlineName'")
+        Timber.tag("BookingFlow").d("pickupFlight: '$pickupFlight'")
+        Timber.tag("BookingFlow").d("dropoffAirportName: '$dropoffAirportName'")
+        Timber.tag("BookingFlow").d("dropoffAirlineName: '$dropoffAirlineName'")
+        Timber.tag("BookingFlow").d("transferType: '$transferType'")
+        Timber.tag("BookingFlow").d("serviceType: '$serviceType'")
+        
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, error = null, successMessage = null)
+            _uiState.value = _uiState.value.copy(
+                isSaving = true, 
+                error = null, 
+                validationErrors = emptyList(),
+                successMessage = null
+            )
 
             val preview = _uiState.value.preview
-            val ratesData = _uiState.value.rates
+            var ratesData = _uiState.value.rates
+
+            Timber.tag("BookingFlow").d("preview: ${preview != null}, ratesData: ${ratesData != null}")
 
             if (preview == null || ratesData == null) {
-                _uiState.value = _uiState.value.copy(isSaving = false, error = "Booking data not loaded")
+                val errorMsg = "Booking data not loaded"
+                Timber.tag("BookingFlow").e("❌ $errorMsg")
+                _uiState.value = _uiState.value.copy(isSaving = false, error = errorMsg)
                 return@launch
+            }
+
+            // Update rateArray from dynamicRates (user edits) before building payload
+            if (rates != null && rates.isNotEmpty()) {
+                Timber.tag("BookingFlow").d("=== UI dynamicRates received in saveEditReservation ===")
+                Timber.tag("BookingFlow").d("dynamicRates count: ${rates.size}")
+                rates.forEach { (key, value) ->
+                    Timber.tag("BookingFlow").d("  UI[$key] = $value")
+                }
+                ratesData = updateRateArrayFromDynamicRates(
+                    ratesData = ratesData,
+                    dynamicRates = rates,
+                    preview = preview,
+                    serviceType = serviceType,
+                    numberOfHours = numberOfHours,
+                    numberOfVehicles = numberOfVehicles
+                )
+            } else {
+                Timber.tag("BookingFlow").w("⚠️ No dynamicRates provided - using original ratesData")
             }
 
             // Build User Input
@@ -587,10 +919,13 @@ class EditBookingViewModel @Inject constructor(
             )
 
             // 1. Validate Mandatory Fields
+            Timber.tag("BookingFlow").d("Starting validation...")
             if (!validateBookingRequirements(userInput)) {
+                Timber.tag("BookingFlow").e("❌ Validation failed, stopping save")
                 _uiState.value = _uiState.value.copy(isSaving = false)
                 return@launch
             }
+            Timber.tag("BookingFlow").d("✅ Validation passed, continuing with save")
 
             // 2. Calculate Shares
             val shareData = calculateShares(
@@ -622,6 +957,9 @@ class EditBookingViewModel @Inject constructor(
             val finalUserInput = userInput.copy(extraStops = extraStopsInput)
 
             // 5. Build Request
+            Timber.tag("BookingFlow").d("Building request payload...")
+            Timber.tag("BookingFlow").d("Calculated distance: ${_uiState.value.calculatedDistance}, duration: ${_uiState.value.calculatedDuration}")
+            Timber.tag("BookingFlow").d("Has location changed: ${_uiState.value.hasLocationChanged}")
             val request = try {
                 EditReservationPayloadBuilder.buildEditReservationRequest(
                     preview = preview,
@@ -629,29 +967,53 @@ class EditBookingViewModel @Inject constructor(
                     userInput = finalUserInput,
                     airports = _uiState.value.airports,
                     airlines = _uiState.value.airlines,
-                    calculatedShares = shareData // Make sure your Builder accepts this!
+                    calculatedShares = shareData, // Make sure your Builder accepts this!
+                    calculatedDistance = _uiState.value.calculatedDistance,
+                    calculatedDuration = _uiState.value.calculatedDuration
                 )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isSaving = false, error = "Failed to build request: ${e.message}")
+                val errorMsg = "Failed to build request: ${e.message}"
+                Timber.tag("BookingFlow").e(e, "❌ $errorMsg")
+                _uiState.value = _uiState.value.copy(isSaving = false, error = errorMsg)
                 return@launch
             }
+            Timber.tag("BookingFlow").d("✅ Request built successfully")
 
+            // 6. Send Request
+            Timber.tag("BookingFlow").d("Sending edit reservation request to API...")
             repository.editReservation(request)
                 .onSuccess { resp ->
+                    Timber.tag("BookingFlow").d("API Response received - success: ${resp.success}, message: ${resp.message}")
                     if (resp.success) {
+                        Timber.tag("BookingFlow").d("✅ Save successful!")
                         _uiState.value = _uiState.value.copy(isSaving = false, successMessage = resp.message)
                     } else {
-                        _uiState.value = _uiState.value.copy(isSaving = false, error = parseApiError(resp.message, resp.data))
+                        val errorMsg = parseApiError(resp.message, resp.data)
+                        Timber.tag("BookingFlow").e("❌ Save failed: $errorMsg")
+                        _uiState.value = _uiState.value.copy(isSaving = false, error = errorMsg)
                     }
                 }
                 .onFailure { e ->
-                    _uiState.value = _uiState.value.copy(isSaving = false, error = parseNetworkError(e))
+                    val errorMsg = parseNetworkError(e)
+                    Timber.tag("BookingFlow").e(e, "❌ Network error: $errorMsg")
+                    _uiState.value = _uiState.value.copy(isSaving = false, error = errorMsg)
                 }
         }
     }
 
     fun consumeSuccess() {
         _uiState.value = _uiState.value.copy(successMessage = null)
+    }
+
+    fun clearValidationError(errorKey: String? = null) {
+        Timber.tag("BookingFlow").d("Clearing validation error${if (errorKey != null) ": $errorKey" else "s"}")
+        if (errorKey != null) {
+            val currentErrors = _uiState.value.validationErrors.toMutableList()
+            currentErrors.remove(errorKey)
+            _uiState.value = _uiState.value.copy(validationErrors = currentErrors)
+        } else {
+            _uiState.value = _uiState.value.copy(validationErrors = emptyList())
+        }
     }
 
     private fun parseApiError(message: String?, data: Any?): String = message ?: "An error occurred"
@@ -678,13 +1040,27 @@ class EditBookingViewModel @Inject constructor(
         extraStopCoordinates: List<Pair<Double, Double>>,
         extraStopAddresses: List<String>
     ) {
-        if (_uiState.value.isManuallyUpdatingRates) return
+        Timber.tag("BookingFlow").d("=== updateRatesForLocationChange called ===")
+        Timber.tag("BookingFlow").d("bookingId: $bookingId, vehicleId: $vehicleId")
+        Timber.tag("BookingFlow").d("transferType: $transferType, serviceType: $serviceType")
+        Timber.tag("BookingFlow").d("pickupCoord: $pickupCoord, dropoffCoord: $dropoffCoord")
+        Timber.tag("BookingFlow").d("extraStops: ${extraStopAddresses.size}")
+
+        if (_uiState.value.isManuallyUpdatingRates) {
+            Timber.tag("BookingFlow").d("Skipping - manual update in progress")
+            return
+        }
 
         viewModelScope.launch {
             markLocationChanged(true)
             _uiState.value = _uiState.value.copy(isRatesLoading = true, ratesErrorMessage = null)
 
-            val distance = if (pickupCoord != null && dropoffCoord != null) calculateTotalDistance(pickupCoord, dropoffCoord, extraStopCoordinates) else 0
+            // Use calculated distance from Directions API if available, otherwise calculate
+            val distance = if (pickupCoord != null && dropoffCoord != null) {
+                _uiState.value.calculatedDistance ?: calculateTotalDistance(pickupCoord, dropoffCoord, extraStopCoordinates)
+            } else {
+                0
+            }
 
             // Normalize Types
             val normalizedServiceType = if (serviceType.lowercase().contains("charter")) "charter_tour" else if (serviceType.lowercase().contains("round")) "round_trip" else "one_way"
@@ -744,13 +1120,93 @@ class EditBookingViewModel @Inject constructor(
                         val responseData = resp.data
                         val updatedRates = mutableMapOf<String, String>()
 
-                        // Map rates similar to before...
-                        responseData.rateArray?.allInclusiveRates?.forEach { (k, v) -> v?.amount?.let { updatedRates[k] = String.format("%.2f", it) } }
-                        // ... (add taxes, amenities, misc mapping here same as before)
+                        // Map all_inclusive_rates
+                        responseData.rateArray?.allInclusiveRates?.forEach { (k, v) -> 
+                            v?.baserate?.let { updatedRates[k] = String.format("%.2f", it) }
+                        }
+                        
+                        // Map taxes
+                        responseData.rateArray?.taxes?.forEach { (k, v) -> 
+                            v?.baserate?.let { updatedRates[k] = String.format("%.2f", it) }
+                        }
+                        
+                        // Map amenities
+                        responseData.rateArray?.amenities?.forEach { (k, v) -> 
+                            v?.baserate?.let { updatedRates[k] = String.format("%.2f", it) }
+                        }
+                        
+                        // Map misc
+                        responseData.rateArray?.misc?.forEach { (k, v) -> 
+                            v?.baserate?.let { updatedRates[k] = String.format("%.2f", it) }
+                        }
 
-                        // Update UI State with new rates...
-                        // (Reconstruction logic matches your previous implementation)
-                        _uiState.value = _uiState.value.copy(isRatesLoading = false, latestRatesUpdate = updatedRates)
+                        // Update UI State with new rates
+                        val rateArray = responseData.rateArray
+                        val mappedRateArray = AdminReservationRateArray(
+                            allInclusiveRates = rateArray?.allInclusiveRates?.mapNotNull { (key, value) ->
+                                value?.takeIf { it.rateLabel != null }?.let { item ->
+                                    key to AdminReservationRateItem(
+                                        rateLabel = item.rateLabel ?: "",
+                                        baserate = item.baserate,
+                                        multiple = item.multiple,
+                                        percentage = item.percentage,
+                                        amount = item.amount,
+                                        type = item.type,
+                                        flatBaserate = item.flatBaserate
+                                    )
+                                }
+                            }?.toMap() ?: emptyMap(),
+                            taxes = rateArray?.taxes?.mapNotNull { (key, value) ->
+                                value?.takeIf { it.rateLabel != null }?.let { item ->
+                                    key to AdminReservationRateItem(
+                                        rateLabel = item.rateLabel ?: "",
+                                        baserate = item.baserate,
+                                        multiple = item.multiple,
+                                        percentage = item.percentage,
+                                        amount = item.amount,
+                                        type = item.type,
+                                        flatBaserate = item.flatBaserate
+                                    )
+                                }
+                            }?.toMap() ?: emptyMap(),
+                            amenities = rateArray?.amenities?.mapNotNull { (key, value) ->
+                                value?.takeIf { it.rateLabel != null }?.let { item ->
+                                    key to AdminReservationRateItem(
+                                        rateLabel = item.rateLabel ?: "",
+                                        baserate = item.baserate,
+                                        multiple = item.multiple,
+                                        percentage = item.percentage,
+                                        amount = item.amount,
+                                        type = item.type,
+                                        flatBaserate = item.flatBaserate
+                                    )
+                                }
+                            }?.toMap() ?: emptyMap(),
+                            misc = rateArray?.misc?.mapNotNull { (key, value) ->
+                                value?.takeIf { it.rateLabel != null }?.let { item ->
+                                    key to AdminReservationRateItem(
+                                        rateLabel = item.rateLabel ?: "",
+                                        baserate = item.baserate,
+                                        multiple = item.multiple,
+                                        percentage = item.percentage,
+                                        amount = item.amount,
+                                        type = item.type,
+                                        flatBaserate = item.flatBaserate
+                                    )
+                                }
+                            }?.toMap() ?: emptyMap()
+                        )
+
+                        _uiState.value = _uiState.value.copy(
+                            isRatesLoading = false, 
+                            latestRatesUpdate = updatedRates,
+                            rates = AdminReservationRatesData(
+                                subTotal = responseData.subTotal,
+                                grandTotal = responseData.grandTotal,
+                                minRateInvolved = responseData.minRateInvolved,
+                                rateArray = mappedRateArray
+                            )
+                        )
                     } else {
                         _uiState.value = _uiState.value.copy(isRatesLoading = false, ratesErrorMessage = resp.message)
                     }

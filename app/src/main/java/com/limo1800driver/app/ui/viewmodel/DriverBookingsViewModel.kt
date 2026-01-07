@@ -127,7 +127,70 @@ class DriverBookingsViewModel @Inject constructor(
                 }
         }
     }
-    
+
+    /**
+     * Fetch scheduled pickups from API
+     */
+    fun fetchScheduledPickups(resetData: Boolean = false) {
+        if (_uiState.value.isLoading && !resetData) return
+
+        viewModelScope.launch {
+            if (resetData) {
+                _uiState.value = _uiState.value.copy(
+                    bookings = emptyList(),
+                    currentPage = 1
+                )
+            }
+
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+
+            val startDate = dateFormat.format(_uiState.value.selectedWeekStart)
+            val endDate = dateFormat.format(_uiState.value.selectedWeekEnd)
+            val searchText = _uiState.value.searchText.takeIf { it.isNotBlank() }
+
+            dashboardRepository.getScheduledPickups(
+                page = _uiState.value.currentPage,
+                perPage = _uiState.value.perPage,
+                startDate = startDate,
+                endDate = endDate,
+                search = searchText
+            )
+                .onSuccess { response ->
+                    if (response.success && response.data != null) {
+                        val newBookings = if (resetData) {
+                            response.data.bookings
+                        } else {
+                            _uiState.value.bookings + response.data.bookings
+                        }
+
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            bookings = newBookings,
+                            pagination = response.data.pagination,
+                            canLoadMore = response.data.pagination?.let {
+                                it.currentPage < it.lastPage
+                            } ?: false,
+                            error = null
+                        )
+                        Timber.d("Scheduled pickups loaded: ${newBookings.size}")
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = response.message
+                        )
+                        Timber.e("Scheduled pickups API error: ${response.message}")
+                    }
+                }
+                .onFailure { exception ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = exception.message ?: "Failed to load scheduled pickups"
+                    )
+                    Timber.e(exception, "Failed to fetch scheduled pickups")
+                }
+        }
+    }
+
     /**
      * Load more bookings (pagination)
      */

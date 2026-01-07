@@ -65,7 +65,7 @@ fun UserProfileDetailsScreen(
     val canContinue = isDrivingLicenseCompleted && isBankDetailsCompleted && isProfilePictureCompleted
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             RegistrationTopBar()
         },
@@ -74,7 +74,7 @@ fun UserProfileDetailsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 16.dp)
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(bottom = 16.dp, top = 16.dp)
@@ -117,7 +117,7 @@ fun UserProfileDetailsScreen(
                     text = "Signing up for",
                     style = TextStyle(
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
                 Row(
@@ -129,7 +129,7 @@ fun UserProfileDetailsScreen(
                         style = TextStyle(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         ),
                         maxLines = 1
                     )
@@ -139,7 +139,7 @@ fun UserProfileDetailsScreen(
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 16.dp),
                 thickness = 1.dp,
-                color = Color(0xFFEEEEEE)
+                color = MaterialTheme.colorScheme.outlineVariant
             )
 
             // --- Welcome Title ---
@@ -148,7 +148,7 @@ fun UserProfileDetailsScreen(
                 style = TextStyle(
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             )
 
@@ -166,7 +166,7 @@ fun UserProfileDetailsScreen(
                             .weight(1f)
                             .height(6.dp)
                             .background(
-                                color = if (isCompleted) Color(0xFF2E7D32) else Color(0xFFE0E0E0),
+                                color = if (isCompleted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                                 shape = RoundedCornerShape(100.dp)
                             )
                     )
@@ -188,7 +188,7 @@ fun UserProfileDetailsScreen(
                     onClick = { onNavigateToStep(NavRoutes.DrivingLicense) }
                 )
 
-                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = Color(0xFFF5F5F5))
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Bank Details
                 StepRow(
@@ -198,7 +198,7 @@ fun UserProfileDetailsScreen(
                     onClick = { onNavigateToStep(NavRoutes.BankDetails) }
                 )
 
-                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = Color(0xFFF5F5F5))
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Profile Picture
                 StepRow(
@@ -246,16 +246,16 @@ fun StepRow(
     val interactionSource = remember { MutableInteractionSource() }
 
     // --- DESIGN LOGIC ---
-    val titleColor = if (enabled) Color.Black else Color.Gray
+    val titleColor = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
 
     val statusColor = if (enabled) {
-        if (isCompleted) Color(0xFF2E7D32) else Color.Gray
+        if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     } else {
-        Color.LightGray
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
     }
 
     val statusText = if (isCompleted) "Completed" else "Pending"
-    val iconTint = if (enabled) Color.LightGray else Color.LightGray.copy(alpha = 0.4f)
+    val iconTint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
 
     Row(
         modifier = Modifier

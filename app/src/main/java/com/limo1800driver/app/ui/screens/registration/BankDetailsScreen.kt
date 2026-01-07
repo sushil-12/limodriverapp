@@ -100,6 +100,9 @@ fun BankDetailsScreen(
             if (prefillBusinessId.isNotEmpty()) {
                 hasEIN = true
                 if (ein.isEmpty()) ein = prefillBusinessId
+            } else {
+                // If businessId is empty/null, disable EIN toggle
+                hasEIN = false
             }
         }
     }

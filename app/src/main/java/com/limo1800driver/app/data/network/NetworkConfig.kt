@@ -5,9 +5,6 @@ package com.limo1800driver.app.data.network
  */
 object NetworkConfig {
     const val BASE_URL = "https://1800limoapi.infodevbox.com"
-//    const val BASE_URL = "http://10.99.153.9:8000"
-
-
     const val GOOGLE_PLACES_BASE_URL = "https://maps.googleapis.com"
     const val CHAT_BASE_URL = "https://limortservice.infodevbox.com/"
     

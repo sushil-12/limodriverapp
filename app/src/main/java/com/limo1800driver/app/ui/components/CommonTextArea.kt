@@ -49,12 +49,12 @@ fun CommonTextArea(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // --- Label Section ---
+        // --- Label Section --- (matches user app: 12sp, Gray, SemiBold, uppercase)
         if (label.isNotBlank()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = label.uppercase(),
-                    style = MaterialTheme.typography.bodyMedium.copy(
+                    style = TextStyle(
                         fontSize = labelFontSize,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Gray
@@ -64,7 +64,7 @@ fun CommonTextArea(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "*",
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        style = TextStyle(
                             fontSize = labelFontSize,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFEF4444)
@@ -74,9 +74,12 @@ fun CommonTextArea(
             }
         }
 
-        // --- Custom Input Container ---
+        // --- Custom Input Container --- (matches user app: F5F5F5 background, 8dp corners)
         val shape = RoundedCornerShape(8.dp)
-        val borderColor = if (isFocused) LimoOrange else Color(0xFFE0E0E0)
+        val borderColor = when {
+            isFocused -> LimoOrange
+            else -> Color(0xFFE0E0E0)
+        }
 
         // Wrapper Box for Border & Background
         Box(
@@ -110,7 +113,7 @@ fun CommonTextArea(
                         )
                     }
 
-                    // The Input Field
+                    // The Input Field (matches user app: LimoBlack color)
                     BasicTextField(
                         value = TextFieldValue(
                             text = text,

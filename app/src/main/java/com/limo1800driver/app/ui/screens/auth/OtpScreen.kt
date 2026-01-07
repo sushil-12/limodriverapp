@@ -112,10 +112,9 @@ fun OtpScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(horizontal = 24.dp)
     ) {
-        Spacer(Modifier.height(50.dp))
+        Spacer(Modifier.height(100.dp))
 
         Text(
             text = buildAnnotatedString {

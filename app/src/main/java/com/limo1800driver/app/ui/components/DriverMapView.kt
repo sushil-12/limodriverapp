@@ -58,33 +58,33 @@ fun DriverMapView(
 
     // 4. Smooth Camera Updates (The "Uber" Feel)
     // We listen to the bookings list. If it changes, we smoothly animate the camera.
-    LaunchedEffect(bookings) {
-        if (bookings.isNotEmpty()) {
-            val bounds = LatLngBounds.builder()
-            var hasValidPoints = false
-
-            bookings.forEach { booking ->
-                booking.getLatLng()?.let {
-                    bounds.include(it)
-                    hasValidPoints = true
-                }
-            }
-
-            if (hasValidPoints) {
-                // If single booking, zoom to it. If multiple, fit bounds.
-                val update = if (bookings.size == 1) {
-                    val target = bookings.first().getLatLng()!!
-                    CameraUpdateFactory.newLatLngZoom(target, 15f)
-                } else {
-                    // 100 padding is arbitrary; adjust based on design
-                    CameraUpdateFactory.newLatLngBounds(bounds.build(), 100)
-                }
-
-                // Animate over 1000ms for smoothness
-                cameraPositionState.animate(update, 1000)
-            }
-        }
-    }
+//    LaunchedEffect(bookings) {
+//        if (bookings.isNotEmpty()) {
+//            val bounds = LatLngBounds.builder()
+//            var hasValidPoints = false
+//
+//            bookings.forEach { booking ->
+//                booking.getLatLng()?.let {
+//                    bounds.include(it)
+//                    hasValidPoints = true
+//                }
+//            }
+//
+//            if (hasValidPoints) {
+//                // If single booking, zoom to it. If multiple, fit bounds.
+//                val update = if (bookings.size == 1) {
+//                    val target = bookings.first().getLatLng()!!
+//                    CameraUpdateFactory.newLatLngZoom(target, 15f)
+//                } else {
+//                    // 100 padding is arbitrary; adjust based on design
+//                    CameraUpdateFactory.newLatLngBounds(bounds.build(), 100)
+//                }
+//
+//                // Animate over 1000ms for smoothness
+//                cameraPositionState.animate(update, 1000)
+//            }
+//        }
+//    }
 
     GoogleMap(
         modifier = modifier.fillMaxSize(),
@@ -94,23 +94,23 @@ fun DriverMapView(
         // Apply padding to the Google Map logo and legal text so they aren't hidden by UI
         contentPadding = contentPadding
     ) {
-        bookings.forEach { booking ->
-            val position = booking.getLatLng()
-            if (position != null) {
-                // Use a stable key if possible to prevent unnecessary marker recomposition
-                key(booking.bookingId) {
-                Marker(
-                    state = MarkerState(position = position),
-                        title = "Booking #${booking.bookingId}",
-                        snippet = booking.pickupAddress,
-                        // For true Uber polish, use a custom Drawable resource, not the default HUE
-                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE),
-                        // Flat markers rotate with the map, creating a more integrated 2D feel
-                        flat = true
-                    )
-                }
-            }
-        }
+//        bookings.forEach { booking ->
+//            val position = booking.getLatLng()
+//            if (position != null) {
+//                // Use a stable key if possible to prevent unnecessary marker recomposition
+//                key(booking.bookingId) {
+//                Marker(
+//                    state = MarkerState(position = position),
+//                        title = "Booking #${booking.bookingId}",
+//                        snippet = booking.pickupAddress,
+//                        // For true Uber polish, use a custom Drawable resource, not the default HUE
+//                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE),
+//                        // Flat markers rotate with the map, creating a more integrated 2D feel
+//                        flat = true
+//                    )
+//                }
+//            }
+//        }
     }
 }
 

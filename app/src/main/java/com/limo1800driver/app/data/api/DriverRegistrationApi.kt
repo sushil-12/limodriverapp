@@ -135,5 +135,9 @@ interface DriverRegistrationApi {
     // Email Verification Status
     @GET("api/mobile/v1/driver/registration/email-verification-status")
     suspend fun getEmailVerificationStatus(): EmailVerificationStatusResponse
+
+    // Resend Verification Email
+    @POST("api/mobile/v1/driver/registration/resend-verification-email")
+    suspend fun resendVerificationEmail(@Body request: ResendVerificationEmailRequest): BaseResponse<ResendVerificationEmailResponse>
 }
 

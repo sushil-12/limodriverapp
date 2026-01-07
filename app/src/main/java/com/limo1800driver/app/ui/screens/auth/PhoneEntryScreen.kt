@@ -1,20 +1,17 @@
-package com.limo1800driver.app.ui.screens.auth
+package com.limo1800driver.app.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,10 +22,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.limo1800driver.app.data.model.Countries
 import com.limo1800driver.app.data.model.Country
@@ -38,49 +37,55 @@ import com.limo1800driver.app.ui.components.CommonErrorAlertDialog
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.state.PhoneEntryUiEvent
 import com.limo1800driver.app.ui.theme.*
-import com.limo1800driver.app.ui.theme.LimoRed
 import com.limo1800driver.app.ui.viewmodel.PhoneEntryViewModel
 import kotlinx.coroutines.launch
 
-// Defining local colors to match the specific UI grey in the screenshot
-// You should ideally move this to your AppColors
+// Ideally move to AppColors
 private val InputGrayBackground = Color(0xFFF3F4F6)
 private val BorderGray = Color(0xFFE5E7EB)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PhoneEntryScreen(
-    onNext: (String, String) -> Unit, // tempUserId, phoneNumber
+    onNext: (String, String) -> Unit,
     onBack: (() -> Unit)? = null,
     onNavigateToWebView: (String, String) -> Unit,
     viewModel: PhoneEntryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
+    
+    // UI State for inputs
     var selectedCountry by remember {
-        mutableStateOf(
-            Countries.getCountryFromCode(
-                uiState.selectedCountryCode.shortCode.uppercase()
-            )
-        )
+        mutableStateOf(Countries.getCountryFromCode(uiState.selectedCountryCode.shortCode.uppercase()))
     }
-
     var showCountryPicker by remember { mutableStateOf(false) }
     val phone = remember { mutableStateOf(uiState.phoneNumber) }
 
-    // Error dialog state
+    // Alert State
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorDialogTitle by remember { mutableStateOf("") }
     var errorDialogMessage by remember { mutableStateOf("") }
 
-    // Navigate when OTP is sent successfully
+    // Initialize phoneLength on first load if it doesn't match selectedCountry
+    LaunchedEffect(selectedCountry) {
+        val countryCode = try {
+            CountryCode.valueOf(selectedCountry.shortCode.uppercase())
+        } catch (e: IllegalArgumentException) {
+            CountryCode.US
+        }
+        // Sync phoneLength if it doesn't match
+        if (uiState.phoneLength != selectedCountry.phoneLength) {
+            viewModel.onEvent(PhoneEntryUiEvent.CountryCodeChanged(countryCode, selectedCountry.phoneLength))
+        }
+    }
+
+    // Handlers
     LaunchedEffect(uiState.success) {
         if (uiState.success && uiState.tempUserId.isNotEmpty()) {
             onNext(uiState.tempUserId, uiState.phoneNumberWithCountryCode)
         }
     }
 
-    // Show error dialog when there's an API error
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             errorDialogTitle = "Error"
@@ -89,16 +94,21 @@ fun PhoneEntryScreen(
         }
     }
 
+    // SCROLL STATE: Essential for keyboard handling
+    val scrollState = rememberScrollState()
+
+    // ROOT CONTAINER
+    // We do NOT use windowInsetsPadding(safeDrawing) here.
+    // Instead, we use a Column that fills the screen and handles padding specifically.
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 24.dp) // Adjusted padding to match screenshot
+            .padding(horizontal = 24.dp)
     ) {
-        Spacer(Modifier.height(40.dp)) // Top spacing
+        Spacer(Modifier.height(100.dp))
 
-        // --- Header Section ---
+        // --- Header Section (Now Stable) ---
         Text(
             text = "Welcome Driver!",
             style = TextStyle(
@@ -126,7 +136,6 @@ fun PhoneEntryScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // 1. Country Picker (Gray Box)
             CountryPickerButton(
                 country = selectedCountry,
                 onClick = { showCountryPicker = true }
@@ -134,11 +143,12 @@ fun PhoneEntryScreen(
 
             Spacer(Modifier.width(12.dp))
 
-            // 2. Phone Input (Outlined Box)
             OutlinedTextField(
                 value = phone.value,
                 onValueChange = { input ->
-                    val cleaned = input.filter { it.isDigit() }.take(selectedCountry.phoneLength)
+                    // Allow up to 15 digits (reasonable max for international phone numbers)
+                    // Validation will enforce country-specific length
+                    val cleaned = input.filter { it.isDigit() }.take(15)
                     phone.value = cleaned
                     viewModel.onEvent(PhoneEntryUiEvent.PhoneNumberChanged(cleaned))
                 },
@@ -161,13 +171,13 @@ fun PhoneEntryScreen(
                 singleLine = true,
                 textStyle = TextStyle(
                     fontSize = 16.sp,
-                    letterSpacing = 1.2.sp, // 2.sp is clean; try 3 or 4 for a more 'airy' look
+                    letterSpacing = 1.2.sp,
                     color = AppColors.LimoBlack,
                     fontWeight = FontWeight.Normal
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp), // Fixed height to match picker
+                    .height(56.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 shape = RoundedCornerShape(8.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -180,28 +190,20 @@ fun PhoneEntryScreen(
             )
         }
 
-        // --- Error/Success Messages ---
+        // --- Error Messages ---
         uiState.error?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = it,
-                color = LimoRed,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text(text = it, color = LimoRed, style = MaterialTheme.typography.bodySmall)
         }
 
         uiState.message?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = it,
-                color = LimoGreen, // Using LimoRed for all messages as requested
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text(text = it, color = LimoGreen, style = MaterialTheme.typography.bodySmall)
         }
 
         Spacer(Modifier.height(24.dp))
 
-        // --- Action Button (Continue) ---
+        // --- Action Button ---
         Button(
             onClick = {
                 if (uiState.isLoading != true) {
@@ -212,24 +214,15 @@ fun PhoneEntryScreen(
                 containerColor = AppColors.LimoOrange,
                 disabledContainerColor = AppColors.LimoOrange.copy(alpha = 0.5f)
             ),
-            shape = RoundedCornerShape(8.dp), // Standard UI button radius
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth().height(50.dp)
         ) {
             if (uiState.isLoading == true) {
-                ShimmerCircle(
-                    size = 20.dp,
-                    strokeWidth = 2.dp
-                )
+                ShimmerCircle(size = 20.dp, strokeWidth = 2.dp)
             } else {
                 Text(
                     text = "Continue",
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
+                    style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 )
             }
         }
@@ -237,47 +230,16 @@ fun PhoneEntryScreen(
         Spacer(Modifier.height(24.dp))
 
         // --- Legal Footer ---
-        val annotatedString = buildAnnotatedString {
-            append("By tapping Continue, you are indicating that you accept our ")
-
-            pushStringAnnotation(tag = "TERMS", annotation = "terms")
-            withStyle(style = SpanStyle(color = AppColors.LimoOrange)) {
-                append("Terms of Service")
-            }
-            pop()
-
-            append(" and ")
-
-            pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
-            withStyle(style = SpanStyle(color = AppColors.LimoOrange)) {
-                append("Privacy Policy")
-            }
-            pop()
-
-            append(". An SMS may be sent. Message & data rates may apply.")
-        }
-
-        ClickableText(
-            text = annotatedString,
-            style = TextStyle(
-                fontSize = 12.sp,
-                color = Color.Gray,
-                lineHeight = 18.sp
-            ),
-            onClick = { offset ->
-                annotatedString.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
-                    .firstOrNull()?.let {
-                        onNavigateToWebView("https://1800limo.com/client-terms-condition", "Terms of Service")
-                    }
-                annotatedString.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset)
-                    .firstOrNull()?.let {
-                        onNavigateToWebView("https://1800limo.com/privacy-policy", "Privacy Policy")
-                    }
-            }
-        )
+        LegalFooter(onNavigateToWebView)
+        
+        // Add extra space at bottom for comfortable scrolling and gesture navigation
+        Spacer(Modifier.height(24.dp))
+        
+        // Add padding for Android gesture navigation to prevent button underlapping
+        Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
     }
 
-    // --- Country Picker Sheet Logic (Unchanged but ensuring scope is correct) ---
+    // --- Bottom Sheet ---
     if (showCountryPicker) {
         CountryPickerBottomSheet(
             onDismiss = { showCountryPicker = false },
@@ -288,23 +250,41 @@ fun PhoneEntryScreen(
                 } catch (e: IllegalArgumentException) {
                     CountryCode.US
                 }
-                viewModel.onEvent(PhoneEntryUiEvent.CountryCodeChanged(countryCode))
+                // Pass the actual phoneLength from Country model, not CountryCode enum
+                viewModel.onEvent(PhoneEntryUiEvent.CountryCodeChanged(countryCode, country.phoneLength))
                 showCountryPicker = false
             }
         )
     }
+}
 
-    // Error Alert Dialog
-    CommonErrorAlertDialog(
-        isVisible = showErrorDialog,
-        onDismiss = {
-            showErrorDialog = false
-            // Clear the error from viewModel when dialog is dismissed
-            // Note: This is handled by the LaunchedEffect clearing the error
-        },
-        type = AlertType.ERROR,
-        title = errorDialogTitle,
-        message = errorDialogMessage
+@Composable
+fun LegalFooter(onNavigateToWebView: (String, String) -> Unit) {
+    val annotatedString = buildAnnotatedString {
+        append("By tapping Continue, you are indicating that you accept our ")
+        pushStringAnnotation(tag = "TERMS", annotation = "terms")
+        withStyle(style = SpanStyle(color = AppColors.LimoOrange)) { append("Terms of Service") }
+        pop()
+        append(" and ")
+        pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
+        withStyle(style = SpanStyle(color = AppColors.LimoOrange)) { append("Privacy Policy") }
+        pop()
+        append(". An SMS may be sent. Message & data rates may apply.")
+    }
+
+    ClickableText(
+        text = annotatedString,
+        style = TextStyle(fontSize = 12.sp, color = Color.Gray, lineHeight = 18.sp),
+        onClick = { offset ->
+            annotatedString.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
+                .firstOrNull()?.let {
+                    onNavigateToWebView("https://1800limo.com/client-terms-condition", "Terms of Service")
+                }
+            annotatedString.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset)
+                .firstOrNull()?.let {
+                    onNavigateToWebView("https://1800limo.com/privacy-policy", "Privacy Policy")
+                }
+        }
     )
 }
 
@@ -364,7 +344,11 @@ fun CountryPickerBottomSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
             Text(
                 text = "Select Country",
-                style = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 18.sp),
+                style = TextStyle(
+                    fontWeight = FontWeight.SemiBold, 
+                    fontSize = 18.sp,
+                    color = AppColors.LimoBlack // Explicitly set to black for dark mode compatibility
+                ),
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp)
             )
             HorizontalDivider(color = BorderGray)

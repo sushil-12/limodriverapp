@@ -29,6 +29,7 @@ class RideSocketManager @Inject constructor(
     fun clearActiveRide() = socketService.clearActiveRide()
 
     fun emitDriverLocationUpdate(ride: DriverActiveRide, sample: RideLocationSample) {
+        Timber.tag("RideSocketManager").d("emitDriverLocationUpdate called: bookingId=${ride.bookingId} lat=${sample.latitude} lng=${sample.longitude}")
         socketService.emitDriverLocationUpdate(
             bookingId = ride.bookingId,
             customerId = ride.customerId,

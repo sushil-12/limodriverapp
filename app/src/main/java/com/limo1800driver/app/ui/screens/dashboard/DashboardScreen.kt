@@ -2,10 +2,7 @@ package com.limo1800driver.app.ui.screens.dashboard
 
 import android.Manifest
 import android.app.Activity
-import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -14,15 +11,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Satellite
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -44,6 +37,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.limo1800driver.app.data.model.dashboard.DriverBooking
 import com.limo1800driver.app.ui.components.*
 import com.limo1800driver.app.ui.viewmodel.*
+import com.limo1800driver.app.ui.viewmodel.ScheduledPickupsViewModel
+import com.limo1800driver.app.ui.navigation.NavRoutes
+import androidx.compose.runtime.LaunchedEffect
+import android.net.Uri
+import android.content.Intent
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +62,7 @@ fun DashboardScreen(
     onNavigateToRideInProgress: (Int) -> Unit = {},
     onLogout: () -> Unit = {},
     bookingsViewModel: DriverBookingsViewModel = hiltViewModel(),
+    scheduledPickupsViewModel: ScheduledPickupsViewModel = hiltViewModel(),
     profileViewModel: DriverProfileViewModel = hiltViewModel(),
     statsViewModel: DashboardStatsViewModel = hiltViewModel(),
     updatesViewModel: DashboardUpdatesViewModel = hiltViewModel(),
@@ -100,7 +100,6 @@ fun DashboardScreen(
     val activeRide by activeRideViewModel.activeRide.collectAsStateWithLifecycle()
     val reminder by reminderViewModel.reminder.collectAsStateWithLifecycle()
     val passengerState by reminderViewModel.passenger.collectAsStateWithLifecycle()
-
     var isReminderProcessing by remember { mutableStateOf(false) }
 
     // --- Layout Constants ---
@@ -121,8 +120,8 @@ fun DashboardScreen(
 
     // --- Bottom Sheet Logic ---
     var sheetHeight by remember { mutableStateOf(0.40f) }
-    val minHeight = 0.38f // Slightly taller for better tab visibility
-    val maxHeight = 0.92f // Almost full screen
+    val minHeight = 0.38f
+    val maxHeight = 0.68f
 
     LaunchedEffect(Unit) {
         profileViewModel.fetchDriverProfile()
@@ -367,10 +366,11 @@ fun DashboardScreen(
                                     else onNavigateToFinalizeRates(booking.bookingId, "finalizeOnly", "dashboard")
                                 },
                                 onAlertClick = { /* TODO */ },
+                                onActionLinkClick = { route ->
+                                    handleAlertActionLink(context, route, navBackStackEntry)
+                                },
                                 bookingsViewModel = bookingsViewModel,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState())
+                                scheduledPickupsViewModel = scheduledPickupsViewModel,
                             )
                         }
                         DashboardTab.EARNINGS -> {
@@ -424,7 +424,9 @@ private fun DriveTabContent(
     onDriverEnRouteClick: (DriverBooking) -> Unit,
     onFinalizeClick: (DriverBooking) -> Unit,
     onAlertClick: (com.limo1800driver.app.ui.viewmodel.DashboardStatusAlert) -> Unit,
+    onActionLinkClick: ((String) -> Unit)? = null,
     bookingsViewModel: DriverBookingsViewModel,
+    scheduledPickupsViewModel: ScheduledPickupsViewModel,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -437,7 +439,8 @@ private fun DriveTabContent(
         DashboardStatusAlertCarousel(
             alerts = alerts,
             isLoading = alertsLoading,
-            onAlertClick = onAlertClick
+            onAlertClick = onAlertClick,
+            onActionLinkClick = onActionLinkClick
         )
 
         // Scheduled Pickups Section
@@ -457,11 +460,106 @@ private fun DriveTabContent(
                 onViewOnMapClick = onViewOnMapClick,
                 onDriverEnRouteClick = onDriverEnRouteClick,
                 onFinalizeClick = onFinalizeClick,
-                bookingsViewModel = bookingsViewModel
+                scheduledPickupsViewModel = scheduledPickupsViewModel
             )
         }
 
         // Help and Support Section
-        HelpAndSupportCard()
+        //HelpAndSupportCard()
+    }
+}
+
+/**
+ * Handle action link clicks from dashboard alerts
+ */
+private fun handleAlertActionLink(
+    context: android.content.Context,
+    route: String,
+    navBackStackEntry: androidx.navigation.NavBackStackEntry
+) {
+    when {
+        route.startsWith("action://verify_email") -> {
+            // Extract email from route: action://verify_email?email=user@example.com
+            val uri = Uri.parse(route)
+            val email = uri.getQueryParameter("email") ?: return
+            openGmailForVerification(context, email)
+        }
+        route == NavRoutes.BasicInfoFromAccountSettings -> {
+            navBackStackEntry.savedStateHandle["navigateToBasicInfo"] = true
+        }
+        route == NavRoutes.CompanyInfoFromAccountSettings -> {
+            navBackStackEntry.savedStateHandle["navigateToCompanyInfo"] = true
+        }
+        else -> {
+            // Handle other navigation routes if needed
+            navBackStackEntry.savedStateHandle["navigateToRoute"] = route
+        }
+    }
+}
+
+/**
+ * Opens Gmail app with search for verification emails.
+ * Falls back to generic email client if Gmail is not available.
+ */
+private fun openGmailForVerification(context: android.content.Context, emailAddress: String) {
+    try {
+        // Search query for verification emails - common patterns
+        val searchQuery = "subject:(verification OR verify) OR from:(1800limo OR noreply)"
+        
+        // Method 1: Try Gmail app with search deep link
+        val gmailSearchUri = Uri.parse("googlegmail://co?q=${Uri.encode(searchQuery)}")
+        val gmailSearchIntent = Intent(Intent.ACTION_VIEW, gmailSearchUri).apply {
+            setPackage("com.google.android.gm")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        
+        try {
+            context.startActivity(gmailSearchIntent)
+            Timber.d("✅ Opened Gmail app with search for verification: $emailAddress")
+            return
+        } catch (e: Exception) {
+            Timber.d("Gmail app with search not available: ${e.message}")
+        }
+        
+        // Method 2: Try Gmail web with search
+        val gmailWebUri = Uri.parse("https://mail.google.com/mail/u/0/#search/${Uri.encode(searchQuery)}")
+        val webIntent = Intent(Intent.ACTION_VIEW, gmailWebUri).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        try {
+            context.startActivity(webIntent)
+            Timber.d("✅ Opened Gmail web with search")
+            return
+        } catch (e: Exception) {
+            Timber.d("Gmail web not available: ${e.message}")
+        }
+        
+        // Method 3: Open Gmail app directly (user can search manually)
+        val gmailAppUri = Uri.parse("googlegmail://")
+        val gmailAppIntent = Intent(Intent.ACTION_VIEW, gmailAppUri).apply {
+            setPackage("com.google.android.gm")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        try {
+            context.startActivity(gmailAppIntent)
+            Timber.d("✅ Opened Gmail app (user can search manually)")
+            return
+        } catch (e: Exception) {
+            Timber.d("Gmail app not installed: ${e.message}")
+        }
+        
+        // Method 4: Fallback - Open Gmail web in browser
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://mail.google.com")).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        try {
+            context.startActivity(browserIntent)
+            Timber.d("✅ Opened Gmail in browser")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to open any email client or browser")
+        }
+        
+    } catch (e: Exception) {
+        Timber.e(e, "Error opening Gmail for verification")
     }
 }

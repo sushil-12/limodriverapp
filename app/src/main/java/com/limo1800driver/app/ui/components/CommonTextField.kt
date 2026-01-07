@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.limo1800driver.app.ui.theme.LimoOrange
+import com.limo1800driver.app.ui.theme.AppColors
 
 @Composable
 fun CommonTextField(
@@ -84,61 +85,59 @@ fun CommonTextField(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // --- Label Section ---
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = label.uppercase(),
-                style = TextStyle(
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.Gray
-                )
-            )
-            if (isRequired) {
-                Spacer(modifier = Modifier.width(4.dp))
+        // --- Label Section --- (matches user app: 12sp, Gray, SemiBold, uppercase)
+        if (label.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "*",
+                    text = label.uppercase(),
                     style = TextStyle(
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFEF4444)
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Gray
                     )
                 )
+                if (isRequired) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "*",
+                        style = TextStyle(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFEF4444)
+                        )
+                    )
+                }
             }
         }
 
-        // --- Input Field Container ---
+        // --- Input Field Container --- (matches user app: 50dp height, F5F5F5 background, 8dp corners)
+        val shape = RoundedCornerShape(8.dp)
+        val borderColor = when {
+            errorMessage != null -> Color(0xFFEF4444)
+            isFocused -> LimoOrange
+            else -> Color(0xFFE0E0E0)
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
-                .background(
-                    color = Color(0xFFF5F5F5),
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .border(
-                    width = 1.dp,
-                    color = when {
-                        errorMessage != null -> Color(0xFFEF4444)
-                        isFocused -> LimoOrange
-                        else -> Color(0xFFE0E0E0)
-                    },
-                    shape = RoundedCornerShape(8.dp)
-                )
-                // Clicking the container requests focus for the TextField
-                .clickable { currentFocusRequester.requestFocus() },
+                .background(Color(0xFFF5F5F5), shape)
+                .border(1.dp, borderColor, shape)
+                .clickable(enabled = enabled) { currentFocusRequester.requestFocus() }
+                .padding(horizontal = 16.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Box(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
                 ) {
+                    // Placeholder
                     if (text.isEmpty()) {
                         Text(
                             text = placeholder,
@@ -149,6 +148,7 @@ fun CommonTextField(
                         )
                     }
 
+                    // The Input Field (matches user app: 16sp, LimoBlack)
                     BasicTextField(
                         value = textFieldValue,
                         onValueChange = { newValue ->
@@ -160,7 +160,7 @@ fun CommonTextField(
                         },
                         textStyle = TextStyle(
                             fontSize = 16.sp,
-                            color = Color.Black,
+                            color = AppColors.LimoBlack,
                             fontWeight = FontWeight.Normal
                         ),
                         modifier = Modifier
@@ -180,6 +180,7 @@ fun CommonTextField(
                     )
                 }
 
+                // Trailing Icon
                 if (trailingIcon != null) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(14.dp)) {
@@ -189,6 +190,7 @@ fun CommonTextField(
             }
         }
 
+        // --- Error Message Section --- (matches user app: 12sp, Red, 4dp spacing)
         errorMessage?.let {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -197,7 +199,8 @@ fun CommonTextField(
                     fontSize = 12.sp,
                     color = Color(0xFFEF4444),
                     fontWeight = FontWeight.Normal
-                )
+                ),
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
     }

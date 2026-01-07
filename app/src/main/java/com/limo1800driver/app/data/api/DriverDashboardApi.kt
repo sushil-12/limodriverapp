@@ -24,6 +24,16 @@ interface DriverDashboardApi {
         @Query("search") search: String? = null,
         @Query("status") status: String? = null
     ): BaseResponse<DriverBookingsData>
+
+    // Scheduled Pickups
+    @GET("api/mobile/v1/driver/bookings/scheduled-pickups")
+    suspend fun getScheduledPickups(
+        @Query("page") page: Int? = null,
+        @Query("per_page") perPage: Int? = null,
+        @Query("from") startDate: String? = null,
+        @Query("to") endDate: String? = null,
+        @Query("search") search: String? = null
+    ): BaseResponse<DriverBookingsData>
     
     // Driver All Activity
     @GET("api/mobile/v1/driver/bookings/all-activity")
@@ -70,9 +80,9 @@ interface DriverDashboardApi {
     ): BaseResponse<BookingAuditRecordsData>
     
     // Get Reservation
-    @GET("api/affiliate/get-reservation")
+    @GET("api/affiliate/get-reservation/{bookingId}")
     suspend fun getReservation(
-        @Query("booking_id") bookingId: Int
+        @Path("bookingId") bookingId: Int
     ): BaseResponse<ReservationData>
     
     // Get Reservation Rates
@@ -116,6 +126,11 @@ interface DriverDashboardApi {
     suspend fun getBookingPreview(
         @Path("bookingId") bookingId: Int
     ): BaseResponse<AdminBookingPreviewData>
+
+    @GET("api/affiliate/get-booking-preview/{bookingId}")
+    suspend fun getAffiliateBookingPreview(
+        @Path("bookingId") bookingId: Int
+    ): BaseResponse<AffiliateBookingPreviewData>
     
     // Edit Reservation
     @PUT("api/affiliate/edit-reservation")
@@ -145,5 +160,12 @@ interface DriverDashboardApi {
     suspend fun rejectBooking(
         @Path("bookingId") bookingId: Int
     ): BaseResponse<BookingStatusData>
+
+    // Get User Notifications (iOS parity)
+    @GET("api/notifications/user/{userId}")
+    suspend fun getUserNotifications(
+        @Path("userId") userId: String,
+        @Header("X-Secret") secret: String = "limoapi_notifications_secret_2024_xyz789"
+    ): BaseResponse<NotificationResponseData>
 }
 

@@ -58,7 +58,9 @@ fun DatePickerComponent(
     modifier: Modifier = Modifier,
     config: DatePickerConfig = DatePickerConfig(),
     errorMessage: String? = null,
-    isRequired: Boolean = false
+    isRequired: Boolean = false,
+    // Invoked when any of the date dropdown fields is tapped; useful for clearing text focus.
+    onFieldFocused: (() -> Unit)? = null
 ) {
     var activeDateStep by remember { mutableStateOf<DateStep?>(null) }
 
@@ -101,7 +103,10 @@ fun DatePickerComponent(
                 placeholder = "Month",
                 modifier = Modifier.weight(1.2f), // Give month slightly more space
                 isError = errorMessage != null,
-                onClick = { activeDateStep = DateStep.MONTH }
+                onClick = {
+                    onFieldFocused?.invoke()
+                    activeDateStep = DateStep.MONTH
+                }
             )
 
             // Day
@@ -110,7 +115,10 @@ fun DatePickerComponent(
                 placeholder = "Day",
                 modifier = Modifier.weight(1f),
                 isError = errorMessage != null,
-                onClick = { activeDateStep = DateStep.DAY }
+                onClick = {
+                    onFieldFocused?.invoke()
+                    activeDateStep = DateStep.DAY
+                }
             )
 
             // Year
@@ -119,7 +127,10 @@ fun DatePickerComponent(
                 placeholder = "Year",
                 modifier = Modifier.weight(1.1f),
                 isError = errorMessage != null,
-                onClick = { activeDateStep = DateStep.YEAR }
+                onClick = {
+                    onFieldFocused?.invoke()
+                    activeDateStep = DateStep.YEAR
+                }
             )
         }
 

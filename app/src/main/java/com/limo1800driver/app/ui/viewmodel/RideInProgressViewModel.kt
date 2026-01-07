@@ -264,7 +264,11 @@ class RideInProgressViewModel @Inject constructor(
     }
 
     private fun maybeEmitToSocket(ride: DriverActiveRide, sample: RideLocationSample, snapped: LatLng) {
-        if (!shouldEmitToSocket(snapped)) return
+        if (!shouldEmitToSocket(snapped)) {
+            Timber.tag("RideInProgressVM").d("maybeEmitToSocket: throttled, skipping emission")
+            return
+        }
+        Timber.tag("RideInProgressVM").d("maybeEmitToSocket: emitting location update bookingId=${ride.bookingId} lat=${snapped.latitude} lng=${snapped.longitude}")
         socketManager.emitDriverLocationUpdate(
             ride,
             sample.copy(latitude = snapped.latitude, longitude = snapped.longitude)
@@ -276,14 +280,26 @@ class RideInProgressViewModel @Inject constructor(
     private fun shouldEmitToSocket(snapped: LatLng): Boolean {
         val now = System.currentTimeMillis()
         val dt = now - lastSocketEmissionAtMs
-        if (lastSocketEmissionLocation == null) return true
-        if (dt >= 5_000L) return true
+        if (lastSocketEmissionLocation == null) {
+            Timber.tag("RideInProgressVM").d("shouldEmitToSocket: first emission, allowing")
+            return true
+        }
+        if (dt >= 5_000L) {
+            Timber.tag("RideInProgressVM").d("shouldEmitToSocket: time threshold met (${dt}ms >= 5000ms), allowing")
+            return true
+        }
 
         val prev = lastSocketEmissionLocation ?: return true
         val d = FloatArray(1)
         Location.distanceBetween(prev.latitude, prev.longitude, snapped.latitude, snapped.longitude, d)
         val meters = d.firstOrNull() ?: 0f
-        return meters >= 10f
+        val shouldEmit = meters >= 10f
+        if (!shouldEmit) {
+            Timber.tag("RideInProgressVM").d("shouldEmitToSocket: distance threshold not met (${meters}m < 10m, dt=${dt}ms), throttling")
+        } else {
+            Timber.tag("RideInProgressVM").d("shouldEmitToSocket: distance threshold met (${meters}m >= 10m), allowing")
+        }
+        return shouldEmit
     }
 
     private fun warmPreviewRouteIfPossible(ride: DriverActiveRide) {

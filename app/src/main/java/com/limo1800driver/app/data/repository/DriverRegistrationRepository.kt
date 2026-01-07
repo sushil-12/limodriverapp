@@ -646,5 +646,23 @@ class DriverRegistrationRepository @Inject constructor(
             Result.failure(Exception(errorHandler.handleError(e)))
         }
     }
+
+    /**
+     * Resend verification email
+     */
+    suspend fun resendVerificationEmail(emailType: String): Result<ResendVerificationEmailResponse> = withContext(Dispatchers.IO) {
+        try {
+            val request = ResendVerificationEmailRequest(emailType = emailType)
+            val response = registrationApi.resendVerificationEmail(request)
+            if (response.success && response.data != null) {
+                Result.success(response.data)
+            } else {
+                Result.failure(Exception(response.message ?: "Failed to resend verification email"))
+            }
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Failed to resend verification email")
+            Result.failure(Exception(errorHandler.handleError(e)))
+        }
+    }
 }
 

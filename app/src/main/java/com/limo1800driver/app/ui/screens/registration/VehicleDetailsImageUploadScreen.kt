@@ -29,6 +29,7 @@ import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.camera.VehicleCameraScreen
 import com.limo1800driver.app.ui.components.ErrorAlertDialog
+import com.limo1800driver.app.ui.components.FullScreenImagePreview
 import com.limo1800driver.app.R
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.VehicleDetailsImageUploadViewModel
@@ -49,6 +50,11 @@ fun VehicleDetailsImageUploadScreen(
 
     // CHANGED: Track the entire Slot object, not just index, so we can access the overlay ID
     var activeSlot by remember { mutableStateOf<VehicleImageSlot?>(null) }
+
+    // Image Preview State
+    var showImagePreview by remember { mutableStateOf(false) }
+    var previewImageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var previewImageUrl by remember { mutableStateOf<String?>(null) }
 
     // Dynamic Configuration based on Vehicle Type
     val vehicleSlots = remember(vehicleTypeName) {
@@ -191,7 +197,14 @@ fun VehicleDetailsImageUploadScreen(
                                 onAddClick = {
                                     activeSlot = slot1
                                     showCamera = true
-                                }
+                                },
+                                onImageClick = if (uiState.displayedImages[slot1.index] != null || uiState.displayedImageUrls[slot1.index] != null) {
+                                    {
+                                        previewImageBitmap = uiState.displayedImages[slot1.index]
+                                        previewImageUrl = uiState.displayedImageUrls[slot1.index]
+                                        showImagePreview = true
+                                    }
+                                } else null
                             )
 
                             // Right Column (check existence)
@@ -206,7 +219,14 @@ fun VehicleDetailsImageUploadScreen(
                                     onAddClick = {
                                         activeSlot = slot2
                                         showCamera = true
-                                    }
+                                    },
+                                    onImageClick = if (uiState.displayedImages[slot2.index] != null || uiState.displayedImageUrls[slot2.index] != null) {
+                                        {
+                                            previewImageBitmap = uiState.displayedImages[slot2.index]
+                                            previewImageUrl = uiState.displayedImageUrls[slot2.index]
+                                            showImagePreview = true
+                                        }
+                                    } else null
                                 )
                             } else {
                                 Spacer(modifier = Modifier.weight(1f))
@@ -280,6 +300,19 @@ fun VehicleDetailsImageUploadScreen(
             }
         }
     }
+
+    // Full Screen Image Preview
+    FullScreenImagePreview(
+        isVisible = showImagePreview,
+        onDismiss = {
+            showImagePreview = false
+            previewImageBitmap = null
+            previewImageUrl = null
+        },
+        imageBitmap = previewImageBitmap,
+        imageUrl = previewImageUrl,
+        contentDescription = "Full screen vehicle image preview"
+    )
 
     if (showCamera && activeSlot != null) {
         VehicleCameraScreen(
@@ -413,7 +446,8 @@ private fun VehicleImageItem(
     imageUrl: String?,
     isUploaded: Boolean,
     modifier: Modifier = Modifier,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onImageClick: (() -> Unit)? = null
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         // Label Row
@@ -448,7 +482,13 @@ private fun VehicleImageItem(
                     color = if(slot.isRequired && !isUploaded) Color.Red.copy(alpha=0.3f) else Color(0xFFE5E7EB),
                     shape = RoundedCornerShape(12.dp)
                 )
-                .clickable { onAddClick() },
+                .then(
+                    if (bitmap != null || imageUrl != null) {
+                        Modifier.clickable { onImageClick?.invoke() ?: onAddClick() }
+                    } else {
+                        Modifier.clickable { onAddClick() }
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (bitmap != null) {

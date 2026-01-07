@@ -753,25 +753,9 @@ data class AuditRecord(
 )
 
 // ==================== Reservation ====================
-
-data class ReservationData(
-    @SerializedName("reservation")
-    val reservation: Reservation?
-)
-
-data class Reservation(
-    @SerializedName("id")
-    val id: Int?,
-    
-    @SerializedName("booking_id")
-    val bookingId: Int?,
-    
-    @SerializedName("vehicle_id")
-    val vehicleId: Int?,
-    
-    @SerializedName("rates")
-    val rates: ReservationRates?
-)
+// Note: get-reservation API returns data in the same format as AdminBookingPreviewData
+// Using type alias to reuse the existing model structure
+typealias ReservationData = AdminBookingPreviewData
 
 // ==================== Reservation Rates ====================
 
@@ -1140,6 +1124,420 @@ data class BookingPreview(
     val currencySymbol: String?
 )
 
+// ==================== Affiliate Booking Preview ====================
+
+data class AffiliateBookingPreviewData(
+    @SerializedName("reservation_id")
+    val reservationId: Int,
+    @SerializedName("currency")
+    val currency: String?,
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("related_to")
+    val relatedTo: Any?,
+    @SerializedName("min_rate_involved")
+    val minRateInvolved: String?,
+    @SerializedName("conf_id")
+    val confId: String?,
+    @SerializedName("acc_id")
+    val accId: Int,
+    @SerializedName("travel_client_id")
+    val travelClientId: Any?,
+    @SerializedName("passenger_id")
+    val passengerId: Int,
+    @SerializedName("account_type")
+    val accountType: String?,
+    @SerializedName("sub_account_type")
+    val subAccountType: Any?,
+    @SerializedName("sub_account_id")
+    val subAccountId: Any?,
+    @SerializedName("affiliate_id")
+    val affiliateId: Int,
+    @SerializedName("farmout_affiliate")
+    val farmoutAffiliate: Any?,
+    @SerializedName("reservation_type")
+    val reservationType: Any?,
+    @SerializedName("referral_affiliate")
+    val referralAffiliate: Any?,
+    @SerializedName("lose_affiliate")
+    val loseAffiliate: Any?,
+    @SerializedName("cancellation_hours")
+    val cancellationHours: Int,
+    @SerializedName("reservation_preferences_id")
+    val reservationPreferencesId: Any?,
+    @SerializedName("transfer_type")
+    val transferType: String,
+    @SerializedName("return_transfer_type")
+    val returnTransferType: Any?,
+    @SerializedName("pickup")
+    val pickup: String,
+    @SerializedName("pickup_address")
+    val pickupAddress: String,
+    @SerializedName("pickup_airport")
+    val pickupAirport: String?,
+    @SerializedName("pickup_airline")
+    val pickupAirline: String?,
+    @SerializedName("pickup_flight")
+    val pickupFlight: String?,
+    @SerializedName("origin_airport_city")
+    val originAirportCity: Any?,
+    @SerializedName("pickup_latitude")
+    val pickupLatitude: String,
+    @SerializedName("pickup_longitude")
+    val pickupLongitude: String,
+    @SerializedName("dropoff")
+    val dropoff: String?,
+    @SerializedName("dropoff_address")
+    val dropoffAddress: String,
+    @SerializedName("dropoff_airport")
+    val dropoffAirport: String?,
+    @SerializedName("dropoff_airline")
+    val dropoffAirline: String?,
+    @SerializedName("dropoff_flight")
+    val dropoffFlight: String?,
+    @SerializedName("dropoff_latitude")
+    val dropoffLatitude: String,
+    @SerializedName("dropoff_longitude")
+    val dropoffLongitude: String,
+    @SerializedName("return_pickup")
+    val returnPickup: Any?,
+    @SerializedName("return_pickup_address")
+    val returnPickupAddress: Any?,
+    @SerializedName("return_cruise_name")
+    val returnCruiseName: Any?,
+    @SerializedName("return_cruise_port")
+    val returnCruisePort: Any?,
+    @SerializedName("return_cruise_time")
+    val returnCruiseTime: Any?,
+    @SerializedName("cruise_name")
+    val cruiseName: String?,
+    @SerializedName("cruise_port")
+    val cruisePort: String?,
+    @SerializedName("cruise_time")
+    val cruiseTime: String?,
+    @SerializedName("return_pickup_airport")
+    val returnPickupAirport: Any?,
+    @SerializedName("return_pickup_airline")
+    val returnPickupAirline: Any?,
+    @SerializedName("return_pickup_flight")
+    val returnPickupFlight: Any?,
+    @SerializedName("return_origin_airport_city")
+    val returnOriginAirportCity: Any?,
+    @SerializedName("return_pickup_latitude")
+    val returnPickupLatitude: Any?,
+    @SerializedName("return_pickup_longitude")
+    val returnPickupLongitude: Any?,
+    @SerializedName("return_dropoff")
+    val returnDropoff: Any?,
+    @SerializedName("fbo_address")
+    val fboAddress: String?,
+    @SerializedName("fbo_name")
+    val fboName: String?,
+    @SerializedName("return_dropoff_address")
+    val returnDropoffAddress: Any?,
+    @SerializedName("return_dropoff_airport")
+    val returnDropoffAirport: Any?,
+    @SerializedName("return_dropoff_airline")
+    val returnDropoffAirline: Any?,
+    @SerializedName("return_dropoff_flight")
+    val returnDropoffFlight: Any?,
+    @SerializedName("return_dropoff_latitude")
+    val returnDropoffLatitude: Any?,
+    @SerializedName("return_dropoff_longitude")
+    val returnDropoffLongitude: Any?,
+    @SerializedName("meet_greet_choices")
+    val meetGreetChoices: Int,
+    @SerializedName("return_meet_greet_choices")
+    val returnMeetGreetChoices: Any?,
+    @SerializedName("extra_stops")
+    val extraStops: List<AffiliateExtraStop>?,
+    @SerializedName("return_extra_stops")
+    val returnExtraStops: Any?,
+    @SerializedName("service_type")
+    val serviceType: String?,
+    @SerializedName("pickup_date")
+    val pickupDate: String,
+    @SerializedName("pickup_time")
+    val pickupTime: String,
+    @SerializedName("return_pickup_date")
+    val returnPickupDate: Any?,
+    @SerializedName("return_pickup_time")
+    val returnPickupTime: Any?,
+    @SerializedName("total_passengers")
+    val totalPassengers: Int,
+    @SerializedName("luggage_count")
+    val luggageCount: Int,
+    @SerializedName("child_certified")
+    val childCertified: Any?,
+    @SerializedName("baby_seat")
+    val babySeat: Any?,
+    @SerializedName("booster_seat")
+    val boosterSeat: Any?,
+    @SerializedName("pet_friendly")
+    val petFriendly: Any?,
+    @SerializedName("handicap")
+    val handicap: Any?,
+    @SerializedName("vehicle_type")
+    val vehicleType: Int,
+    @SerializedName("vehicle_id")
+    val vehicleId: Int,
+    @SerializedName("driver_id")
+    val driverId: Int,
+    @SerializedName("payment_id")
+    val paymentId: Any?,
+    @SerializedName("quote_amount")
+    val quoteAmount: Any?,
+    @SerializedName("hourly_rate")
+    val hourlyRate: Any?,
+    @SerializedName("number_of_hours")
+    val numberOfHours: Int,
+    @SerializedName("number_of_vehicles")
+    val numberOfVehicles: Int,
+    @SerializedName("distance")
+    val distance: String?,
+    @SerializedName("duration")
+    val duration: String?,
+    @SerializedName("amenities")
+    val amenities: Any?,
+    @SerializedName("driver_languages")
+    val driverLanguages: Any?,
+    @SerializedName("driver_dresses")
+    val driverDresses: Any?,
+    @SerializedName("booking_instructions")
+    val bookingInstructions: String?,
+    @SerializedName("accepted_on")
+    val acceptedOn: Any?,
+    @SerializedName("payment_status")
+    val paymentStatus: String,
+    @SerializedName("booking_status")
+    val bookingStatus: String,
+    @SerializedName("charged_amount")
+    val chargedAmount: Any?,
+    @SerializedName("affiliate_charged_amount")
+    val affiliateChargedAmount: Any?,
+    @SerializedName("status_change_flag")
+    val statusChangeFlag: String?,
+    @SerializedName("email_token")
+    val emailToken: String?,
+    @SerializedName("created_by_role")
+    val createdByRole: Any?,
+    @SerializedName("created_by")
+    val createdBy: Any?,
+    @SerializedName("cancellation_reason")
+    val cancellationReason: Any?,
+    @SerializedName("departing_airport_city")
+    val departingAirportCity: String?,
+    @SerializedName("status")
+    val status: String?,
+    @SerializedName("reservation_shares")
+    val reservationShares: Any?,
+    @SerializedName("share_array")
+    val shareArray: ShareArray?,
+    @SerializedName("reminder_before_one_hour")
+    val reminderBeforeOneHour: Any?,
+    @SerializedName("reminder_before_one_day")
+    val reminderBeforeOneDay: Any?,
+    @SerializedName("reminder_email_sent")
+    val reminderEmailSent: Any?,
+    @SerializedName("reminder_sms_sent")
+    val reminderSmsSent: Any?,
+    @SerializedName("cancellation_reminder_sms_sent")
+    val cancellationReminderSmsSent: Any?,
+    @SerializedName("changed_fields")
+    val changedFields: Any?,
+    @SerializedName("booking_related_to")
+    val bookingRelatedTo: Int,
+    @SerializedName("is_transferred")
+    val isTransferred: Int,
+    @SerializedName("waiting_time_in_mins")
+    val waitingTimeInMins: Int,
+    @SerializedName("created_at")
+    val createdAt: Any?,
+    @SerializedName("updated_at")
+    val updatedAt: Any?,
+    @SerializedName("notification_settings")
+    val notificationSettings: Any?,
+    @SerializedName("passenger_name")
+    val passengerName: String,
+    @SerializedName("passenger_cell_isd")
+    val passengerCellIsd: String?,
+    @SerializedName("passenger_cell_country")
+    val passengerCellCountry: String?,
+    @SerializedName("passenger_cell")
+    val passengerCell: String?,
+    @SerializedName("passenger_email")
+    val passengerEmail: String?,
+    @SerializedName("passenger_image")
+    val passengerImage: Any?,
+    @SerializedName("chargedAmenities")
+    val chargedAmenities: Any?,
+    @SerializedName("vehicle_year")
+    val vehicleYear: String?,
+    @SerializedName("vehicle_make")
+    val vehicleMake: String?,
+    @SerializedName("vehicle_model")
+    val vehicleModel: String?,
+    @SerializedName("vehicle_color")
+    val vehicleColor: String?,
+    @SerializedName("vehicle_license_plate")
+    val vehicleLicensePlate: String?,
+    @SerializedName("vehicle_seats")
+    val vehicleSeats: Int,
+    @SerializedName("driver_name")
+    val driverName: String?,
+    @SerializedName("driver_gender")
+    val driverGender: Any?,
+    @SerializedName("driver_cell_isd")
+    val driverCellIsd: String?,
+    @SerializedName("driver_cell_country")
+    val driverCellCountry: Any?,
+    @SerializedName("driver_cell")
+    val driverCell: String?,
+    @SerializedName("driver_email")
+    val driverEmail: String?,
+    @SerializedName("driver_phone_type")
+    val driverPhoneType: Any?,
+    @SerializedName("driver_veteran")
+    val driverVeteran: String?,
+    @SerializedName("driver_dod")
+    val driverDod: String?,
+    @SerializedName("driver_foid_card")
+    val driverFoidCard: Any?,
+    @SerializedName("driver_ex_law_officer")
+    val driverExLawOfficer: Any?,
+    @SerializedName("driver_background_certified")
+    val driverBackgroundCertified: Any?,
+    @SerializedName("vehicle_image_id")
+    val vehicleImageId: Any?,
+    @SerializedName("driver_image_id")
+    val driverImageId: Any?,
+    @SerializedName("lose_affiliate_name")
+    val loseAffiliateName: Any?,
+    @SerializedName("lose_affiliate_phone_isd")
+    val loseAffiliatePhoneIsd: Any?,
+    @SerializedName("lose_affiliate_phone_country")
+    val loseAffiliatePhoneCountry: Any?,
+    @SerializedName("lose_affiliate_phone")
+    val loseAffiliatePhone: Any?,
+    @SerializedName("lose_affiliate_email")
+    val loseAffiliateEmail: Any?,
+    @SerializedName("grand_total")
+    val grandTotal: Double,
+    @SerializedName("total_amount_refunded")
+    val totalAmountRefunded: Any?,
+    @SerializedName("name")
+    val name: Any?,
+    @SerializedName("operator_name")
+    val operatorName: Any?,
+    @SerializedName("phone_isd")
+    val phoneIsd: Any?,
+    @SerializedName("phone_country")
+    val phoneCountry: Any?,
+    @SerializedName("phone")
+    val phone: Any?,
+    @SerializedName("work_phone")
+    val workPhone: Any?,
+    @SerializedName("work_isd")
+    val workIsd: Any?,
+    @SerializedName("work_country")
+    val workCountry: Any?,
+    @SerializedName("language")
+    val language: Any?,
+    @SerializedName("city")
+    val city: Any?,
+    @SerializedName("badge_city")
+    val badgeCity: Any?,
+    @SerializedName("email")
+    val email: Any?,
+    @SerializedName("soft_delete")
+    val softDelete: Any?,
+    @SerializedName("pickup_airport_name")
+    val pickupAirportName: String?,
+    @SerializedName("dropoff_airport_name")
+    val dropoffAirportName: String?,
+    @SerializedName("pickup_airline_name")
+    val pickupAirlineName: String?,
+    @SerializedName("dropoff_airline_name")
+    val dropoffAirlineName: String?,
+    @SerializedName("dropoff_airport_latitude")
+    val dropoffAirportLatitude: Double,
+    @SerializedName("dropoff_airport_longitude")
+    val dropoffAirportLongitude: Double,
+    @SerializedName("affiliate_type")
+    val affiliateType: String?,
+    @SerializedName("meet_greet_choice_name")
+    val meetGreetChoiceName: String?,
+    @SerializedName("return_meet_greet_choice_name")
+    val returnMeetGreetChoiceName: Any?,
+    @SerializedName("currency_symbol")
+    val currencySymbol: String,
+    @SerializedName("affiliate_name")
+    val affiliateName: String?,
+    @SerializedName("affiliate_phone_isd")
+    val affiliatePhoneIsd: String?,
+    @SerializedName("affiliate_phone_country")
+    val affiliatePhoneCountry: String?,
+    @SerializedName("affiliate_phone")
+    val affiliatePhone: String?,
+    @SerializedName("affiliate_email")
+    val affiliateEmail: String?,
+    @SerializedName("vehicle_type_name")
+    val vehicleTypeName: String?,
+    @SerializedName("rates_preview")
+    val ratesPreview: RatesPreview?
+)
+
+data class AffiliateExtraStop(
+    @SerializedName("address")
+    val address: String,
+    @SerializedName("booking_instructions")
+    val bookingInstructions: String,
+    @SerializedName("latitude")
+    val latitude: String,
+    @SerializedName("longitude")
+    val longitude: String,
+    @SerializedName("rate")
+    val rate: String
+)
+
+data class ShareArray(
+    @SerializedName("adminShare")
+    val adminShare: String,
+    @SerializedName("affiliateShare")
+    val affiliateShare: String,
+    @SerializedName("baseRate")
+    val baseRate: String,
+    @SerializedName("deducted_admin_share")
+    val deductedAdminShare: String,
+    @SerializedName("farmoutShare")
+    val farmoutShare: String,
+    @SerializedName("grandTotal")
+    val grandTotal: String,
+    @SerializedName("stripeFee")
+    val stripeFee: String,
+    @SerializedName("travelAgentShare")
+    val travelAgentShare: String
+)
+
+data class RatesPreview(
+    @SerializedName("adminShare")
+    val adminShare: String,
+    @SerializedName("affiliateShare")
+    val affiliateShare: String,
+    @SerializedName("baseRate")
+    val baseRate: String,
+    @SerializedName("deducted_admin_share")
+    val deductedAdminShare: String,
+    @SerializedName("farmoutShare")
+    val farmoutShare: String,
+    @SerializedName("grandTotal")
+    val grandTotal: String,
+    @SerializedName("stripeFee")
+    val stripeFee: String,
+    @SerializedName("travelAgentShare")
+    val travelAgentShare: String
+)
+
 // ==================== Admin Booking Preview (Accept/Reject + Preview screen) ====================
 
 data class AdminBookingPreviewExtraStop(
@@ -1249,6 +1647,8 @@ data class AdminBookingPreviewData(
     val cruiseTime: String? = null,
     @SerializedName("booking_instructions")
     val bookingInstructions: String? = null,
+    @SerializedName("meet_greet_choices")
+    val meetGreetChoices: Int? = null,
     @SerializedName("meet_greet_choice_name")
     val meetGreetChoiceName: String? = null,
     @SerializedName("vehicle_type_name")
@@ -1777,5 +2177,78 @@ data class BookingStatusData(
     val status: String? = null,
     @SerializedName("booking_id")
     val bookingId: Int? = null
+)
+
+// ==================== User Notifications ====================
+
+/**
+ * Response model for user notifications API (/api/notifications/user/{userId})
+ * Matches iOS NotificationResponse structure
+ */
+data class NotificationResponseData(
+    @SerializedName("notifications")
+    val notifications: List<NotificationItemData>? = null,
+    @SerializedName("pagination")
+    val pagination: NotificationPaginationData? = null
+)
+
+/**
+ * Individual notification item
+ * Matches iOS NotificationItem structure
+ */
+data class NotificationItemData(
+    @SerializedName("id")
+    val id: String,
+    @SerializedName("user_id")
+    val userId: String,
+    @SerializedName("topic_id")
+    val topicId: String? = null,
+    @SerializedName("title")
+    val title: String,
+    @SerializedName("message")
+    val message: String,
+    @SerializedName("data")
+    val data: Map<String, String> = emptyMap(),
+    @SerializedName("type")
+    val type: String,
+    @SerializedName("priority")
+    val priority: String,
+    @SerializedName("status")
+    val status: String,
+    @SerializedName("channel")
+    val channel: List<String> = emptyList(),
+    @SerializedName("sent_at")
+    val sentAt: String,
+    @SerializedName("delivered_at")
+    val deliveredAt: String? = null,
+    @SerializedName("created_at")
+    val createdAt: String,
+    @SerializedName("updated_at")
+    val updatedAt: String,
+    @SerializedName("expires_at")
+    val expiresAt: String? = null,
+    @SerializedName("retry_count")
+    val retryCount: Int,
+    @SerializedName("max_retries")
+    val maxRetries: Int,
+    @SerializedName("original_user_id")
+    val originalUserId: String,
+    @SerializedName("topic_name")
+    val topicName: String? = null
+)
+
+/**
+ * Pagination data for notifications
+ * Matches iOS NotificationPagination structure
+ */
+data class NotificationPaginationData(
+    @SerializedName("page")
+    val page: Int,
+    @SerializedName("limit")
+    val limit: Int,
+    @SerializedName("total")
+    val total: Int,
+    @SerializedName("totalPages")
+    val totalPages: Int
 )
 

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -44,6 +44,7 @@ import com.limo1800driver.app.ui.components.RegistrationTopBar
 import com.limo1800driver.app.ui.components.ShimmerBox
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.components.ErrorAlertDialog
+import com.limo1800driver.app.ui.components.FullScreenImagePreview
 import com.limo1800driver.app.ui.components.camera.DocumentCameraScreen
 import com.limo1800driver.app.ui.components.camera.DocumentSide
 import com.limo1800driver.app.ui.components.camera.DocumentType
@@ -91,12 +92,15 @@ fun DriverLicenseFormScreen(
     var backImage by remember { mutableStateOf<Bitmap?>(null) }
     var frontImageId by remember { mutableStateOf<Int?>(null) }
     var backImageId by remember { mutableStateOf<Int?>(null) }
+    var frontImageUrl by remember { mutableStateOf<String?>(null) }
+    var backImageUrl by remember { mutableStateOf<String?>(null) }
     var isUploadingFront by remember { mutableStateOf(false) }
     var isUploadingBack by remember { mutableStateOf(false) }
 
     // Certification State
     val certificationImages = remember { mutableStateMapOf<CertificationType, Bitmap?>() }
     val certificationImageIds = remember { mutableStateMapOf<CertificationType, Int?>() }
+    val certificationImageUrls = remember { mutableStateMapOf<CertificationType, String?>() }
     val certificationUploading = remember {
         mutableStateMapOf<CertificationType, Boolean>().apply {
             CertificationType.values().forEach { put(it, false) }
@@ -113,6 +117,11 @@ fun DriverLicenseFormScreen(
     var activeSide by remember { mutableStateOf(DocumentSide.FRONT) }
     var activeDocumentType by remember { mutableStateOf(DocumentType.DRIVING_LICENSE) }
     var activeCertification by remember { mutableStateOf<CertificationType?>(null) }
+
+    // Image Preview State
+    var showImagePreview by remember { mutableStateOf(false) }
+    var previewImageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var previewImageUrl by remember { mutableStateOf<String?>(null) }
 
     // Error handling
     var showErrorDialog by remember { mutableStateOf(false) }
@@ -155,12 +164,14 @@ fun DriverLicenseFormScreen(
             prefill.licenseNumber?.let { licenseNumber = it.uppercase() }
             prefill.licenceFrontPhoto?.let { photo ->
                 frontImageId = photo.id
+                frontImageUrl = photo.url
                 photo.url?.let { url ->
                     loadBitmapFromUrl(url)?.let { frontImage = it }
                 }
             }
             prefill.licenceBackPhoto?.let { photo ->
                 backImageId = photo.id
+                backImageUrl = photo.url
                 photo.url?.let { url ->
                     loadBitmapFromUrl(url)?.let { backImage = it }
                 }
@@ -171,6 +182,7 @@ fun DriverLicenseFormScreen(
                     if (imageData?.id != null) {
                         selectedCertifications[cert] = true
                         certificationImageIds[cert] = imageData.id
+                        certificationImageUrls[cert] = imageData.url
                         android.util.Log.d("DrivingLicenseScreen", "Prefilled ${cert.displayName} with ID: ${imageData.id}")
                         imageData.url?.let { url ->
                             loadBitmapFromUrl(url)?.let { certificationImages[cert] = it }
@@ -272,8 +284,7 @@ fun DriverLicenseFormScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .padding(horizontal = 20.dp)
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -323,9 +334,11 @@ fun DriverLicenseFormScreen(
                     lineHeight = 32.sp
                 )
 
+                Spacer(modifier = Modifier.height(24.dp))
+
                 // License Number Section
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LabelText(text = "LICENSE NUMBER *")
+                    LabelTextWithAsterisk(text = "LICENSE NUMBER")
                     OutlinedTextField(
                         value = licenseNumber,
                         onValueChange = {
@@ -343,6 +356,8 @@ fun DriverLicenseFormScreen(
                             focusedContainerColor = LightGrayBg,
                             disabledContainerColor = LightGrayBg,
                             cursorColor = BrandBlack,
+                            focusedTextColor = BrandBlack,
+                            unfocusedTextColor = BrandBlack,
                             focusedBorderColor = BrandOrange,
                             unfocusedBorderColor = if (licenseNumberError != null) Color(0xFFEF4444) else Color.Transparent,
                             errorBorderColor = Color(0xFFEF4444),
@@ -369,6 +384,8 @@ fun DriverLicenseFormScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(24.dp))
+
                 // Upload Section
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
@@ -384,7 +401,8 @@ fun DriverLicenseFormScreen(
                     ) {
                         // Front Side
                         UploadCard(
-                            label = "FRONT SIDE *",
+                            label = "FRONT SIDE",
+                            isRequired = true,
                             bitmap = frontImage,
                             isUploading = isUploadingFront,
                             isError = frontImageError != null,
@@ -394,7 +412,14 @@ fun DriverLicenseFormScreen(
                                 activeSide = DocumentSide.FRONT
                                 showCamera = true
                                 apiError = null
-                            }
+                            },
+                            onImageClick = if (frontImage != null || frontImageUrl != null) {
+                                {
+                                    previewImageBitmap = frontImage
+                                    previewImageUrl = frontImageUrl
+                                    showImagePreview = true
+                                }
+                            } else null
                         )
 
                         // Front Image Error Message
@@ -420,10 +445,19 @@ fun DriverLicenseFormScreen(
                                 activeDocumentType = DocumentType.DRIVING_LICENSE
                                 activeSide = DocumentSide.BACK
                                 showCamera = true
-                            }
+                            },
+                            onImageClick = if (backImage != null || backImageUrl != null) {
+                                {
+                                    previewImageBitmap = backImage
+                                    previewImageUrl = backImageUrl
+                                    showImagePreview = true
+                                }
+                            } else null
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // --- Additional Certifications Section ---
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -463,20 +497,63 @@ fun DriverLicenseFormScreen(
 
                     if (selectedCertifications.values.any { it }) {
                         Spacer(modifier = Modifier.height(8.dp))
+                        // Display certification cards in rows of 2
+                        val selectedCerts = selectedCertifications.filter { it.value }.keys.toList()
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            selectedCertifications.filter { it.value }.keys.forEach { cert ->
-                                UploadCard(
-                                    label = "${cert.displayName.uppercase()} (OPTIONAL)",
-                                    bitmap = certificationImages[cert],
-                                    isUploading = certificationUploading[cert] == true,
+                            for (i in selectedCerts.indices step 2) {
+                                Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    onAddClick = {
-                                        activeDocumentType = DocumentType.CERTIFICATION
-                                        activeCertification = cert
-                                        activeSide = DocumentSide.FRONT
-                                        showCamera = true
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    // Left card
+                                    val cert1 = selectedCerts[i]
+                                    UploadCard(
+                                        label = "${cert1.displayName.uppercase()} (OPTIONAL)",
+                                        bitmap = certificationImages[cert1],
+                                        isUploading = certificationUploading[cert1] == true,
+                                        modifier = Modifier.weight(1f),
+                                        onAddClick = {
+                                            activeDocumentType = DocumentType.CERTIFICATION
+                                            activeCertification = cert1
+                                            activeSide = DocumentSide.FRONT
+                                            showCamera = true
+                                        },
+                                        onImageClick = if (certificationImages[cert1] != null || certificationImageUrls[cert1] != null) {
+                                            {
+                                                previewImageBitmap = certificationImages[cert1]
+                                                previewImageUrl = certificationImageUrls[cert1]
+                                                showImagePreview = true
+                                            }
+                                        } else null
+                                    )
+
+                                    // Right card (if exists)
+                                    if (i + 1 < selectedCerts.size) {
+                                        val cert2 = selectedCerts[i + 1]
+                                        UploadCard(
+                                            label = "${cert2.displayName.uppercase()} (OPTIONAL)",
+                                            bitmap = certificationImages[cert2],
+                                            isUploading = certificationUploading[cert2] == true,
+                                            modifier = Modifier.weight(1f),
+                                            onAddClick = {
+                                                activeDocumentType = DocumentType.CERTIFICATION
+                                                activeCertification = cert2
+                                                activeSide = DocumentSide.FRONT
+                                                showCamera = true
+                                            },
+                                            onImageClick = if (certificationImages[cert2] != null || certificationImageUrls[cert2] != null) {
+                                                {
+                                                    previewImageBitmap = certificationImages[cert2]
+                                                    previewImageUrl = certificationImageUrls[cert2]
+                                                    showImagePreview = true
+                                                }
+                                            } else null
+                                        )
+                                    } else {
+                                        // Empty spacer to maintain alignment
+                                        Spacer(modifier = Modifier.weight(1f))
                                     }
-                                )
+                                }
                             }
                         }
                     }
@@ -624,6 +701,19 @@ fun DriverLicenseFormScreen(
         }
     }
 
+    // Full Screen Image Preview
+    FullScreenImagePreview(
+        isVisible = showImagePreview,
+        onDismiss = {
+            showImagePreview = false
+            previewImageBitmap = null
+            previewImageUrl = null
+        },
+        imageBitmap = previewImageBitmap,
+        imageUrl = previewImageUrl,
+        contentDescription = "Full screen image preview"
+    )
+
     // Error Dialog
     ErrorAlertDialog(
         isVisible = showErrorDialog,
@@ -663,6 +753,28 @@ fun LabelText(text: String) {
 }
 
 @Composable
+fun LabelTextWithAsterisk(text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextGray,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp
+        )
+        Text(
+            text = " *",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFFEF4444),
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp
+        )
+    }
+}
+
+@Composable
 fun DropdownSelector(
     text: String,
     modifier: Modifier = Modifier,
@@ -698,8 +810,10 @@ fun UploadCard(
     bitmap: Bitmap?,
     isUploading: Boolean = false,
     isError: Boolean = false,
+    isRequired: Boolean = false,
     modifier: Modifier = Modifier,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onImageClick: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier,
@@ -707,13 +821,25 @@ fun UploadCard(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Label
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = TextGray,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextGray,
+                fontWeight = FontWeight.Bold
+            )
+            if (isRequired) {
+                Text(
+                    text = " *",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Red,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
 
         // Card Image Container
         Box(
@@ -726,6 +852,13 @@ fun UploadCard(
                     width = 1.dp,
                     color = if (isError) Color(0xFFEF4444) else Color.LightGray.copy(alpha = 0.3f),
                     shape = RoundedCornerShape(12.dp)
+                )
+                .then(
+                    if (bitmap != null && onImageClick != null) {
+                        Modifier.clickable { onImageClick() }
+                    } else {
+                        Modifier
+                    }
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -759,7 +892,12 @@ fun UploadCard(
         // Black Pill "Add" Button
         Button(
             onClick = onAddClick,
-            colors = ButtonDefaults.buttonColors(containerColor = BrandBlack),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = BrandBlack,
+                contentColor = Color.White,
+                disabledContainerColor = BrandBlack.copy(alpha = 0.5f),
+                disabledContentColor = Color.White
+            ),
             shape = CircleShape,
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 0.dp),
             modifier = Modifier.height(40.dp)
@@ -774,7 +912,8 @@ fun UploadCard(
             Text(
                 text = if (bitmap == null) "Add" else "Retake",
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                color = Color.White
             )
         }
     }
@@ -810,7 +949,7 @@ private fun CertificationChip(
             )
             if (isSelected) {
                 Icon(
-                    painter = painterResource(id = android.R.drawable.checkbox_on_background),
+                    imageVector = Icons.Default.Check,
                     contentDescription = null,
                     tint = BrandOrange,
                     modifier = Modifier.size(20.dp)

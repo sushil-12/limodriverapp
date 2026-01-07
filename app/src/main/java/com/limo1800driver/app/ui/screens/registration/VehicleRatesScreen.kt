@@ -536,15 +536,15 @@ private fun BaseRatesStep(
         isRequired = false
     )
 
-    Spacer(modifier = Modifier.height(16.dp))
-    CommonDropdown(
-        label = "HOLIDAY SURGE RATE",
-        placeholder = "Select",
-        selectedValue = state.holidaySurge,
-        options = state.surgeOptions,
-        onValueSelected = { vm.onEvent(RateEvent.SetField("holidaySurge", it)) },
-        isRequired = false
-    )
+//    Spacer(modifier = Modifier.height(16.dp))
+//    CommonDropdown(
+//        label = "HOLIDAY SURGE RATE",
+//        placeholder = "Select",
+//        selectedValue = state.holidaySurge,
+//        options = state.surgeOptions,
+//        onValueSelected = { vm.onEvent(RateEvent.SetField("holidaySurge", it)) },
+//        isRequired = false
+//    )
 
     Spacer(modifier = Modifier.height(16.dp))
     CommonDropdown(

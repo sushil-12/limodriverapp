@@ -41,7 +41,7 @@ class PhoneEntryViewModel @Inject constructor(
                 handlePhoneNumberChanged(event.phoneNumber)
             }
             is PhoneEntryUiEvent.CountryCodeChanged -> {
-                handleCountryCodeChanged(event.countryCode)
+                handleCountryCodeChanged(event.countryCode, event.phoneLength)
             }
             is PhoneEntryUiEvent.SendVerificationCode -> {
                 sendVerificationCode()
@@ -65,9 +65,11 @@ class PhoneEntryViewModel @Inject constructor(
 
         // Smart validation: only validate if user has started entering digits
         val validationResult = if (rawNumber.isNotEmpty()) {
+            // Use the stored phoneLength from Country model, not CountryCode enum
             phoneValidationService.validatePhoneNumber(
                 rawNumber,
-                _uiState.value.selectedCountryCode
+                _uiState.value.selectedCountryCode,
+                _uiState.value.phoneLength
             )
         } else {
             ValidationResult.Success // Don't show error for empty input
@@ -81,8 +83,8 @@ class PhoneEntryViewModel @Inject constructor(
                 // Always show format/validation errors
                 errorMessage.contains("Invalid", ignoreCase = true) ||
                 // Show length errors only when user has entered enough digits or too many
-                (rawNumber.length >= _uiState.value.selectedCountryCode.phoneLength ||
-                 rawNumber.length > _uiState.value.selectedCountryCode.phoneLength)
+                (rawNumber.length >= _uiState.value.phoneLength ||
+                 rawNumber.length > _uiState.value.phoneLength)
             }
             else -> false
         }
@@ -100,15 +102,17 @@ class PhoneEntryViewModel @Inject constructor(
     /**
      * Handle country code changes
      */
-    private fun handleCountryCodeChanged(countryCode: CountryCode) {
+    private fun handleCountryCodeChanged(countryCode: CountryCode, phoneLength: Int) {
         val currentRawPhoneNumber = _uiState.value.rawPhoneNumber
         val validationResult = phoneValidationService.validatePhoneNumber(
             currentRawPhoneNumber, 
-            countryCode
+            countryCode,
+            phoneLength
         )
         
         _uiState.value = _uiState.value.copy(
             selectedCountryCode = countryCode,
+            phoneLength = phoneLength,
             isFormValid = validationResult is ValidationResult.Success,
             error = if (validationResult is ValidationResult.Error) validationResult.message else null
         )
@@ -123,7 +127,8 @@ class PhoneEntryViewModel @Inject constructor(
         // Re-validate before submission to show any final errors
         val finalValidation = phoneValidationService.validatePhoneNumber(
             currentState.rawPhoneNumber,
-            currentState.selectedCountryCode
+            currentState.selectedCountryCode,
+            currentState.phoneLength
         )
         
         if (finalValidation is ValidationResult.Error) {
