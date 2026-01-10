@@ -1,5 +1,6 @@
 package com.limo1800driver.app.ui.screens.registration
 
+import android.util.Log
 import android.util.Patterns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,6 +47,8 @@ import com.limo1800driver.app.ui.components.LocationAutocomplete
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.BasicInfoViewModel
+import kotlinx.coroutines.delay
+import timber.log.Timber
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,6 +63,7 @@ fun BasicInfoScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // Focus requesters
     val affiliateFocusRequester = remember { FocusRequester() }
@@ -174,6 +180,7 @@ fun BasicInfoScreen(
     // Prefill Logic
     LaunchedEffect(uiState.prefillData) {
         uiState.prefillData?.let { prefill ->
+            Log.d("BasicInfoScreen", "Prefill data received, filling form fields")
             if (affiliateType == null && !prefill.affiliateType.isNullOrEmpty()) {
                 affiliateApiValues.entries.find { it.value == prefill.affiliateType }?.let {
                     affiliateType = it.key
@@ -208,14 +215,52 @@ fun BasicInfoScreen(
             if (driverYear == null && !prefill.firstYearBusiness.isNullOrEmpty()) {
                 driverYear = prefill.firstYearBusiness
             }
+            Log.d("BasicInfoScreen", "Prefill complete - ensuring keyboard stays hidden")
+            // Ensure keyboard stays hidden after prefill
+            focusManager.clearFocus()
+            keyboardController?.hide()
         }
     }
 
     // Initial Data Fetch
     LaunchedEffect(Unit) {  
+        Log.d("BasicInfoScreen", "Screen loaded - LaunchedEffect(Unit) triggered")
         // Reset success state when screen loads (important for back navigation)
         viewModel.resetSuccessState()
         viewModel.fetchBasicInfoStep()
+        // Ensure keyboard is hidden when screen loads
+        Log.d("BasicInfoScreen", "Clearing focus and hiding keyboard on screen load")
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        Log.d("BasicInfoScreen", "Keyboard hide requested in LaunchedEffect")
+    }
+
+    // Ensure keyboard stays hidden when screen is visible
+    DisposableEffect(Unit) {
+        Log.d("BasicInfoScreen", "DisposableEffect(Unit) - Screen composed, hiding keyboard")
+        // Hide keyboard when screen appears
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        Log.d("BasicInfoScreen", "Keyboard hide requested in DisposableEffect")
+        onDispose {
+            Log.d("BasicInfoScreen", "DisposableEffect onDispose - Screen disposed, hiding keyboard")
+            // Hide keyboard when leaving screen
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            Log.d("BasicInfoScreen", "Keyboard hidden in onDispose")
+        }
+    }
+
+    // Additional keyboard hiding after a short delay to catch any late focus requests
+    LaunchedEffect(Unit) {
+        delay(100)
+        Timber.tag("BasicInfoScreen").d("Delayed keyboard hide check (100ms after load)")
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        delay(200)
+        Timber.tag("BasicInfoScreen").d("Second delayed keyboard hide check (300ms after load)")
+        focusManager.clearFocus()
+        keyboardController?.hide()
     }
 
     // Success Navigation - Only for API completion calls (when step wasn't already completed)
@@ -276,11 +321,17 @@ fun BasicInfoScreen(
         apiError = null
     }
 
+    // Debug: Track if keyboard controller is available
+    LaunchedEffect(keyboardController) {
+        Log.d("BasicInfoScreen", "KeyboardController available: ${keyboardController != null}")
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .windowInsetsPadding(WindowInsets.safeDrawing)
+            // Use only system bars, exclude IME to prevent keyboard space when hidden
+            .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 

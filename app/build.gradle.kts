@@ -163,6 +163,9 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.0")
     implementation("androidx.camera:camera-extensions:1.4.0")
 
+    //phone services
+    implementation("com.googlecode.libphonenumber:libphonenumber:8.13.49")
+
     // Google Services
     implementation("com.google.android.libraries.places:places:3.4.0")
     implementation("com.google.android.gms:play-services-auth:20.7.0")

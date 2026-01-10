@@ -1548,4 +1548,3 @@ data class ResendVerificationEmailResponse(
     @SerializedName("auto_verified")
     val autoVerified: Boolean? = null
 )
-

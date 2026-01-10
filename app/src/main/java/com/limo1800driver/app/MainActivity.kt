@@ -303,18 +303,50 @@ fun DriverAppNavigation(
                     }
                 } else {
                     val registrationState = tokenManager.getDriverRegistrationState()
-                    val nextStep = registrationState?.nextStep ?: tokenManager.getNextStep()
+                    // Get next step with proper fallback and empty string handling
+                    val nextStep = when {
+                        registrationState?.nextStep != null && registrationState.nextStep.isNotBlank() -> {
+                            registrationState.nextStep.trim()
+                        }
+                        registrationState?.currentStep != null && registrationState.currentStep.isNotBlank() -> {
+                            // Fallback to current_step if next_step is not available
+                            registrationState.currentStep.trim()
+                        }
+                        else -> {
+                            // Final fallback to stored next step
+                            tokenManager.getNextStep()?.takeIf { it.isNotBlank() }?.trim()
+                        }
+                    }
+                    
+                    Timber.tag("MainActivity").d("Initial destination determination:")
+                    Timber.tag("MainActivity").d("  - registrationState: $registrationState")
+                    Timber.tag("MainActivity").d("  - nextStep from state: ${registrationState?.nextStep}")
+                    Timber.tag("MainActivity").d("  - currentStep from state: ${registrationState?.currentStep}")
+                    Timber.tag("MainActivity").d("  - nextStep from storage: ${tokenManager.getNextStep()}")
+                    Timber.tag("MainActivity").d("  - final nextStep: $nextStep")
+                    
+                    val profileSteps = setOf("driving_license", "bank_details", "profile_picture")
                     when {
-                        nextStep == null || nextStep == "dashboard" -> {
+                        nextStep == null || nextStep.isBlank() || nextStep == "dashboard" -> {
                             // Check if welcome screen has been seen
                             val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
-                            if (!hasSeenWelcome) {
+                            val targetRoute = if (!hasSeenWelcome) {
                                 NavRoutes.WelcomeBanner
                             } else {
                                 NavRoutes.Dashboard
                             }
+                            Timber.tag("MainActivity").d("Navigating to: $targetRoute (no valid next step)")
+                            targetRoute
                         }
-                        else -> registrationNavigationState.getRouteForStep(nextStep)
+                        nextStep in profileSteps -> {
+                            Timber.tag("MainActivity").d("Navigating to UserProfileDetails (profile step: $nextStep)")
+                            NavRoutes.UserProfileDetails
+                        }
+                        else -> {
+                            val targetRoute = registrationNavigationState.getRouteForStep(nextStep)
+                            Timber.tag("MainActivity").d("Navigating to registration step: $nextStep -> $targetRoute")
+                            targetRoute
+                        }
                     }
                 }
             }
@@ -343,18 +375,48 @@ fun DriverAppNavigation(
                         NavRoutes.Dashboard
                     }
                 } else {
-                    val finalNextStep = nextStep ?: tokenManager.getDriverRegistrationState()?.nextStep ?: tokenManager.getNextStep()
+                    // Get next step with proper fallback and empty string handling
+                    val registrationState = tokenManager.getDriverRegistrationState()
+                    val finalNextStep = when {
+                        nextStep != null && nextStep.isNotBlank() -> nextStep.trim()
+                        registrationState?.nextStep != null && registrationState.nextStep.isNotBlank() -> {
+                            registrationState.nextStep.trim()
+                        }
+                        registrationState?.currentStep != null && registrationState.currentStep.isNotBlank() -> {
+                            registrationState.currentStep.trim()
+                        }
+                        else -> {
+                            tokenManager.getNextStep()?.takeIf { it.isNotBlank() }?.trim()
+                        }
+                    }
+                    
+                    Timber.tag("MainActivity").d("Sync complete - determining destination:")
+                    Timber.tag("MainActivity").d("  - sync returned nextStep: $nextStep")
+                    Timber.tag("MainActivity").d("  - registrationState: $registrationState")
+                    Timber.tag("MainActivity").d("  - finalNextStep: $finalNextStep")
+                    
+                    val profileSteps = setOf("driving_license", "bank_details", "profile_picture")
                     when {
-                        finalNextStep == null || finalNextStep == "dashboard" -> {
+                        finalNextStep == null || finalNextStep.isBlank() || finalNextStep == "dashboard" -> {
                             // Check if welcome screen has been seen
                             val hasSeenWelcome = tokenManager.hasSeenWelcomeScreen()
-                            if (!hasSeenWelcome) {
+                            val targetRoute = if (!hasSeenWelcome) {
                                 NavRoutes.WelcomeBanner
                             } else {
                                 NavRoutes.Dashboard
                             }
+                            Timber.tag("MainActivity").d("Navigating to: $targetRoute (no valid next step after sync)")
+                            targetRoute
                         }
-                        else -> registrationNavigationState.getRouteForStep(finalNextStep)
+                        finalNextStep in profileSteps -> {
+                            Timber.tag("MainActivity").d("Navigating to UserProfileDetails after sync (profile step: $finalNextStep)")
+                            NavRoutes.UserProfileDetails
+                        }
+                        else -> {
+                            val targetRoute = registrationNavigationState.getRouteForStep(finalNextStep)
+                            Timber.tag("MainActivity").d("Navigating to registration step after sync: $finalNextStep -> $targetRoute")
+                            targetRoute
+                        }
                     }
                 }
                 

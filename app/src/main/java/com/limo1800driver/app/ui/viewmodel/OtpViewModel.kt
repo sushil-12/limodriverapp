@@ -89,7 +89,9 @@ class OtpViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             otp = cleanOtp, // Store clean OTP without spaces
             isFormValid = validationResult is ValidationResult.Success,
-            error = if (validationResult is ValidationResult.Error) validationResult.message else null
+            error = if (validationResult is ValidationResult.Error) validationResult.message else null,
+            success = false, // Reset success state when OTP changes
+            message = null // Clear message when user starts typing
         )
     }
 
@@ -115,8 +117,24 @@ class OtpViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { response ->
                         if (response.success && response.data != null) {
+                            // Log the full response for debugging
+                            // Check both locations: top-level and inside user object
+                            val registrationState = response.data.driverRegistrationState 
+                                ?: response.data.user.driverRegistrationState
+                            
+                            Timber.tag("OtpVM").d("OTP verification response received:")
+                            Timber.tag("OtpVM").d("  - driverRegistrationState (top-level): ${response.data.driverRegistrationState}")
+                            Timber.tag("OtpVM").d("  - driverRegistrationState (user-level): ${response.data.user.driverRegistrationState}")
+                            Timber.tag("OtpVM").d("  - final driverRegistrationState: $registrationState")
+                            registrationState?.let { state ->
+                                Timber.tag("OtpVM").d("  - current_step: ${state.currentStep}")
+                                Timber.tag("OtpVM").d("  - next_step: ${state.nextStep}")
+                                Timber.tag("OtpVM").d("  - is_completed: ${state.isCompleted}")
+                                Timber.tag("OtpVM").d("  - progress_percentage: ${state.progressPercentage}")
+                            }
+                            
                             // Determine next action based on registration state
-                            val nextAction = determineNextAction(response.data.driverRegistrationState)
+                            val nextAction = determineNextAction(registrationState)
                             
                             _uiState.value = currentState.copy(
                                 isLoading = false,
@@ -124,8 +142,9 @@ class OtpViewModel @Inject constructor(
                                 message = "OTP verified successfully",
                                 nextAction = nextAction
                             )
-                            Timber.tag("OtpVM").d("OTP verified successfully, next action: $nextAction")
+                            Timber.tag("OtpVM").d("OTP verified successfully, navigating to: $nextAction")
                         } else {
+                            Timber.tag("OtpVM").w("OTP verification failed: ${response.message}")
                             _uiState.value = currentState.copy(
                                 isLoading = false,
                                 error = response.message
@@ -156,25 +175,61 @@ class OtpViewModel @Inject constructor(
 
     /**
      * Determine next action based on registration state
+     * Optimized to properly handle next_step from API response
      */
     private fun determineNextAction(driverRegistrationState: com.limo1800driver.app.data.model.auth.DriverRegistrationState?): String {
+        Timber.tag("OtpVM").d("Determining next action from registration state: $driverRegistrationState")
+        
         return when {
-            driverRegistrationState == null -> "basic_info" // Start registration
-            driverRegistrationState.isCompleted -> "dashboard" // Registration complete
-            driverRegistrationState.nextStep != null -> driverRegistrationState.nextStep // Use next step from API
-            else -> "basic_info" // Default fallback
+            // If no registration state, start from basic_info
+            driverRegistrationState == null -> {
+                Timber.tag("OtpVM").d("No registration state, defaulting to basic_info")
+                "basic_info"
+            }
+            
+            // If registration is completed, go to dashboard
+            driverRegistrationState.isCompleted -> {
+                Timber.tag("OtpVM").d("Registration completed, navigating to dashboard")
+                "dashboard"
+            }
+            
+            // Priority: Use next_step from API if it's not null or empty
+            driverRegistrationState.nextStep != null && driverRegistrationState.nextStep.isNotBlank() -> {
+                val nextStep = driverRegistrationState.nextStep.trim()
+                Timber.tag("OtpVM").d("Using next_step from API: $nextStep (current_step: ${driverRegistrationState.currentStep})")
+                nextStep
+            }
+            
+            // Fallback: Use current_step if next_step is not available
+            driverRegistrationState.currentStep.isNotBlank() -> {
+                val currentStep = driverRegistrationState.currentStep.trim()
+                Timber.tag("OtpVM").d("next_step not available, using current_step: $currentStep")
+                currentStep
+            }
+            
+            // Final fallback: Start from basic_info
+            else -> {
+                Timber.tag("OtpVM").d("No valid step found, defaulting to basic_info")
+                "basic_info"
+            }
         }
     }
 
     /**
      * Resend OTP
+     * Note: UI manages its own cooldown timer, so we don't check canResend here
      */
     private fun resendOtp() {
         val currentState = _uiState.value
-        if (!currentState.canResend) return
 
         viewModelScope.launch {
-            _uiState.value = currentState.copy(isLoading = true, error = null)
+            _uiState.value = currentState.copy(
+                isLoading = true,
+                error = null,
+                otp = "", // Clear the old OTP when resending
+                isFormValid = false,
+                success = false // Reset success state
+            )
             
             try {
                 Timber.tag("OtpVM").d("Resending OTP for temp_user_id: ${currentState.tempUserId}")
@@ -183,16 +238,16 @@ class OtpViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { response ->
                         if (response.success) {
-                            _uiState.value = currentState.copy(
+                            _uiState.value = _uiState.value.copy(
                                 isLoading = false,
-                                success = true,
-                                message = "OTP resent successfully",
+                                success = false, // Don't set success=true for resend, just show message
+                                message = "OTP resent successfully. Please enter the new code.",
                                 resendCooldown = response.data?.cooldownRemaining ?: 60
                             )
                             startResendCooldown()
                             Timber.tag("OtpVM").d("OTP resent successfully")
                         } else {
-                            _uiState.value = currentState.copy(
+                            _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 error = response.message
                             )
@@ -204,18 +259,19 @@ class OtpViewModel @Inject constructor(
                         // Check if this is a rate limit error and start cooldown
                         val isRateLimitError = errorMessage.contains("wait", ignoreCase = true) ||
                                               errorMessage.contains("60 seconds", ignoreCase = true) ||
-                                              errorMessage.contains("Too many requests", ignoreCase = true)
+                                              errorMessage.contains("Too many requests", ignoreCase = true) ||
+                                              errorMessage.contains("cooldown", ignoreCase = true)
 
                         if (isRateLimitError) {
                             // Start 60-second cooldown for rate limit errors
-                            _uiState.value = currentState.copy(
+                            _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 error = errorMessage,
                                 resendCooldown = 60
                             )
                             startResendCooldown()
                         } else {
-                            _uiState.value = currentState.copy(
+                            _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 error = errorMessage
                             )
@@ -226,7 +282,7 @@ class OtpViewModel @Inject constructor(
                 )
             } catch (e: Exception) {
                 val errorMessage = errorHandler.handleError(e)
-                _uiState.value = currentState.copy(
+                _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = errorMessage
                 )

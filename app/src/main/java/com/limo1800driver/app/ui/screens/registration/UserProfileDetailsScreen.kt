@@ -16,8 +16,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -65,40 +70,59 @@ fun UserProfileDetailsScreen(
     val canContinue = isDrivingLicenseCompleted && isBankDetailsCompleted && isProfilePictureCompleted
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Color.White,
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             RegistrationTopBar()
         },
         bottomBar = {
-            // MATCHING FIGMA: Custom Bottom Button Container
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 16.dp)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(bottom = 16.dp, top = 16.dp)
+                    .navigationBarsPadding()
+                    .drawBehind {
+                        val shadowHeight = 8.dp.toPx()
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.12f),
+                                    Color.Transparent
+                                ),
+                                startY = 0f,
+                                endY = shadowHeight
+                            ),
+                            size = Size(size.width, shadowHeight)
+                        )
+                    }
+                    .background(Color.White)
             ) {
-                Button(
-                    onClick = onContinue,
-                    enabled = canContinue,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE89148),
-                        contentColor = Color.White,
-                        disabledContainerColor = Color(0xFFE89148).copy(alpha = 0.5f)
-                    ),
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
                 ) {
-                    Text(
-                        text = "Continue",
-                        style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
+                    Button(
+                        onClick = onContinue,
+                        enabled = canContinue,
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = ButtonDefaults.buttonElevation(0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE89148),
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFA9A9A9),
+                            disabledContentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    ) {
+                        Text(
+                            text = "Continue",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -117,7 +141,7 @@ fun UserProfileDetailsScreen(
                     text = "Signing up for",
                     style = TextStyle(
                         fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color.Gray
                     )
                 )
                 Row(
@@ -129,7 +153,7 @@ fun UserProfileDetailsScreen(
                         style = TextStyle(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = Color.Black
                         ),
                         maxLines = 1
                     )
@@ -139,7 +163,7 @@ fun UserProfileDetailsScreen(
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 16.dp),
                 thickness = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant
+                color = Color(0xFFEEEEEE)
             )
 
             // --- Welcome Title ---
@@ -148,7 +172,7 @@ fun UserProfileDetailsScreen(
                 style = TextStyle(
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color.Black
                 )
             )
 
@@ -166,7 +190,7 @@ fun UserProfileDetailsScreen(
                             .weight(1f)
                             .height(6.dp)
                             .background(
-                                color = if (isCompleted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                color = if (isCompleted) Color(0xFF2E7D32) else Color(0xFFE0E0E0),
                                 shape = RoundedCornerShape(100.dp)
                             )
                     )
@@ -188,7 +212,7 @@ fun UserProfileDetailsScreen(
                     onClick = { onNavigateToStep(NavRoutes.DrivingLicense) }
                 )
 
-                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = Color(0xFFF5F5F5))
 
                 // Bank Details
                 StepRow(
@@ -198,7 +222,7 @@ fun UserProfileDetailsScreen(
                     onClick = { onNavigateToStep(NavRoutes.BankDetails) }
                 )
 
-                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = Color(0xFFF5F5F5))
 
                 // Profile Picture
                 StepRow(
@@ -246,16 +270,16 @@ fun StepRow(
     val interactionSource = remember { MutableInteractionSource() }
 
     // --- DESIGN LOGIC ---
-    val titleColor = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+    val titleColor = if (enabled) Color.Black else Color.Gray
 
     val statusColor = if (enabled) {
-        if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        if (isCompleted) Color(0xFF2E7D32) else Color.Gray
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        Color.LightGray
     }
 
     val statusText = if (isCompleted) "Completed" else "Pending"
-    val iconTint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    val iconTint = if (enabled) Color.LightGray else Color.LightGray.copy(alpha = 0.4f)
 
     Row(
         modifier = Modifier

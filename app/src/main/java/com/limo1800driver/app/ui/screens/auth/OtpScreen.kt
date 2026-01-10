@@ -1,5 +1,6 @@
 package com.limo1800driver.app.ui.screens.auth
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -28,7 +30,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.limo1800driver.app.ui.components.ErrorAlertDialog
 import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.state.OtpUiEvent
 import com.limo1800driver.app.ui.theme.GoogleSansFamily
@@ -51,18 +52,20 @@ fun OtpScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
 
-    // OTP
+    // OTP - sync with ViewModel state
     var otpValue by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-
-    // Error dialog
-    var showErrorDialog by remember { mutableStateOf(false) }
-    var errorDialogTitle by remember { mutableStateOf("") }
-    var errorDialogMessage by remember { mutableStateOf("") }
 
     // 🔹 RESEND TIMER STATE
     var resendCooldown by remember { mutableIntStateOf(RESEND_INTERVAL_SECONDS) }
     var canResend by remember { mutableStateOf(false) }
+
+    // Sync OTP value with ViewModel state (clears when resend succeeds)
+    LaunchedEffect(uiState.otp) {
+        if (uiState.otp.isEmpty() && otpValue.isNotEmpty()) {
+            otpValue = ""
+        }
+    }
 
     // 🔹 Start resend timer immediately on screen load
     LaunchedEffect(Unit) {
@@ -84,27 +87,48 @@ fun OtpScreen(
 
     LaunchedEffect(uiState.success) {
         if (uiState.success && uiState.nextAction != null) {
+            Log.d("OtpScreen", "OTP verified successfully, preparing to navigate to: ${uiState.nextAction}")
+            // Hide keyboard before navigating - add delay to ensure keyboard fully closes
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            Log.d("OtpScreen", "Keyboard hide requested, waiting 150ms before navigation")
+            // Wait for keyboard to fully close before navigating
+            delay(150)
+            Log.d("OtpScreen", "Navigating to next screen: ${uiState.nextAction}")
             onNext(uiState.nextAction!!)
         }
     }
 
     LaunchedEffect(uiState.error) {
-        uiState.error?.let { error ->
-            errorDialogTitle = "Error"
-            errorDialogMessage = error
-            showErrorDialog = true
+        uiState.error?.let {
             otpValue = ""
             focusRequester.requestFocus()
         }
     }
 
-    // Auto-submit OTP
+    // Handle OTP changes: clear error and auto-submit
     LaunchedEffect(otpValue) {
+        // Clear error when user starts typing
+        if (otpValue.isNotEmpty() && uiState.error != null) {
+            viewModel.onEvent(OtpUiEvent.ClearError)
+        }
+
+        // Auto-submit when OTP is complete
         if (otpValue.length == 6) {
             focusManager.clearFocus()
             keyboardController?.hide()
             viewModel.onEvent(OtpUiEvent.OtpChanged(otpValue))
             viewModel.onEvent(OtpUiEvent.VerifyOtp)
+        }
+    }
+
+    // Hide keyboard when leaving the screen
+    DisposableEffect(Unit) {
+        Log.d("OtpScreen", "OtpScreen composable disposed - hiding keyboard")
+        onDispose {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            Log.d("OtpScreen", "Keyboard hidden in onDispose")
         }
     }
 
@@ -144,12 +168,20 @@ fun OtpScreen(
                 textDecoration = TextDecoration.Underline
             ),
             modifier = Modifier.clickable {
+                // Hide keyboard before going back
+                focusManager.clearFocus()
+                keyboardController?.hide()
                 otpValue = ""
                 onBack?.invoke()
             }
         )
 
         Spacer(Modifier.height(40.dp))
+
+
+
+        // Error message display
+
 
         // OTP Input
         Box(Modifier.fillMaxWidth()) {
@@ -186,10 +218,38 @@ fun OtpScreen(
             "(0:${String.format("%02d", resendCooldown)})"
         } else ""
 
+        // Success message display (for resend)
+        uiState.message?.let { message ->
+            Text(
+                text = message,
+                style = TextStyle(
+                    fontFamily = GoogleSansFamily,
+                    fontSize = 14.sp,
+                    color = Color(0xFF059669),
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+
+        uiState.error?.let { error ->
+            Text(
+                text = error,
+                style = TextStyle(
+                    fontFamily = GoogleSansFamily,
+                    fontSize = 14.sp,
+                    color = Color(0xFFDC2626),
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
         // 🔹 RESEND BUTTON
         Surface(
             onClick = {
-                if (canResend) {
+                if (canResend && !uiState.isLoading) {
+                    // Clear OTP immediately when resend is clicked
+                    otpValue = ""
                     viewModel.onEvent(OtpUiEvent.ResendOtp)
 
                     resendCooldown = RESEND_INTERVAL_SECONDS
@@ -227,13 +287,6 @@ fun OtpScreen(
             }
         }
     }
-
-    ErrorAlertDialog(
-        isVisible = showErrorDialog,
-        onDismiss = { showErrorDialog = false },
-        title = errorDialogTitle,
-        message = errorDialogMessage
-    )
 }
 
 @Composable

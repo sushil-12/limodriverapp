@@ -17,11 +17,6 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
-/**
- * ViewModel for Phone Entry Screen
- * Follows single responsibility principle and handles phone entry logic
- * Tag: PhoneEntryVM
- */
 @HiltViewModel
 class PhoneEntryViewModel @Inject constructor(
     private val sendVerificationCodeUseCase: SendVerificationCodeUseCase,
@@ -32,9 +27,6 @@ class PhoneEntryViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PhoneEntryUiState())
     val uiState: StateFlow<PhoneEntryUiState> = _uiState.asStateFlow()
 
-    /**
-     * Handle UI events
-     */
     fun onEvent(event: PhoneEntryUiEvent) {
         when (event) {
             is PhoneEntryUiEvent.PhoneNumberChanged -> {
@@ -52,99 +44,96 @@ class PhoneEntryViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Handle phone number input changes
-     * Smart validation: only show errors when user has entered something meaningful
-     */
     private fun handlePhoneNumberChanged(phoneNumber: String) {
-        // Clean the phone number to get raw digits only
+        // Clean to digits only
         val rawNumber = phoneNumber.replace(Regex("[^0-9]"), "")
 
-        // Keep raw digits only - no formatting
-        val displayNumber = rawNumber
+        // Limit to max 15 digits
+        val limitedRawNumber = if (rawNumber.length > 15) rawNumber.substring(0, 15) else rawNumber
 
-        // Smart validation: only validate if user has started entering digits
-        val validationResult = if (rawNumber.isNotEmpty()) {
-            // Use the stored phoneLength from Country model, not CountryCode enum
+        val displayNumber = limitedRawNumber
+
+        val validationResult = if (limitedRawNumber.isNotEmpty()) {
             phoneValidationService.validatePhoneNumber(
-                rawNumber,
+                limitedRawNumber,
                 _uiState.value.selectedCountryCode,
-                _uiState.value.phoneLength
+                _uiState.value.phoneLength // Ignored internally
             )
         } else {
-            ValidationResult.Success // Don't show error for empty input
+            ValidationResult.Success
         }
 
-        // Smart validation: show errors intelligently
-        val shouldShowError = when {
-            rawNumber.isEmpty() -> false // Never show error for empty input
-            validationResult is ValidationResult.Error -> {
-                val errorMessage = (validationResult as ValidationResult.Error).message
-                // Always show format/validation errors
-                errorMessage.contains("Invalid", ignoreCase = true) ||
-                // Show length errors only when user has entered enough digits or too many
-                (rawNumber.length >= _uiState.value.phoneLength ||
-                 rawNumber.length > _uiState.value.phoneLength)
-            }
-            else -> false
-        }
+        // Show error only if input is non-empty and invalid (e.g., too long or wrong format)
+        // No specific "remove X digits" - generic invalid message
+        val shouldShowError = limitedRawNumber.isNotEmpty() && validationResult is ValidationResult.Error
 
         _uiState.value = _uiState.value.copy(
             phoneNumber = displayNumber,
-            rawPhoneNumber = rawNumber,
-            isFormValid = validationResult is ValidationResult.Success,
-            error = if (shouldShowError && validationResult is ValidationResult.Error) {
-                validationResult.message
+            rawPhoneNumber = limitedRawNumber,
+            isFormValid = validationResult is ValidationResult.Success && limitedRawNumber.isNotEmpty(),
+            error = if (shouldShowError) {
+                (validationResult as ValidationResult.Error).message
             } else null
         )
     }
 
-    /**
-     * Handle country code changes
-     */
     private fun handleCountryCodeChanged(countryCode: CountryCode, phoneLength: Int) {
         val currentRawPhoneNumber = _uiState.value.rawPhoneNumber
+
+        if (currentRawPhoneNumber.isEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                selectedCountryCode = countryCode,
+                phoneLength = phoneLength,
+                isFormValid = false,
+                error = null
+            )
+            return
+        }
+
         val validationResult = phoneValidationService.validatePhoneNumber(
-            currentRawPhoneNumber, 
+            currentRawPhoneNumber,
             countryCode,
-            phoneLength
+            phoneLength // Ignored
         )
-        
+
+        val shouldShowError = currentRawPhoneNumber.isNotEmpty() && validationResult is ValidationResult.Error
+
         _uiState.value = _uiState.value.copy(
             selectedCountryCode = countryCode,
             phoneLength = phoneLength,
             isFormValid = validationResult is ValidationResult.Success,
-            error = if (validationResult is ValidationResult.Error) validationResult.message else null
+            error = if (shouldShowError) (validationResult as ValidationResult.Error).message else null
         )
-        clearError()
     }
 
-    /**
-     * Send verification code
-     */
     private fun sendVerificationCode() {
         val currentState = _uiState.value
-        
-        // Re-validate before submission to show any final errors
-        val finalValidation = phoneValidationService.validatePhoneNumber(
-            currentState.rawPhoneNumber,
-            currentState.selectedCountryCode,
-            currentState.phoneLength
-        )
-        
-        if (finalValidation is ValidationResult.Error) {
+
+        if (currentState.rawPhoneNumber.isEmpty()) {
             _uiState.value = currentState.copy(
-                error = finalValidation.message,
+                error = "Please enter your phone number",
                 isFormValid = false
             )
             return
         }
-        
+
+        // Strict validation for submission
+        if (!phoneValidationService.isValidForSubmission(
+                currentState.rawPhoneNumber,
+                currentState.selectedCountryCode
+            )) {
+            _uiState.value = currentState.copy(
+                error = "Please enter a valid phone number",
+                isFormValid = false
+            )
+            return
+        }
+
         if (!currentState.isReadyForSubmission()) return
 
         viewModelScope.launch {
             _uiState.value = currentState.copy(isLoading = true, error = null)
-            
+
             try {
                 Timber.tag("PhoneEntryVM").d("Sending verification code for: ${currentState.selectedCountryCode.code}${currentState.rawPhoneNumber}")
                 val result = sendVerificationCodeUseCase(
@@ -152,12 +141,12 @@ class PhoneEntryViewModel @Inject constructor(
                     countryCode = currentState.selectedCountryCode.code,
                     countryShortCode = currentState.selectedCountryCode.shortCode
                 )
-                
+
                 result.fold(
                     onSuccess = { response ->
                         if (response.success && response.data != null) {
                             val fullPhoneNumber = "${currentState.selectedCountryCode.code}${currentState.rawPhoneNumber}"
-                            
+
                             _uiState.value = currentState.copy(
                                 isLoading = false,
                                 success = true,
@@ -175,7 +164,6 @@ class PhoneEntryViewModel @Inject constructor(
                     },
                     onFailure = { error ->
                         val errorMessage = errorHandler.handleError(error)
-                        Timber.tag("PhoneEntryVM").e(error, "Error Message , ${errorMessage}")
                         _uiState.value = currentState.copy(
                             isLoading = false,
                             error = errorMessage
@@ -194,11 +182,7 @@ class PhoneEntryViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Clear error state
-     */
     private fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
 }
-

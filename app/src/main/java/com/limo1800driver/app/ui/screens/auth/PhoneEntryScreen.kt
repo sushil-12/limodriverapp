@@ -9,9 +9,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,7 +53,7 @@ fun PhoneEntryScreen(
     viewModel: PhoneEntryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     // UI State for inputs
     var selectedCountry by remember {
         mutableStateOf(Countries.getCountryFromCode(uiState.selectedCountryCode.shortCode.uppercase()))
@@ -231,10 +231,10 @@ fun PhoneEntryScreen(
 
         // --- Legal Footer ---
         LegalFooter(onNavigateToWebView)
-        
+
         // Add extra space at bottom for comfortable scrolling and gesture navigation
         Spacer(Modifier.height(24.dp))
-        
+
         // Add padding for Android gesture navigation to prevent button underlapping
         Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
     }
@@ -333,6 +333,19 @@ fun CountryPickerBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredCountries = remember(searchQuery) {
+        if (searchQuery.isEmpty()) {
+            Countries.list
+        } else {
+            Countries.list.filter { country ->
+                country.name.contains(searchQuery, ignoreCase = true) ||
+                        country.code.contains(searchQuery, ignoreCase = true) ||
+                        country.shortCode.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -345,15 +358,35 @@ fun CountryPickerBottomSheet(
             Text(
                 text = "Select Country",
                 style = TextStyle(
-                    fontWeight = FontWeight.SemiBold, 
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     color = AppColors.LimoBlack // Explicitly set to black for dark mode compatibility
                 ),
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp)
             )
             HorizontalDivider(color = BorderGray)
+
+            // Search Field
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search country...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AppColors.LimoOrange,
+                    focusedTextColor = Color.Black,
+                    unfocusedBorderColor = BorderGray,
+                    cursorColor = AppColors.LimoOrange,
+                )
+            )
+
             LazyColumn {
-                items(Countries.list) { country ->
+                items(filteredCountries) { country ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

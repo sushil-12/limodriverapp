@@ -90,7 +90,11 @@ class DriverAuthRepository @Inject constructor(
                     }
                     
                     // Save full driver registration state if available
-                    response.data.driverRegistrationState?.let { state ->
+                    // Check both top-level and user-level (API may return it in either location)
+                    val registrationState = response.data.driverRegistrationState 
+                        ?: response.data.user.driverRegistrationState
+                    
+                    registrationState?.let { state ->
                         tokenManager.saveDriverRegistrationState(state)
                         Timber.tag(TAG).d("Driver registration state saved: current_step=${state.currentStep}, next_step=${state.nextStep}")
                     } ?: run {
@@ -100,6 +104,7 @@ class DriverAuthRepository @Inject constructor(
                             else -> "basic_info"
                         }
                         tokenManager.saveNextStep(nextStep)
+                        Timber.tag(TAG).d("No registration state found, saved next step: $nextStep")
                     }
                     
                     Timber.tag(TAG).d("OTP verified successfully, tokens and state saved")
