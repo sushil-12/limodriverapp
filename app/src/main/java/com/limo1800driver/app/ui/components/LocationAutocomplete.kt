@@ -14,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusState
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -39,6 +41,7 @@ fun LocationAutocomplete(
     placeholder: String = "Enter your location",
     isRequired: Boolean = false, // Added Required flag
     typeFilter: com.google.android.libraries.places.api.model.TypeFilter? = null,
+    onFocusChanged: (FocusState) -> Unit = {},
     errorMessage: String? = null
 ) {
     val context = LocalContext.current
@@ -108,7 +111,7 @@ fun LocationAutocomplete(
                 Text(
                     text = "*",
                     style = AppTextStyles.bodyMedium.copy(
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFEF4444) // Red
                     )
@@ -136,6 +139,7 @@ fun LocationAutocomplete(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onFocusChanged  { onFocusChanged(it) }
                     .height(50.dp),
                 singleLine = true,
                 textStyle = AppTextStyles.bodyMedium.copy(
@@ -151,12 +155,13 @@ fun LocationAutocomplete(
                     unfocusedContainerColor = Color(0xFFF5F5F5),
 
                     // Border Colors - red for error, black for focused, light gray otherwise
-                    focusedBorderColor = if (errorMessage != null) Color(0xFFEF4444) else AppColors.LimoBlack.copy(alpha = 0.5f),
+                    focusedBorderColor = if (errorMessage != null) Color(0xFFEF4444) else AppColors.LimoOrange,
                     unfocusedBorderColor = if (errorMessage != null) Color(0xFFEF4444) else Color(0xFFE5E7EB),
 
                     cursorColor = AppColors.LimoOrange
                 )
             )
+
 
             // --- Suggestions Dropdown ---
             if (showSuggestions && predictions.isNotEmpty()) {

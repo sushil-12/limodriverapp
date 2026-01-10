@@ -81,7 +81,7 @@ fun DatePickerComponent(
                     Text(
                         text = "*",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFEF4444)
                         )
@@ -143,7 +143,7 @@ fun DatePickerComponent(
                     style = TextStyle(
                         fontSize = 12.sp,
                         color = Color(0xFFEF4444),
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Normal
                     )
                 )
             }
@@ -216,7 +216,7 @@ private fun DateDropdownField(
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = textColor,
                     fontSize = 15.sp,
-                    fontWeight = if (value.isNullOrBlank()) FontWeight.Normal else FontWeight.Medium
+                    fontWeight = if (value.isNullOrBlank()) FontWeight.Normal else FontWeight.Normal
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -320,25 +320,35 @@ private fun DateSelectionContent(
                 }
             }
             DateStep.YEAR -> {
-                val filteredYears = config.yearRange.map { it.toString() }.reversed()
+
+                val validYears = config.yearRange
+                    .filter { year ->
+                        isValidYearForConfig(
+                            year = year.toString(),
+                            config = config,
+                            currentMonth = currentMonth,
+                            currentDay = currentDay
+                        )
+                    }
+                    .reversed()
+                    .map { it.toString() }
 
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3), // 3 columns for years is easier to read than 4
+                    columns = GridCells.Fixed(3),
                     modifier = heightModifier,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredYears.size) { index ->
-                        val year = filteredYears[index]
+                    items(validYears.size) { index ->
+                        val year = validYears[index]
                         val isSelected = year == currentYear
-                        val isValidYear = isValidYearForConfig(year, config, currentMonth, currentDay)
 
                         DateGridItem(
                             text = year,
                             isSelected = isSelected,
-                            isEnabled = isValidYear,
+                            isEnabled = true, // 🔥 always enabled now
                             shape = RoundedCornerShape(12.dp),
-                            onClick = { if (isValidYear) onYearSelected(year) }
+                            onClick = { onYearSelected(year) }
                         )
                     }
                 }

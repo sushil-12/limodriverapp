@@ -482,13 +482,18 @@ fun DriverLicenseFormScreen(
                                 isSelected = selectedCertifications[cert] == true,
                                 onToggle = {
                                     val current = selectedCertifications[cert] ?: false
-                                    selectedCertifications[cert] = !current
-                                    android.util.Log.d("DrivingLicenseScreen", "Toggled ${cert.displayName}: $current -> ${!current}")
                                     if (current) {
+                                        // Deselecting: remove from selection and clear all related data
+                                        selectedCertifications[cert] = false
                                         certificationImages.remove(cert)
                                         certificationImageIds.remove(cert)
+                                        certificationImageUrls.remove(cert)
                                         certificationUploading[cert] = false
-                                        android.util.Log.d("DrivingLicenseScreen", "Cleared data for ${cert.displayName}")
+                                        android.util.Log.d("DrivingLicenseScreen", "Deselected and cleared data for ${cert.displayName}")
+                                    } else {
+                                        // Selecting: add to selection
+                                        selectedCertifications[cert] = true
+                                        android.util.Log.d("DrivingLicenseScreen", "Selected ${cert.displayName}")
                                     }
                                 }
                             )

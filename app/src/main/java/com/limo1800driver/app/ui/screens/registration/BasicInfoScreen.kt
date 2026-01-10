@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -48,6 +50,7 @@ import com.limo1800driver.app.ui.components.ShimmerCircle
 import com.limo1800driver.app.ui.theme.*
 import com.limo1800driver.app.ui.viewmodel.BasicInfoViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.Calendar
 
@@ -101,6 +104,9 @@ fun BasicInfoScreen(
     var driverYearError by remember { mutableStateOf<String?>(null) }
     var locationError by remember { mutableStateOf<String?>(null) }
     var apiError by remember { mutableStateOf<String?>(null) }
+
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
 
     // Validation function
     fun validateField(fieldName: String, value: String): String? {
@@ -331,9 +337,9 @@ fun BasicInfoScreen(
             .fillMaxSize()
             .background(Color.White)
             // Use only system bars, exclude IME to prevent keyboard space when hidden
-            .windowInsetsPadding(WindowInsets.systemBars)
+            .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(60.dp))
 
         // --- Header ---
         Column(
@@ -404,6 +410,7 @@ fun BasicInfoScreen(
                 .weight(1f)
                 .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
+                .imePadding()  // Add this line
         ) {
             // Affiliate Type
             Text(
@@ -578,7 +585,15 @@ fun BasicInfoScreen(
                 },
                 placeholder = "Enter your location",
                 isRequired = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
+                .bringIntoViewRequester(bringIntoViewRequester),
+                onFocusChanged = {
+                    if (it.isFocused) {
+                        scope.launch {
+                            bringIntoViewRequester.bringIntoView()
+                        }
+                    }
+                },
                 errorMessage = locationError
             )
 
@@ -804,8 +819,9 @@ fun BottomNavigationRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .padding(bottom = 16.dp)
-            .windowInsetsPadding(WindowInsets.navigationBars), // Prevent button underlapping with Android gesture navigation
+            .padding(bottom = 28.dp)
+            .windowInsetsPadding(WindowInsets.navigationBars) // Prevent button underlapping with Android gesture navigation
+            .imePadding(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {

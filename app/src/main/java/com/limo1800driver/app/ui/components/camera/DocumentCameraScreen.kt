@@ -5,6 +5,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -372,14 +374,17 @@ private fun decodeBitmapFromUri(context: Context, uri: Uri): Bitmap? {
             context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
         } ?: return null
 
-        val maxDim = maxOf(raw.width, raw.height)
+        // Correct orientation based on EXIF data
+        val corrected = correctImageOrientation(context, uri, raw)
+
+        val maxDim = maxOf(corrected.width, corrected.height)
         val target = 2000
-        if (maxDim <= target) raw
+        if (maxDim <= target) corrected
         else {
             val scale = target.toFloat() / maxDim.toFloat()
-            val w = (raw.width * scale).toInt().coerceAtLeast(1)
-            val h = (raw.height * scale).toInt().coerceAtLeast(1)
-            Bitmap.createScaledBitmap(raw, w, h, true)
+            val w = (corrected.width * scale).toInt().coerceAtLeast(1)
+            val h = (corrected.height * scale).toInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(corrected, w, h, true)
         }
     } catch (e: Exception) { null }
 }
@@ -491,10 +496,12 @@ private suspend fun captureImage(
             override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                 val file = output.savedUri?.path?.let { File(it) } ?: photoFile
                 val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                val croppedBitmap = if (overlayFrame != null && bitmap != null) {
+                // Correct orientation based on EXIF data
+                val orientedBitmap = bitmap?.let { correctImageOrientation(file.absolutePath, it) } ?: bitmap
+                val croppedBitmap = if (overlayFrame != null && orientedBitmap != null) {
                     val composeRect = Rect(overlayFrame.left.toFloat(), overlayFrame.top.toFloat(), overlayFrame.right.toFloat(), overlayFrame.bottom.toFloat())
-                    bitmap.cropToFrame(composeRect, screenWidth, screenHeight)
-                } else bitmap
+                    orientedBitmap.cropToFrame(composeRect, screenWidth, screenHeight)
+                } else orientedBitmap
                 croppedBitmap?.let { onImageCaptured(it) }
                 continuation.resume(Unit)
             }
@@ -527,4 +534,97 @@ private fun DocumentType.getInstruction(side: DocumentSide): String = when (this
     DocumentType.BUSINESS_CARD -> if (side == DocumentSide.FRONT) "Position front of card in frame" else "Position back of card in frame"
     DocumentType.VEHICLE_INSURANCE -> "Position insurance doc in frame"
     DocumentType.CERTIFICATION -> "Position certification in frame"
+}
+
+/**
+ * Corrects image orientation based on EXIF data.
+ * @param context Context for accessing content resolver (when using Uri)
+ * @param uri Uri of the image (for gallery images)
+ * @param bitmap The bitmap to correct
+ * @return Corrected bitmap or original if correction fails
+ */
+private fun correctImageOrientation(
+    context: Context,
+    uri: Uri,
+    bitmap: Bitmap
+): Bitmap {
+    return try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+
+            val rotated: Bitmap? =
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val exif = ExifInterface(inputStream)
+                    val orientation = exif.getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_NORMAL
+                    )
+                    rotateBitmap(bitmap, orientation)
+                }
+
+            rotated ?: bitmap   // ✅ FORCE NON-NULL
+
+        } else {
+            val filePath = uri.path
+            if (filePath != null) {
+                correctImageOrientation(filePath, bitmap) ?: bitmap
+            } else {
+                bitmap
+            }
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("DocumentCamera", "Error correcting orientation from URI", e)
+        bitmap
+    }
+}
+
+
+/**
+ * Corrects image orientation based on EXIF data from file path.
+ * @param filePath Path to the image file
+ * @param bitmap The bitmap to correct
+ * @return Corrected bitmap or null if correction fails
+ */
+private fun correctImageOrientation(filePath: String, bitmap: Bitmap): Bitmap? {
+    return try {
+        val exif = ExifInterface(filePath)
+        val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        rotateBitmap(bitmap, orientation)
+    } catch (e: Exception) {
+        android.util.Log.e("DocumentCamera", "Error correcting orientation from file", e)
+        bitmap
+    }
+}
+
+/**
+ * Rotates a bitmap based on EXIF orientation value.
+ * @param bitmap The bitmap to rotate
+ * @param orientation EXIF orientation value
+ * @return Rotated bitmap or original if no rotation needed
+ */
+private fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap {
+    val matrix = Matrix()
+    when (orientation) {
+        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+        ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+        ExifInterface.ORIENTATION_TRANSPOSE -> {
+            matrix.postRotate(90f)
+            matrix.postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_TRANSVERSE -> {
+            matrix.postRotate(270f)
+            matrix.postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_NORMAL -> return bitmap
+        else -> return bitmap
+    }
+
+    return try {
+        Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    } catch (e: Exception) {
+        android.util.Log.e("DocumentCamera", "Error rotating bitmap", e)
+        bitmap
+    }
 }

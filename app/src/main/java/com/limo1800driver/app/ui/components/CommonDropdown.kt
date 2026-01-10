@@ -74,7 +74,7 @@ fun CommonDropdown(
                     Text(
                         text = "*",
                         style = TextStyle(
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFEF4444)
                         )

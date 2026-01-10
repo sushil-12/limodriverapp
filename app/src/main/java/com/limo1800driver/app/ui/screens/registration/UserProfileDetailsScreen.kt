@@ -16,11 +16,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
@@ -71,46 +68,46 @@ fun UserProfileDetailsScreen(
 
     Scaffold(
         containerColor = Color.White,
-        contentWindowInsets = WindowInsets(0),
         topBar = {
             RegistrationTopBar()
         },
         bottomBar = {
-            Box(
+            Surface(
+                color = LimoWhite,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .drawBehind {
-                        val shadowHeight = 8.dp.toPx()
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.12f),
-                                    Color.Transparent
-                                ),
-                                startY = 0f,
-                                endY = shadowHeight
-                            ),
-                            size = Size(size.width, shadowHeight)
-                        )
-                    }
-                    .background(Color.White)
+                    // Subtle top shadow (like iOS bottom sheet)
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = RectangleShape,
+                        ambientColor = Color.Black.copy(alpha = 0.04f),
+                        spotColor = Color.Black.copy(alpha = 0.08f)
+                    )
+                    // Handles gesture navigation automatically
+
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                        .padding(
+                            horizontal = 20.dp,
+                            vertical = 16.dp
+                        )
                 ) {
                     Button(
                         onClick = onContinue,
                         enabled = canContinue,
                         shape = RoundedCornerShape(12.dp),
-                        elevation = ButtonDefaults.buttonElevation(0.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 2.dp,
+                            disabledElevation = 0.dp
+                        ),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFE89148),
                             contentColor = Color.White,
                             disabledContainerColor = Color(0xFFA9A9A9),
-                            disabledContentColor = Color.White
+                            disabledContentColor = Color.White.copy(alpha = 0.9f)
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -119,13 +116,16 @@ fun UserProfileDetailsScreen(
                         Text(
                             text = "Continue",
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.5.sp
                             )
                         )
                     }
+                    Spacer(modifier = Modifier.height(36.dp))
                 }
             }
         }
+
     ) { innerPadding ->
         Column(
             modifier = Modifier

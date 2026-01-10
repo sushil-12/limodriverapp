@@ -65,7 +65,7 @@ fun PhoneInputField(
                 Text(
                     text = "*",
                     style = AppTextStyles.bodyMedium.copy(
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFEF4444) // Red
                     )

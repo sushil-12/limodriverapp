@@ -167,9 +167,9 @@ fun CompanyInfoScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(60.dp))
 
         // Header
         Column(
